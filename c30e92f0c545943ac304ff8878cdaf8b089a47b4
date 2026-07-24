@@ -1,0 +1,29 @@
+design/design-tokens.json
+  0000019f953ff9ea 1-61
+docs/ARCHITECTURE.md
+  0000019f953ff9ea 1-99
+docs/PRD.md
+  0000019f953ff9ea 1-85
+docs/SESSION-FORMATS.md
+  0000019f953ff9ea 1-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c30e92f0c545943ac304ff8878cdaf8b089a47b4",
+  "prompts": {
+    "0000019f953ff9ea": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-fable-5",
+        "id": "ai-thread-claude-claude-fable-5-1784915425770"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 300,
+      "total_deletions": 0,
+      "accepted_lines": 300,
+      "overriden_lines": 0
+    }
+  }
+}
