@@ -1,0 +1,25 @@
+docs/SESSION-FORMATS.md
+  s_b85ad4e83942fb::t_a1a7e459f2fab0 1-55
+docs/ARCHITECTURE.md
+  s_b85ad4e83942fb::t_d417d7243bfd10 1-99
+design/design-tokens.json
+  s_b85ad4e83942fb::t_ecce1ea41b9ff6 1-61
+docs/PRD.md
+  s_b85ad4e83942fb::t_9e9d75b0d35231 1-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c30e92f0c545943ac304ff8878cdaf8b089a47b4",
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
