@@ -1,0 +1,7 @@
+.DS_Store
+macos/.build/
+macos/dist/
+macos/.swiftpm/
+windows/**/bin/
+windows/**/obj/
+windows/**/.vs/

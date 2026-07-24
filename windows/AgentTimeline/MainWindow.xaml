@@ -1,0 +1,301 @@
+<Window
+    x:Class="AgentTimeline.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:tb="using:H.NotifyIcon"
+    xmlns:ui="using:AgentTimeline.UI">
+
+    <!--
+      Borderless translucent floating panel (PRD F5). Window chrome is configured in
+      code-behind (AppWindow + OverlappedPresenter, DesktopAcrylicController backdrop,
+      layered-window hover opacity). RootGrid keeps a transparent background so the
+      acrylic material shows through.
+    -->
+    <Grid
+        x:Name="RootGrid"
+        Background="Transparent"
+        PointerEntered="RootGrid_PointerEntered"
+        PointerExited="RootGrid_PointerExited">
+
+        <Grid.Resources>
+            <!-- token font for every text element in the panel -->
+            <Style TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+            </Style>
+        </Grid.Resources>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ═══════════════ System tray (H.NotifyIcon) ═══════════════ -->
+        <tb:TaskbarIcon
+            x:Name="TrayIcon"
+            ContextMenuMode="SecondWindow"
+            IconSource="ms-appx:///Assets/TrayIcon.ico"
+            NoLeftClickDelay="True"
+            ToolTipText="Agent Timeline">
+            <tb:TaskbarIcon.ContextFlyout>
+                <MenuFlyout AreOpenCloseAnimationsEnabled="False">
+                    <MenuFlyoutItem x:Name="TrayShowHideItem" Click="TrayShowHide_Click" Text="显示 / 隐藏" />
+                    <ToggleMenuFlyoutItem x:Name="TrayAlwaysOnTopItem" Click="TrayAlwaysOnTop_Click" Text="总在最前" />
+                    <MenuFlyoutItem Click="TraySettings_Click" Text="设置…" />
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem Click="TrayExit_Click" Text="退出" />
+                </MenuFlyout>
+            </tb:TaskbarIcon.ContextFlyout>
+        </tb:TaskbarIcon>
+
+        <!-- ═══════════════ Header (drag area + filter + actions) ═══════════════ -->
+        <Grid
+            x:Name="HeaderBar"
+            Grid.Row="0"
+            Padding="12,10,12,6"
+            Background="Transparent"
+            ColumnSpacing="8"
+            PointerPressed="HeaderBar_PointerPressed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel
+                Grid.Column="0"
+                Orientation="Horizontal"
+                Spacing="6"
+                VerticalAlignment="Center">
+                <Ellipse
+                    Width="8"
+                    Height="8"
+                    VerticalAlignment="Center"
+                    Fill="{ThemeResource AccentBrush}" />
+                <TextBlock
+                    FontSize="{StaticResource FontSizeTitle}"
+                    FontWeight="SemiBold"
+                    Foreground="{ThemeResource TextPrimaryBrush}"
+                    Text="Agent Timeline" />
+            </StackPanel>
+
+            <ComboBox
+                x:Name="ProjectFilter"
+                Grid.Column="1"
+                MinWidth="110"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                FontSize="{StaticResource FontSizeBody}"
+                ItemsSource="{x:Bind ViewModel.ProjectOptions, Mode=OneWay}"
+                SelectionChanged="ProjectFilter_SelectionChanged" />
+
+            <StackPanel
+                Grid.Column="2"
+                Orientation="Horizontal"
+                Spacing="2"
+                VerticalAlignment="Center">
+                <Button
+                    Click="OpenSettings_Click"
+                    Style="{StaticResource HeaderIconButtonStyle}"
+                    ToolTipService.ToolTip="设置">
+                    <FontIcon FontSize="12" Glyph="&#xE713;" />
+                </Button>
+                <Button
+                    Click="HidePanel_Click"
+                    Style="{StaticResource HeaderIconButtonStyle}"
+                    ToolTipService.ToolTip="收进托盘">
+                    <FontIcon FontSize="12" Glyph="&#xE921;" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- ═══════════════ Timeline (newest on top) ═══════════════ -->
+        <ScrollViewer
+            x:Name="TimelineScroller"
+            Grid.Row="1"
+            Padding="12,0,12,0"
+            VerticalScrollBarVisibility="Auto">
+            <ItemsRepeater x:Name="NodeRepeater" ItemsSource="{x:Bind ViewModel.Nodes, Mode=OneWay}">
+                <ItemsRepeater.Layout>
+                    <StackLayout Orientation="Vertical" Spacing="8" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="ui:NodeViewModel">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- timeline rail + agent-colored node dot -->
+                            <Rectangle
+                                Grid.Column="0"
+                                Width="{StaticResource RailWidth}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Stretch"
+                                Fill="{ThemeResource TimelineRailBrush}" />
+                            <Ellipse
+                                Grid.Column="0"
+                                Width="{StaticResource RailDotSize}"
+                                Height="{StaticResource RailDotSize}"
+                                Margin="0,14,0,0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                Fill="{x:Bind AgentBrush}" />
+
+                            <!-- node card -->
+                            <Border
+                                Grid.Column="1"
+                                Background="{ThemeResource CardBackgroundBrush}"
+                                BorderBrush="{ThemeResource CardBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource CardCornerRadius}"
+                                Padding="{StaticResource CardPadding}">
+                                <StackPanel Spacing="4">
+
+                                    <!-- meta row: time · project · agent, expand chevron -->
+                                    <Grid ColumnSpacing="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            VerticalAlignment="Center"
+                                            FontSize="{StaticResource FontSizeCaption}"
+                                            Foreground="{ThemeResource TextTertiaryBrush}"
+                                            IsTextSelectionEnabled="True"
+                                            Text="{x:Bind TimeText}" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            FontSize="{StaticResource FontSizeCaption}"
+                                            Foreground="{ThemeResource TextTertiaryBrush}"
+                                            IsTextSelectionEnabled="True"
+                                            Text="{x:Bind Project}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <TextBlock
+                                            Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            FontSize="{StaticResource FontSizeCaption}"
+                                            FontWeight="SemiBold"
+                                            Foreground="{x:Bind AgentBrush}"
+                                            IsTextSelectionEnabled="True"
+                                            Text="{x:Bind AgentName}" />
+                                        <Button
+                                            Grid.Column="3"
+                                            Click="ExpandNode_Click"
+                                            Style="{StaticResource HeaderIconButtonStyle}"
+                                            ToolTipService.ToolTip="展开 / 收起原始命令">
+                                            <FontIcon FontSize="10" Glyph="{x:Bind ExpandGlyph, Mode=OneWay}" />
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- LLM (or rule) title -->
+                                    <TextBlock
+                                        FontSize="{StaticResource FontSizeTitle}"
+                                        FontWeight="SemiBold"
+                                        Foreground="{ThemeResource TextPrimaryBrush}"
+                                        IsTextSelectionEnabled="True"
+                                        Text="{x:Bind Title, Mode=OneWay}"
+                                        TextWrapping="Wrap" />
+
+                                    <!-- key points -->
+                                    <ItemsControl
+                                        ItemsSource="{x:Bind KeyPoints, Mode=OneWay}"
+                                        Visibility="{x:Bind HasKeyPoints, Mode=OneWay}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <Grid ColumnSpacing="4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock
+                                                        Grid.Column="0"
+                                                        FontSize="{StaticResource FontSizeBody}"
+                                                        Foreground="{ThemeResource TextSecondaryBrush}"
+                                                        Text="·" />
+                                                    <TextBlock
+                                                        Grid.Column="1"
+                                                        FontSize="{StaticResource FontSizeBody}"
+                                                        Foreground="{ThemeResource TextSecondaryBrush}"
+                                                        IsTextSelectionEnabled="True"
+                                                        Text="{x:Bind}"
+                                                        TextWrapping="Wrap" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- codename chips (click → definition flyout) -->
+                                    <ItemsControl
+                                        ItemsSource="{x:Bind Codenames, Mode=OneWay}"
+                                        Visibility="{x:Bind HasCodenames, Mode=OneWay}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <!-- No inbox WrapPanel in WinUI 3; chips are few, a row suffices -->
+                                                <StackPanel Orientation="Horizontal" Spacing="4" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <Button
+                                                    Click="CodenameChip_Click"
+                                                    Content="{x:Bind}"
+                                                    Style="{StaticResource CodenameChipStyle}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- summarizing hint -->
+                                    <TextBlock
+                                        FontSize="{StaticResource FontSizeCaption}"
+                                        Foreground="{ThemeResource TextTertiaryBrush}"
+                                        Text="摘要生成中…"
+                                        Visibility="{x:Bind SummaryPending, Mode=OneWay}" />
+
+                                    <!-- expanded: full prompt + result line -->
+                                    <StackPanel Spacing="4" Visibility="{x:Bind IsExpanded, Mode=OneWay}">
+                                        <Rectangle
+                                            Height="1"
+                                            Margin="0,2,0,2"
+                                            Fill="{ThemeResource CardBorderBrush}" />
+                                        <TextBlock
+                                            FontFamily="{StaticResource MonoFontFamily}"
+                                            FontSize="{StaticResource FontSizeBody}"
+                                            Foreground="{ThemeResource TextPrimaryBrush}"
+                                            IsTextSelectionEnabled="True"
+                                            Text="{x:Bind PromptText}"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <!-- agent result line -->
+                                    <TextBlock
+                                        FontSize="{StaticResource FontSizeCaption}"
+                                        Foreground="{ThemeResource ResultLineBrush}"
+                                        IsTextSelectionEnabled="True"
+                                        Text="{x:Bind ResultLine, Mode=OneWay}"
+                                        TextWrapping="Wrap"
+                                        Visibility="{x:Bind HasResultLine, Mode=OneWay}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </ScrollViewer>
+
+        <!-- ═══════════════ Footer: lazy loading ═══════════════ -->
+        <Button
+            Grid.Row="2"
+            Margin="12,6,12,10"
+            HorizontalAlignment="Stretch"
+            Click="LoadMore_Click"
+            Content="加载更多"
+            FontSize="{StaticResource FontSizeBody}"
+            Visibility="{x:Bind ViewModel.HasMore, Mode=OneWay}" />
+    </Grid>
+</Window>

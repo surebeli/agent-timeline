@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>AgentTimeline</RootNamespace>
+    <AssemblyName>AgentTimeline</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\TrayIcon.ico</ApplicationIcon>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <!--
+      Unpackaged (no MSIX) deployment, per PRD M3 decision.
+      WindowsAppSDKSelfContained bundles the Windows App SDK runtime next to the exe,
+      so the target machine does NOT need the Windows App SDK runtime installer.
+      The .NET 8 runtime itself is still framework-dependent (installed with VS 2022).
+    -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240627000" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.3233" />
+    <!-- System tray icon (WinUI 3 flavor of H.NotifyIcon) -->
+    <PackageReference Include="H.NotifyIcon.WinUI" Version="2.0.131" />
+    <!-- SQLite store (nodes / codenames / file_offsets), bundles native e_sqlite3 -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Assets/design-tokens.json is a COPY of the canonical design/design-tokens.json
+      at the repo root (the single source of truth) — keep them in sync manually or
+      via a pre-build copy step when building on Windows.
+    -->
+    <Content Include="Assets\design-tokens.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\TrayIcon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- XAML pages (App.xaml / MainWindow.xaml / ...) are auto-included by the WinUI SDK targets. -->
+
+</Project>
