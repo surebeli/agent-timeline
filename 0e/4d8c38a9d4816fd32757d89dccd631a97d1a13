@@ -1,0 +1,70 @@
+macos/Sources/AgentTimeline/Summarize/SummaryEngine.swift
+  s_b85ad4e83942fb::t_5dcfa92c29926f 47
+  s_b85ad4e83942fb::t_8682cf000d45e2 66-73,87-88,92-102,109,112,118-122,124-126,138-139
+macos/Sources/AgentTimeline/UI/NodeViews.swift
+  s_b85ad4e83942fb::t_5082d74225d741 177-178,182-187
+  s_c587ecf7bbc3e2::t_a5a78e0fdd423e 188-189
+macos/Sources/AgentTimeline/Core/Store.swift
+  s_b85ad4e83942fb::t_8ee66d4de0cb41 22
+  s_b85ad4e83942fb::t_4bd264493e324c 126-128,134
+  s_b85ad4e83942fb::t_6dbb1422cc1719 147-153
+macos/Sources/AgentTimeline/UI/TimelineViewModel.swift
+  s_b85ad4e83942fb::t_da9805b70d2c41 50-52
+  s_b85ad4e83942fb::t_d67e2401a87004 16-18
+  s_b85ad4e83942fb::t_8bd79e915723cf 53-57,62-66,68
+macos/Sources/AgentTimeline/Parsers/CodexParser.swift
+  s_b85ad4e83942fb::t_e6ecc9c3b9aa44 19-31
+macos/Sources/AgentTimeline/App/main.swift
+  s_b85ad4e83942fb::t_171d99b4834d2a 5-12
+macos/Sources/AgentTimeline/UI/FloatingPanel.swift
+  s_b85ad4e83942fb::t_9580781c85befa 9-12,15-17
+  s_b85ad4e83942fb::t_3d965aac9f818c 97-104,106
+  s_b85ad4e83942fb::t_907cf0c53eb110 18
+macos/Sources/AgentTimeline/Core/CodenameRegistry.swift
+  s_b85ad4e83942fb::t_fb0f1cdabb863e 14
+macos/Sources/AgentTimeline/UI/TimelineView.swift
+  s_b85ad4e83942fb::t_d0c927e7cc298d 102-108
+macos/Sources/AgentTimeline/App/AppDelegate.swift
+  s_b85ad4e83942fb::t_c7159233eeaa88 99
+  s_b85ad4e83942fb::t_c89181f0db3564 45-54,57
+  s_c587ecf7bbc3e2::t_11907f164d784e 58
+macos/Sources/AgentTimeline/Watch/SessionWatcher.swift
+  s_b85ad4e83942fb::t_e607165d313f88 70-80
+README.md
+  s_b85ad4e83942fb::t_91474cddbb82f4 1-43
+macos/Sources/AgentTimeline/Summarize/CLISummarizer.swift
+  s_b85ad4e83942fb::t_da3ae3c9f95ca8 42-54,56,58-63
+macos/Sources/AgentTimeline/Parsers/ClaudeParser.swift
+  s_b85ad4e83942fb::t_cccacf872f268b 65-86
+macos/Sources/AgentTimeline/Parsers/KimiParser.swift
+  s_b85ad4e83942fb::t_ac0c3d4d3b9100 55,61-68
+  s_b85ad4e83942fb::t_421cb0a8342d7c 69-71
+  s_b85ad4e83942fb::t_6efe1b981ad464 72
+macos/Tests/AgentTimelineTests/ParserTests.swift
+  s_b85ad4e83942fb::t_c59867ea6898d0 146-156
+  s_b85ad4e83942fb::t_7e81621b6383d9 74-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0e4d8c38a9d4816fd32757d89dccd631a97d1a13",
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    },
+    "s_c587ecf7bbc3e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b39f5bf8-f328-41b3-b5fd-eb01a465a399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
