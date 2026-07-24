@@ -42,7 +42,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.panel.updateTrackingAndOpacity(animated: true)
             }
         }
+        NotificationCenter.default.addObserver(
+            forName: FloatingPanel.holdReadableNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let hold = note.userInfo?["hold"] as? Bool ?? false
+                self.panelHoldCount = max(0, self.panelHoldCount + (hold ? 1 : -1))
+                self.panel.holdReadable = self.panelHoldCount > 0
+            }
+        }
     }
+
+    private var panelHoldCount = 0
 
     // MARK: - Wiring
 
@@ -84,6 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// and re-kick the summary queue (engine may have changed).
     private func applySettings() {
         startWatching()
+        store.resetSummaryAttempts()  // engine may have changed; give failures a fresh chance
         summaryEngine.enqueuePendingFromStore()
         panel.applyLevel()
         panel.updateTrackingAndOpacity(animated: true)

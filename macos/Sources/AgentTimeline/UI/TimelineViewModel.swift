@@ -13,6 +13,9 @@ final class TimelineViewModel {
 
     private let store: Store
     private var reloadScheduled = false
+    private var fetchLimit = 500
+
+    var canLoadMore: Bool { nodes.count >= fetchLimit }
 
     init(store: Store) {
         self.store = store
@@ -44,12 +47,25 @@ final class TimelineViewModel {
 
     func jumpToDefinition(of name: String) {
         guard let entry = codenames[name], !entry.definitionNodeId.isEmpty else { return }
+        // The definition node may be hidden by an active filter — clear them first.
+        projectFilter = nil
+        agentFilter = Set(AgentKind.allCases)
+        // …or lie beyond the current fetch window (long backfills).
+        if !nodes.contains(where: { $0.id == entry.definitionNodeId }) {
+            fetchLimit = 100_000
+            reload()
+        }
         expanded.insert(entry.definitionNodeId)
         scrollTarget = entry.definitionNodeId
     }
 
+    func loadMore() {
+        fetchLimit += 500
+        reload()
+    }
+
     func reload() {
-        nodes = store.fetchNodes()
+        nodes = store.fetchNodes(limit: fetchLimit)
         codenames = store.fetchCodenames()
     }
 

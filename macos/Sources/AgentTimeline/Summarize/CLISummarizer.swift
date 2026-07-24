@@ -39,13 +39,28 @@ struct CLISummarizer: Sendable {
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
         guard (try? process.run()) != nil else { return nil }
+        // A login shell runs the user's profile: read before waiting (a chatty
+        // profile can fill the pipe) and cap it — a hung profile must not wedge
+        // the serial summary queue forever.
+        let deadline = DispatchWorkItem {
+            if process.isRunning {
+                process.terminate()
+                DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
+                    if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+                }
+            }
+        }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 10, execute: deadline)
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
+        deadline.cancel()
         guard process.terminationStatus == 0,
-              let data = try? pipe.fileHandleForReading.readToEnd(),
-              let path = String(data: data, encoding: .utf8)?
-                  .trimmingCharacters(in: .whitespacesAndNewlines),
-              !path.isEmpty else { return nil }
-        return path
+              let output = String(data: data, encoding: .utf8) else { return nil }
+        // Profile noise may precede the answer; `command -v` prints the path last.
+        let path = output.split(separator: "\n").last.map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        } ?? ""
+        return path.hasPrefix("/") ? path : nil
     }
 
     let cli: ResolvedCLI

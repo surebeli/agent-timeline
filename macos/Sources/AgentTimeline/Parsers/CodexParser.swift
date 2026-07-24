@@ -16,7 +16,19 @@ struct CodexParser: AgentSessionParser {
         // rollout-2026-04-23T11-21-47-<uuid>.jsonl → trailing uuid as fallback id
         let stem = url.deletingPathExtension().lastPathComponent
         let sessionId = stem.split(separator: "-").suffix(5).joined(separator: "-")
-        return ParsedFileContext(url: url, agent: .codex, sessionId: sessionId, project: "codex", cwd: nil)
+        var context = ParsedFileContext(url: url, agent: .codex, sessionId: sessionId, project: "codex", cwd: nil)
+        // session_meta is the first line; when resuming past a persisted offset
+        // (app restart mid-session) we'd otherwise lose cwd/project and the
+        // summarizer-scratch exclusion. Re-seed from the file head.
+        if let handle = try? FileHandle(forReadingFrom: url) {
+            if let head = try? handle.read(upToCount: 16384),
+               let nl = head.firstIndex(of: 0x0A),
+               let line = String(data: head[head.startIndex..<nl], encoding: .utf8) {
+                _ = parse(line: line, context: &context)
+            }
+            try? handle.close()
+        }
+        return context
     }
 
     func parse(line: String, context: inout ParsedFileContext) -> [SessionEvent] {

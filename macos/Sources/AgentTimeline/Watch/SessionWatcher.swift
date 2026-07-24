@@ -67,14 +67,18 @@ final class SessionWatcher: @unchecked Sendable {
     }
 
     func stop() {
-        if let stream {
-            FSEventStreamStop(stream)
-            FSEventStreamInvalidate(stream)
-            FSEventStreamRelease(stream)
+        // Tear down on workQueue so no FSEvents callback can be mid-flight when the
+        // caller deallocates us (context.info is an unretained pointer to self).
+        workQueue.sync {
+            if let stream = self.stream {
+                FSEventStreamStop(stream)
+                FSEventStreamInvalidate(stream)
+                FSEventStreamRelease(stream)
+            }
+            self.stream = nil
+            self.pollTimer?.cancel()
+            self.pollTimer = nil
         }
-        stream = nil
-        pollTimer?.cancel()
-        pollTimer = nil
     }
 
     // MARK: - Change intake

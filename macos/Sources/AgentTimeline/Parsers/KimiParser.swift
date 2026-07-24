@@ -52,8 +52,20 @@ struct KimiParser: AgentSessionParser {
             return [.userCommand(cmd)]
 
         case "TurnEnd":
-            // Not always present; when it is, surface any final text as the result line.
+            // Real sessions carry an empty payload here; kept as a future-proof hook.
             if let text = payload["text"] as? String, !text.isEmpty {
+                return [.assistantText(agent: .kimi, sessionId: context.sessionId, timestamp: ts, text: text)]
+            }
+            return []
+
+        case "ContentPart":
+            // The reply actually arrives as ContentPart {type:"text"} blocks.
+            // Emit each one — setResultLine overwrites the newest node in the
+            // session, so the last block before the next TurnBegin wins
+            // (SESSION-FORMATS.md §3 fallback rule).
+            if payload["type"] as? String == "text",
+               let text = payload["text"] as? String,
+               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 return [.assistantText(agent: .kimi, sessionId: context.sessionId, timestamp: ts, text: text)]
             }
             return []

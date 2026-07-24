@@ -62,6 +62,28 @@ struct ClaudeParser: AgentSessionParser {
                 timestamp: ts,
                 text: text)]
 
+        case "attachment":
+            // Prompts typed while a turn is running may be consumed mid-turn and
+            // never replayed as a type=user line; the queued_command attachment is
+            // then the only record. (Dequeued prompts DO replay as user lines and
+            // carry no such attachment, so this path is duplicate-free.)
+            guard obj["isSidechain"] as? Bool != true,
+                  let att = obj["attachment"] as? [String: Any],
+                  att["type"] as? String == "queued_command",
+                  let text = att["prompt"] as? String,
+                  !ParserSupport.isIgnoredContent(text),
+                  let ts = ParserSupport.parseISO(obj["timestamp"] as? String)
+            else { return [] }
+            let queued = UserCommand(
+                agent: .claude,
+                project: context.project,
+                cwd: context.cwd,
+                sessionId: (obj["sessionId"] as? String) ?? context.sessionId,
+                timestamp: ts,
+                text: text,
+                sourceFile: context.url.path)
+            return [.userCommand(queued)]
+
         default:
             return []
         }

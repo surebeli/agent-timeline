@@ -19,6 +19,7 @@ final class Store: @unchecked Sendable {
         }
         exec("PRAGMA journal_mode=WAL")
         exec("PRAGMA synchronous=NORMAL")
+        exec("PRAGMA busy_timeout=3000")
         exec("""
         CREATE TABLE IF NOT EXISTS nodes (
             id TEXT PRIMARY KEY,
@@ -122,13 +123,15 @@ final class Store: @unchecked Sendable {
         }
     }
 
-    /// Fill the result line of the newest node in a session, unless an LLM summary already set one.
+    /// Fill the result line of the newest node in a session. The latest agent
+    /// output always wins — LLM summaries never author result lines (the prompt
+    /// pins resultLine to null), so there is nothing to protect.
     func setResultLine(agent: AgentKind, sessionId: String, before: Date, line: String) {
         queue.sync {
             let sql = """
             UPDATE nodes SET result_line=? WHERE id = (
                 SELECT id FROM nodes WHERE agent=? AND session_id=? AND ts<=? ORDER BY ts DESC LIMIT 1
-            ) AND summarized < 2
+            )
             """
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
@@ -138,6 +141,13 @@ final class Store: @unchecked Sendable {
             bind(stmt, 3, sessionId)
             sqlite3_bind_double(stmt, 4, before.timeIntervalSince1970)
             sqlite3_step(stmt)
+        }
+    }
+
+    /// Give unsummarized nodes a fresh chance, e.g. after the engine settings change.
+    func resetSummaryAttempts() {
+        queue.sync {
+            exec("UPDATE nodes SET summary_attempts=0 WHERE summarized < 2")
         }
     }
 

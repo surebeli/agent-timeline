@@ -174,7 +174,17 @@ struct CodenameChip: View {
         .buttonStyle(.plain)
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
             popoverContent
+                .onAppear { postHold(true) }
+                .onDisappear { postHold(false) }
         }
+    }
+
+    /// Keep the panel readable while the popover is open — the mouse is inside
+    /// the popover's own window, so the panel's tracking area reports "exited".
+    private func postHold(_ hold: Bool) {
+        NotificationCenter.default.post(
+            name: FloatingPanel.holdReadableNotification, object: nil,
+            userInfo: ["hold": hold])
     }
 
     @ViewBuilder

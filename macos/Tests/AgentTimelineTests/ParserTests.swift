@@ -71,6 +71,23 @@ final class ParserTests: XCTestCase {
         XCTAssertTrue(ctx.disabled)
     }
 
+    func testClaudeQueuedCommandAttachment() {
+        let parser = ClaudeParser()
+        var ctx = claudeContext()
+        let line = """
+        {"type":"attachment","attachment":{"type":"queued_command","prompt":"测试完成后更新版本号并 push"},"timestamp":"2026-07-06T19:00:21.000Z","sessionId":"abc-123"}
+        """
+        guard case .userCommand(let cmd)? = parser.parse(line: line, context: &ctx).first else {
+            return XCTFail("queued_command attachment should surface as a user command")
+        }
+        XCTAssertEqual(cmd.text, "测试完成后更新版本号并 push")
+
+        let noise = """
+        {"type":"attachment","attachment":{"type":"queued_command","prompt":"<task-notification>x</task-notification>"},"timestamp":"2026-07-06T19:00:21.000Z"}
+        """
+        XCTAssertTrue(parser.parse(line: noise, context: &ctx).isEmpty, "meta blobs stay filtered")
+    }
+
     // MARK: - Codex
 
     func testCodexFlow() {
@@ -124,6 +141,17 @@ final class ParserTests: XCTestCase {
 
         let slash = #"{"timestamp": 1779551316.0, "message": {"type": "TurnBegin", "payload": {"user_input": [{"type": "text", "text": "/model"}]}}}"#
         XCTAssertTrue(parser.parse(line: slash, context: &ctx).isEmpty, "slash commands are UI actions")
+    }
+
+    func testKimiContentPartBecomesResult() {
+        let parser = KimiParser()
+        let url = URL(fileURLWithPath: NSHomeDirectory() + "/.kimi/sessions/hash1/sess-uuid/wire.jsonl")
+        var ctx = ParsedFileContext(url: url, agent: .kimi, sessionId: "sess-uuid", project: "kimi:hash1", cwd: nil)
+        let line = #"{"timestamp": 1779551320.0, "message": {"type": "ContentPart", "payload": {"type": "text", "text": "已生成 HTML 文件"}}}"#
+        guard case .assistantText(_, _, _, let text)? = parser.parse(line: line, context: &ctx).first else {
+            return XCTFail("ContentPart text should surface as assistantText")
+        }
+        XCTAssertEqual(text, "已生成 HTML 文件")
     }
 
     // MARK: - Codenames

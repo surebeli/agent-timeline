@@ -11,7 +11,7 @@ enum CodenameDetector {
     private static let stopList: Set<String> = [
         "UTF-8", "UTF-16", "ISO-8601", "SHA-256", "SHA-1", "MD-5",
         "HTTP-2", "TLS-1", "OAUTH-2", "BASE-64", "GPT-4", "GPT-5",
-        "X-Y", "A-B", "Q-A",
+        "JSON-RPC", "GRPC-WEB", "OAUTH-2.0", "X-Y", "A-B", "Q-A",
     ]
 
     static func detect(in text: String) -> [String] {

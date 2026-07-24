@@ -99,6 +99,13 @@ struct TimelineView: View {
                         NodeCardView(node: node, viewModel: viewModel)
                             .id(node.id)
                     }
+                    if viewModel.canLoadMore {
+                        Button("加载更早…") { viewModel.loadMore() }
+                            .buttonStyle(.plain)
+                            .font(.system(size: tokens.typography.size.caption))
+                            .foregroundStyle(tokens.color.accent.color)
+                            .padding(.vertical, 6)
+                    }
                 }
                 .padding(tokens.spacing.panelPadding)
             }

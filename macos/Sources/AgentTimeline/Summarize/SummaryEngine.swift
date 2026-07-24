@@ -44,6 +44,7 @@ final class SummaryEngine: @unchecked Sendable {
     func enqueuePendingFromStore() {
         workQueue.async { [weak self] in
             guard let self else { return }
+            self.cliResolutionDone = false
             let cmds = self.store.pendingSummaries()
             for cmd in cmds where !self.queuedIds.contains(cmd.id) {
                 self.queuedIds.insert(cmd.id)
@@ -62,6 +63,14 @@ final class SummaryEngine: @unchecked Sendable {
         processNext()
     }
 
+    private enum BackendOutcome {
+        case success(Summary)
+        case failed
+        /// No backend can run at all (no CLI found / provider unconfigured):
+        /// don't burn the node's attempts — it gets retried after settings change.
+        case unavailable
+    }
+
     private func processNext() {
         guard AppSettings.engineMode != .rule else {
             pending.removeAll()
@@ -75,29 +84,46 @@ final class SummaryEngine: @unchecked Sendable {
         }
         queuedIds.remove(cmd.id)
 
-        let attempts = store.bumpSummaryAttempts(nodeId: cmd.id)
-        if attempts <= 3, let summary = runBackend(for: cmd) {
+        switch runBackend(for: cmd) {
+        case .success(let summary):
             store.setSummary(nodeId: cmd.id, summary: summary)
             registry.recordFromSummary(summary, nodeId: cmd.id, seenAt: cmd.timestamp)
             onUpdated()
+        case .failed:
+            if store.bumpSummaryAttempts(nodeId: cmd.id) < 3 {
+                queuedIds.insert(cmd.id)
+                pending.insert(cmd, at: 0)  // retry later, after newer work
+            }
+        case .unavailable:
+            // Put it back and stall the queue; a settings change re-kicks us.
+            queuedIds.insert(cmd.id)
+            pending.append(cmd)
+            processing = false
+            return
         }
         workQueue.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.processNext()
         }
     }
 
-    private func runBackend(for cmd: UserCommand) -> Summary? {
+    private func runBackend(for cmd: UserCommand) -> BackendOutcome {
         switch AppSettings.engineMode {
         case .rule:
-            return nil
+            return .unavailable
         case .cli:
             if !cliResolutionDone {
                 resolvedCLI = CLISummarizer.resolve()
                 cliResolutionDone = true
             }
-            guard let cli = resolvedCLI else { return nil }
-            return try? CLISummarizer(cli: cli, model: AppSettings.cliModel).summarize(cmd)
+            guard let cli = resolvedCLI else { return .unavailable }
+            if let summary = try? CLISummarizer(cli: cli, model: AppSettings.cliModel).summarize(cmd) {
+                return .success(summary)
+            }
+            return .failed
         case .provider:
+            guard !AppSettings.providerBaseURL.isEmpty, !AppSettings.providerModel.isEmpty else {
+                return .unavailable
+            }
             let provider = ProviderSummarizer(
                 baseURL: AppSettings.providerBaseURL,
                 apiKey: AppSettings.providerAPIKey,
@@ -109,7 +135,8 @@ final class SummaryEngine: @unchecked Sendable {
                 semaphore.signal()
             }
             semaphore.wait()
-            return outcome
+            if let outcome { return .success(outcome) }
+            return .failed
         }
     }
 }

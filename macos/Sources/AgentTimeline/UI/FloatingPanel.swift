@@ -6,7 +6,15 @@ import SwiftUI
 /// without activating us. Opacity follows hover/key state:
 /// readable (~0.95) while hovered or key, near-transparent (~0.25) otherwise.
 final class FloatingPanel: NSPanel {
+    /// Posted (userInfo["hold": Bool]) while a popover/menu anchored in the panel
+    /// is open, so the panel stays readable even though the mouse left it.
+    static let holdReadableNotification = Notification.Name("PanelHoldReadable")
+
     private var hovering = false
+
+    var holdReadable = false {
+        didSet { updateTrackingAndOpacity(animated: true) }
+    }
 
     init(contentView: NSView) {
         let tokens = DesignTokens.shared
@@ -86,8 +94,16 @@ final class FloatingPanel: NSPanel {
         updateTrackingAndOpacity(animated: true)
     }
 
+    /// Mouse-exit never fires for a hidden panel — clear hover state on hide so
+    /// the next show doesn't come back stuck at full opacity.
+    override func orderOut(_ sender: Any?) {
+        hovering = false
+        super.orderOut(sender)
+        updateTrackingAndOpacity(animated: false)
+    }
+
     func updateTrackingAndOpacity(animated: Bool) {
-        let readable = hovering || isKeyWindow
+        let readable = hovering || isKeyWindow || holdReadable
         let target = readable ? AppSettings.hoverOpacity : AppSettings.idleOpacity
         let clamped = max(0.05, min(1.0, target))
         if animated {
