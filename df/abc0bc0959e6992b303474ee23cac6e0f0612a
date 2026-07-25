@@ -1,0 +1,30 @@
+macos/Sources/AgentTimeline/UI/DesignTokens.swift
+  s_b85ad4e83942fb::t_02e79302164145 36-37
+macos/Sources/AgentTimeline/UI/TimelineView.swift
+  s_b85ad4e83942fb::t_c194ec313af206 23-26
+macos/Sources/AgentTimeline/UI/NodeViews.swift
+  s_b85ad4e83942fb::t_77fe36beb71a56 235-237
+  s_b85ad4e83942fb::t_dce8c4de5215ce 171-178
+design/design-tokens.json
+  s_b85ad4e83942fb::t_2f2decc9e79c7d 33,72,76,84,100-108
+macos/Sources/AgentTimeline/UI/DesignTokensData.swift
+  s_b85ad4e83942fb::t_2f2decc9e79c7d 36,75,79,87,103-111
+docs/PRD.md
+  s_b85ad4e83942fb::t_26a0081f796398 52-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "dfabc0bc0959e6992b303474ee23cac6e0f0612a",
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
