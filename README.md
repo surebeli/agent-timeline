@@ -1,48 +1,83 @@
+<div align="center">
+
+<img src="macos/Assets/icon-preview.png" width="96" alt="Agent Timeline icon" />
+
 # Agent Timeline
 
-常驻桌面的半透明时间线挂件：实时跟踪本机 AI agent（Claude Code / Codex / Kimi / zcode 预留）的 session 文件，把**你提交过的每条命令**提炼成时间线节点——标题、关键点/需求点/任务点、**任务代号词典**（自动登记、点击回溯原始定义）——解决长周期任务里"代号忘了是啥、翻 session 找不到"的问题。
+**常驻桌面的半透明时间线挂件 — 让长周期 AI 编程会话里"你说过的每句话"随时可回溯**
 
-- 📄 需求：[docs/PRD.md](docs/PRD.md) · 架构：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · 解析规范：[docs/SESSION-FORMATS.md](docs/SESSION-FORMATS.md)
-- 🎨 双端共享视觉规范：[design/design-tokens.json](design/design-tokens.json)（唯一事实源；mac 构建期嵌入二进制，win 生成 XAML 资源）
+[![CI](https://github.com/surebeli/agent-timeline/actions/workflows/ci.yml/badge.svg)](https://github.com/surebeli/agent-timeline/actions/workflows/ci.yml)
+![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20%7C%20Windows%2011-4F6BF0)
+![Swift](https://img.shields.io/badge/Swift-5.9%2B-D97757)
+![.NET](https://img.shields.io/badge/.NET-8-10A37F)
+[![License: MIT](https://img.shields.io/badge/license-MIT-86909C)](LICENSE)
 
-## macOS（M1，已完成）
+<img src="docs/assets/screenshot-dark.png" width="360" alt="Agent Timeline 半透明浮窗 · 暗色背景" />
 
-技术栈：Swift + SwiftUI + AppKit（NSPanel 非激活浮窗 / NSVisualEffectView 毛玻璃 / FSEvents / SQLite），零第三方依赖。
+</div>
+
+---
+
+跟 Claude Code / Codex / Kimi 这类 agent CLI 跑长周期任务时，你一定遇到过：
+
+> 会话里把需求编号成了 N1、N2、N3……几小时后 agent 说 **"N2 完成"** —— N2 是啥来着？
+> 翻几万行 session 记录？算了。
+
+**Agent Timeline** 实时跟踪本机 agent 的 session 文件，把**你提交过的每条命令**提炼成时间线节点，把**任务代号**收进一本自动维护的词典 —— 忘了就点一下。
+
+## 核心能力
+
+| | |
+|---|---|
+| 🕰 **命令时间线** | 每条你的原话 = 一个节点（最新在上），LLM 提炼标题 / 关键点 / 执行结果一句话；按 需求·任务·调研·学习·决策·修复 归类过滤 |
+| 📖 **代号词典** | `N1: 登录改版` 式定义自动登记（命令与 agent 回复双通道）；`N2完成`、`T1 完成接下去执行T2` 自动流转状态（✓完成 / ▶进行中 / △变更）；点击回看定义与出处 |
+| 🫧 **双墨线台账** | `❯ + 实线彩墨线 + 纸面块` = 你的话，`✦ + 虚线灰墨线` = 机器话 —— 失焦半透明时，屏幕上唯一清晰的就是你说过的话 |
+| 🪟 **挂件级窗口** | menu bar / 托盘常驻；hover ≈95% 可读、失焦 ≈25% 不挡事；置顶开关；点击不抢焦点；全文划选复制；任意明暗背景自稳对比（scrim + 描边） |
+| 🔌 **零配置摘要** | 默认复用本机 `claude -p`（备选 `codex exec`）headless；可换任意 OpenAI 兼容 provider；LLM 不可用时规则降级不断线 |
+| 🔒 **本地优先** | session 解析、存储（SQLite）、词典全部本地；仅摘要调用产生模型请求 |
+
+## 快速开始
+
+### macOS（Swift + SwiftUI + AppKit，零第三方依赖）
 
 ```bash
 cd macos
-scripts/build-app.sh release        # 产出 macos/dist/AgentTimeline.app
-cp -R dist/AgentTimeline.app /Applications/   # 建议装到 /Applications（避免 ~/Documents 的 TCC 授权）
-open /Applications/AgentTimeline.app
-swift test                          # 解析器单元测试
+scripts/build-app.sh release              # 产出 macos/dist/AgentTimeline.app
+cp -R dist/AgentTimeline.app /Applications/
+open /Applications/AgentTimeline.app      # menu bar 时钟图标 ⏱
+swift test                                # 21 项单测
 ```
 
-- 入口在 **menu bar**（时钟图标），无 Dock 图标；菜单含 显示/隐藏、窗口置顶、设置、退出。
-- 浮窗：hover ≈95% 不透明可读，失焦 ≈25% 不遮挡（设置可调）；置顶开关；全部文本可划选复制；点击不抢占当前 app 焦点；窗口位置尺寸记忆。
-- 时间线：最新在上；节点=时间+项目+agent 徽标+**阶段标签**（需求/任务/调研/学习/决策/修复，可按阶段过滤）+标题+关键点；展开看原始命令全文与执行结果一句话。
-- **代号生命周期**（面向 `N1/T2` 批量编号的长周期场景）：
-  - 短代号经 `N1: xxx` 定义式登记（用户命令和 **agent 回复**都挖），登记后精确匹配后续提及；长代号（`REQ-3`）正则直捕；
-  - 状态机：定义 → 进行中 → 完成 / 变更（"N2完成""T1 完成接下去执行T2" 自动流转，chip 上 ✓/▶/△ 标识）；
-  - 定义可更新：`N1: 新内容` 重述即生效并标记变更，首次定义节点保留可回溯；
-  - 头部 📖 打开**代号词典面板**：全部代号按最近更新排序，状态+定义+最近提及一屏回忆，点击跳转定义节点。
-- 摘要引擎（设置里切换）：
-  1. **复用本机 CLI**（默认，零配置）：调 `claude -p`（备选 `codex exec`）headless，模型默认 `haiku`；在专用 scratch 目录运行，自身 session 不会污染时间线；
-  2. **自定义 Provider**：OpenAI 兼容 `/chat/completions`（base URL + key + model）；
-  3. **纯规则**：不调模型。LLM 失败自动降级规则摘要，节点先上屏后原位升级。
-- 数据：`~/Library/Application Support/AgentTimeline/store.sqlite`（节点/代号/文件偏移；摘要按命令内容 hash 去重，不重复调用）。
+### Windows（WinUI 3 / .NET 8）
 
-### 已知事项
+完整源码在 [`windows/`](windows/)，Core 解析层已跨平台编译验证（85 断言冒烟）；WinUI 层用 Visual Studio 2022 打开 `windows/AgentTimeline.sln` 构建，详见 [windows/README.md](windows/README.md)。
 
-- 首次以 `open` 启动若长时间无内容：检查是否有系统授权弹窗排队（macOS 的安全弹窗是串行的，一个未处理会卡住后面所有，包括 headless claude 的凭据授权）。
-- Kimi 节点少是正常的：回填只扫“最近 N 天”（默认 7，设置可调）。
-- zcode：本机未装、无样例。设置里开启并填 session 根目录后，拿到样例文件补 `ZcodeParser.parse`（协议不变，参考其他三个解析器）。
+## 工作原理
 
-## Windows（M3 脚手架，待 win 机器编译调试）
+```mermaid
+flowchart LR
+    A[("~/.claude<br/>~/.codex<br/>~/.kimi")] -->|FSEvents 增量 tail| B[解析器<br/>Claude / Codex / Kimi / zcode]
+    B -->|用户命令| C[(SQLite)]
+    B -->|agent 回复| D[代号词典<br/>定义·状态·出处]
+    C --> E[摘要引擎<br/>claude -p / provider / 规则]
+    E --> C
+    C --> F[半透明台账时间线]
+    D --> F
+```
 
-技术栈：WinUI 3（Windows App SDK / .NET 8 / C#）+ H.NotifyIcon 托盘 + DesktopAcrylic 半透明 + Topmost。完整源码在 [windows/](windows/)，Core 解析层已在 mac 上用 `dotnet` 编译通过并过冒烟测试；UI 层需在 Windows + Visual Studio 2022 首次编译调试，步骤见 [windows/README.md](windows/README.md)。
+- **增量解析**：按字节偏移 tail，重启不重读不丢行；各家 session 格式规范见 [docs/SESSION-FORMATS.md](docs/SESSION-FORMATS.md)
+- **双端同源**：视觉规范唯一事实源 [design/design-tokens.json](design/design-tokens.json)（mac 构建期嵌入二进制，win 生成 XAML 资源），CI 强制校验同源
+- 需求文档 [docs/PRD.md](docs/PRD.md) · 架构 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · 变更 [CHANGELOG.md](CHANGELOG.md)
 
-## 里程碑
+## 设置
 
-- **M1** mac MVP ✅（本仓库当前状态）
-- **M2** 搜索过滤增强、代号词典管理界面、多项目视图
-- **M3** Windows 端编译调试与双端视觉对齐验收
+菜单栏图标 → 设置：摘要引擎（CLI 模型 / 自定义 provider）、透明度两档、置顶、回填天数、agent 开关（zcode 需配置 session 路径并按 [SESSION-FORMATS §4](docs/SESSION-FORMATS.md) 补齐解析器）。
+
+## Roadmap
+
+- **M2**：代号按项目命名空间（跨项目同名短码隔离）、搜索、词典管理界面
+- **M3**：Windows 端实机调试与双端视觉对齐验收（源码已就绪，CI 含实验性 WinUI 编译关）
+
+## License
+
+[MIT](LICENSE) © litianyi

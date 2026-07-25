@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    name: macOS · swift test + app bundle
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift tests
+        working-directory: macos
+        run: swift test
+      - name: Build AgentTimeline.app
+        working-directory: macos
+        run: scripts/build-app.sh release
+      - name: Package artifact
+        run: ditto -c -k --keepParent macos/dist/AgentTimeline.app AgentTimeline-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AgentTimeline-macos
+          path: AgentTimeline-macos.zip
+
+  windows-core:
+    name: Windows Core · dotnet smoke (跨平台)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Core smoke test (85 assertions)
+        run: dotnet run --project windows/CoreSmokeTest -c Release
+
+  winui:
+    # WinUI 层此前仅在 mac 上做过 XML/结构审校 — 此 job 是它的首个真实编译关。
+    # 通过前标记为 experimental，失败不阻塞主线。
+    name: WinUI · dotnet build (experimental)
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Build WinUI app (x64)
+        run: dotnet build windows/AgentTimeline/AgentTimeline.csproj -c Release -p:Platform=x64
+
+  tokens-sync:
+    name: Design tokens · 双端同源校验
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Windows 副本必须与 design/ 字节一致
+        run: cmp design/design-tokens.json windows/AgentTimeline/Assets/design-tokens.json
+      - name: mac 嵌入副本必须已再生成
+        run: |
+          python3 - <<'EOF'
+          import pathlib
+          src = pathlib.Path('design/design-tokens.json').read_text().rstrip()
+          embedded = pathlib.Path('macos/Sources/AgentTimeline/UI/DesignTokensData.swift').read_text()
+          assert src in embedded, 'DesignTokensData.swift 已过期 — 运行 macos/scripts/build-app.sh 再生成'
+          print('tokens in sync')
+          EOF
