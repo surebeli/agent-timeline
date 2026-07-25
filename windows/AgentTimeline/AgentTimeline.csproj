@@ -11,8 +11,11 @@
     <ApplicationIcon>Assets\TrayIcon.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <!-- WindowsAppSDK 1.5 targets inject legacy win10-* RIDs, which the trimmed
-         RID graph of .NET SDK 8+ rejects (NETSDK1083); restore the full graph. -->
+    <!-- WindowsAppSDK 1.5 props inject legacy win10-* RuntimeIdentifiers (incl.
+         win10-arm, which has no net8 runtime pack → NETSDK1082). Our later
+         assignment wins in MSBuild evaluation; UseRidGraph keeps any remaining
+         legacy RID references resolvable (NETSDK1083). -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <UseRidGraph>true</UseRidGraph>
     <UseWinUI>true</UseWinUI>
     <Nullable>enable</Nullable>
