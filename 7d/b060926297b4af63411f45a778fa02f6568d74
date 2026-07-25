@@ -1,0 +1,79 @@
+design/design-tokens.json
+  s_b85ad4e83942fb::t_a5cb150c758968 17-26
+macos/Sources/AgentTimeline/Core/CodenameRegistry.swift
+  s_b85ad4e83942fb::t_dd7789ebdf94aa 3-15,17,24,26-27,56,61,75-85,87-104,107-108,110-112,114,116-127,151-156,159,163,188,191-192,196-209,212-214,216-220,222,239-242
+  s_b85ad4e83942fb::t_b89ab6faa25483 157-158,160-162,164-187
+  s_b85ad4e83942fb::t_b32d094de34619 86
+  s_b85ad4e83942fb::t_81e99ae7d7feed 40-47
+  s_b85ad4e83942fb::t_f2f5e5b011297a 20-23,25,28-30,32-37,48-54
+  s_b85ad4e83942fb::t_c1356006bd82da 237
+  s_b85ad4e83942fb::t_fa83023f6c5a01 210-211,215,221,223-230
+  s_b85ad4e83942fb::t_7389badbd0c74a 105-106,109,113,115,128-150
+  s_b85ad4e83942fb::t_99950132d63e00 64
+  s_b85ad4e83942fb::t_7e6d8bea308bde 55
+macos/Sources/AgentTimeline/Summarize/SummaryPrompt.swift
+  s_b85ad4e83942fb::t_576194737dbf57 5-10,14,16,25,27-29,46-47,49-54,58,60-61
+  s_b85ad4e83942fb::t_05cbc193de0466 48
+macos/Tests/AgentTimelineTests/ParserTests.swift
+  s_b85ad4e83942fb::t_fbbefe022b036a 183-227
+  s_b85ad4e83942fb::t_73eb538dbe9d07 157-182,228-257
+macos/Sources/AgentTimeline/UI/DesignTokens.swift
+  s_b85ad4e83942fb::t_58ba64bd1bed85 31-32,38-41
+  s_b85ad4e83942fb::t_d14fca3a19b3a1 42
+macos/Sources/AgentTimeline/Core/Models.swift
+  s_b85ad4e83942fb::t_78f7a2b97dbc02 52-71,81-82
+  s_b85ad4e83942fb::t_64f872a69a6678 103-108,110-111
+README.md
+  s_b85ad4e83942fb::t_93726a41a79bd6 22-27
+macos/Sources/AgentTimeline/App/AppDelegate.swift
+  s_b85ad4e83942fb::t_f6b2ec3d94548d 78-90,96-98
+  s_b85ad4e83942fb::t_6ebd64fa37ee77 66,68-77,91-95
+  s_b85ad4e83942fb::t_d3cdfc97c84d1b 115,121-124
+  s_b85ad4e83942fb::t_4b7a451c7c846c 67
+  s_b85ad4e83942fb::t_4b89a051351942 34-40
+macos/Sources/AgentTimeline/UI/TimelineView.swift
+  s_b85ad4e83942fb::t_e9c525934eed0c 93-148
+  s_b85ad4e83942fb::t_ec41aab8b896c8 35-36
+macos/Sources/AgentTimeline/Summarize/RuleSummarizer.swift
+  s_b85ad4e83942fb::t_e5c4de3055d1b5 19-23,31-49
+macos/Sources/AgentTimeline/UI/DesignTokensData.swift
+  s_b85ad4e83942fb::t_709cd032d4b7c1 20-29
+macos/Sources/AgentTimeline/UI/TimelineViewModel.swift
+  s_b85ad4e83942fb::t_57bfbbd8e258a4 11-12
+  s_b85ad4e83942fb::t_d18c20bd9aaff6 43-50
+  s_b85ad4e83942fb::t_d5d90eb6075416 63
+docs/PRD.md
+  s_b85ad4e83942fb::t_b552f86f7bcc51 44,46-54,58-63
+  s_b85ad4e83942fb::t_706391463c82c8 55-57
+macos/Sources/AgentTimeline/UI/NodeViews.swift
+  s_b85ad4e83942fb::t_cc66c74c935455 219-232,238-243,246,248,263-271
+  s_b85ad4e83942fb::t_af34ecda2c9bdf 169-179,184-198
+  s_b85ad4e83942fb::t_5d2c1132650856 73-80
+macos/Sources/AgentTimeline/UI/CodenameDictionaryView.swift
+  s_b85ad4e83942fb::t_965e56a9e6278f 1-97
+macos/Sources/AgentTimeline/Core/Store.swift
+  s_b85ad4e83942fb::t_77044009ae68c9 208-209,230-258,264-266,268-281,283-290,295-298,303,309-313,320-340,342-350,353-354
+  s_b85ad4e83942fb::t_6bdfc890be4488 169,189,341,405-406
+  s_b85ad4e83942fb::t_bb3952c5b3c861 259-263,267,282
+  s_b85ad4e83942fb::t_2a8298d7769710 60-61,64-68
+  s_b85ad4e83942fb::t_882cbbfc02c7ea 62-63
+  s_b85ad4e83942fb::t_3d3bd94bbbc9b7 107-108,119-120
+  s_b85ad4e83942fb::t_450d443227d7db 351-352
+  s_b85ad4e83942fb::t_153130e7aee1bf 355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "7db060926297b4af63411f45a778fa02f6568d74",
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
