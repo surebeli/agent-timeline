@@ -1,0 +1,33 @@
+windows/AgentTimeline/Assets/design-tokens.json
+  s_b85ad4e83942fb::t_35a74fd61cbb98 75-76,91-92,97-100
+windows/AgentTimeline/Themes/Tokens.xaml
+  s_b85ad4e83942fb::t_7f9a9981dff64e 219-220
+  s_b85ad4e83942fb::t_1661e932b9839d 30-31,35
+  s_b85ad4e83942fb::t_cdba4c6449c5fe 51,96,142
+  s_b85ad4e83942fb::t_76f9188d1988e8 75-76,80,121-122,126
+windows/AgentTimeline/MainWindow.xaml
+  s_b85ad4e83942fb::t_1e70ed17dfd289 280
+  s_b85ad4e83942fb::t_e2afc49e4921c0 533-534
+  s_b85ad4e83942fb::t_68172acd9cdc18 442
+  s_b85ad4e83942fb::t_b5e2db3c4bd70c 383-388,391-393,395
+windows/README.md
+  s_b85ad4e83942fb::t_8ab583eacf0a31 19-27
+windows/AgentTimeline/DesignTokens.cs
+  s_b85ad4e83942fb::t_9cdaf67079d52c 137-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "91ea22a9e4454cbfcac2fd6a1dee75b69865faf7",
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
