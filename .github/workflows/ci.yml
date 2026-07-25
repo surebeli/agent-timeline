@@ -47,6 +47,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
+      - name: Pin .NET SDK 8
+        # runner 预装更高版本 SDK 时 dotnet 默认选最新，WindowsAppSDK 的
+        # win10-* RID 会触发 NETSDK1083 — 用 global.json 钉住 8.x。
+        shell: pwsh
+        run: '''{"sdk":{"version":"8.0.100","rollForward":"latestFeature"}}'' | Out-File global.json -Encoding utf8'
       - name: Build WinUI app (x64)
         run: dotnet build windows/AgentTimeline/AgentTimeline.csproj -c Release -p:Platform=x64
 

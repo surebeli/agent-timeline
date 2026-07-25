@@ -11,6 +11,9 @@
     <ApplicationIcon>Assets\TrayIcon.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- WindowsAppSDK 1.5 targets inject legacy win10-* RIDs, which the trimmed
+         RID graph of .NET SDK 8+ rejects (NETSDK1083); restore the full graph. -->
+    <UseRidGraph>true</UseRidGraph>
     <UseWinUI>true</UseWinUI>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
