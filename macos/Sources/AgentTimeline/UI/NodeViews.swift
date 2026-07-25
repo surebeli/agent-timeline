@@ -168,6 +168,14 @@ struct NodeCardView: View {
                 bottomTrailingRadius: tokens.radius.commandBlock,
                 topTrailingRadius: tokens.radius.commandBlock)
                 .fill(tokens.color.commandBg.color))
+        .overlay(
+            // Self-contained edge: the paper never dissolves into a lookalike backdrop.
+            UnevenRoundedRectangle(
+                topLeadingRadius: tokens.radius.commandBlockAttach,
+                bottomLeadingRadius: tokens.radius.commandBlock,
+                bottomTrailingRadius: tokens.radius.commandBlock,
+                topTrailingRadius: tokens.radius.commandBlock)
+                .strokeBorder(tokens.color.surfaceStroke.color, lineWidth: 1))
         .overlay(alignment: .leading) {
             UnevenRoundedRectangle(
                 topLeadingRadius: tokens.radius.commandBlockAttach,
@@ -224,6 +232,9 @@ struct NodeCardView: View {
             .background(
                 RoundedRectangle(cornerRadius: tokens.radius.commandBlock)
                     .fill(tokens.color.derivedBg.color))
+            .overlay(
+                RoundedRectangle(cornerRadius: tokens.radius.commandBlock)
+                    .strokeBorder(tokens.color.surfaceStroke.color, lineWidth: 1))
             .padding(.leading, tokens.spacing.hangIndent)
         }
     }

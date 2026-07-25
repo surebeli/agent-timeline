@@ -33,7 +33,7 @@ enum DesignTokensData {
     },
     "timelineRail": {
       "light": "#C9CDD4",
-      "dark": "#3A3F4B"
+      "dark": "#454B59"
     },
     "codenameChipBg": {
       "light": "#4F6BF01F",
@@ -72,11 +72,11 @@ enum DesignTokensData {
     },
     "commandBg": {
       "light": "#FFFFFFE0",
-      "dark": "#2B313DCC"
+      "dark": "#2E3542D9"
     },
     "derivedRule": {
       "light": "#A9AFBB",
-      "dark": "#4A505E99"
+      "dark": "#565D6BA6"
     },
     "entryHover": {
       "light": "#0000000A",
@@ -84,7 +84,7 @@ enum DesignTokensData {
     },
     "entryDivider": {
       "light": "#00000010",
-      "dark": "#FFFFFF12"
+      "dark": "#FFFFFF1C"
     },
     "dayHeaderText": {
       "light": "#86909C",
@@ -100,7 +100,15 @@ enum DesignTokensData {
     },
     "derivedBg": {
       "light": "#FFFFFF8C",
-      "dark": "#242A36A8"
+      "dark": "#242A36B4"
+    },
+    "panelScrim": {
+      "light": "#F5F6F7B8",
+      "dark": "#14161C8C"
+    },
+    "surfaceStroke": {
+      "light": "#0000001A",
+      "dark": "#FFFFFF24"
     }
   },
   "typography": {

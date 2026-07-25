@@ -20,6 +20,10 @@ struct TimelineView: View {
             Divider().opacity(0.4)
             timeline
         }
+        // Scrim between the blur and the content: still translucent, but it
+        // compresses whatever bleeds through (dark IDEs, bright pages) into a
+        // predictable base so the token palette always has its contrast.
+        .background(tokens.color.panelScrim.color)
     }
 
     private var header: some View {
