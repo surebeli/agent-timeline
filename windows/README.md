@@ -16,6 +16,15 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 
 ## 更新记录
 
+- **2026-07-26 (d) 提炼块对比度修正（对齐 mac 端同日反馈）**
+  - 提炼块落在自己的次级纸面上：新增 `color.derivedBg`（浅 #FFFFFF8C / 深 #242A36A8），
+    Border 圆角 8（普通角，无左上压平）、内边距 8×6，14px 缩进保留在纸面之外、虚线墨线
+    移入纸面之内；
+  - `derivedRule`（浅 #A9AFBB / 深 #4A505E99）与 `dayHeaderRule`（浅 #00000022 /
+    深 #FFFFFF26）提亮；元信息行时间与折叠关键点摘要由 textTertiary 升为 textSecondary；
+  - Assets JSON 与根 design/ 重新字节一致，Tokens.xaml（AARRGGBB 换算）与 DesignTokens.cs
+    双色加载表同步。
+
 - **2026-07-26 (c) "双墨线台账" 时间线视觉重构（对齐 mac 端 PRD §3.2b）**
   - 节点改为无框台账条目：1px entryDivider 细线（越过 22px rail gutter 内缩），需求/决策
     条目附 8% kind 色整条洗染（radius 6）；旧卡片边框/背景与"展开看原文"区块删除；

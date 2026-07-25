@@ -277,7 +277,7 @@
                                     Grid.Column="0"
                                     VerticalAlignment="Center"
                                     FontSize="{StaticResource FontSizeCaption}"
-                                    Foreground="{ThemeResource TextTertiaryBrush}"
+                                    Foreground="{ThemeResource TextSecondaryBrush}"
                                     Text="{x:Bind TimeText}" />
                                 <TextBlock
                                     Grid.Column="1"
@@ -380,13 +380,19 @@
                                 </Button>
                             </Grid>
 
-                            <!-- DERIVED BLOCK: everything machine-generated, indented behind
-                                 one 1px dotted rule -->
-                            <Grid
+                            <!-- DERIVED BLOCK: everything machine-generated on its own
+                                 secondary paper (derivedBg, plain radius 8) so it never
+                                 sinks into the wallpaper bleeding through the translucent
+                                 panel; 14px leading indent OUTSIDE the backing, the 1px
+                                 dotted rule inside it -->
+                            <Border
                                 Grid.Row="2"
                                 Margin="{StaticResource DerivedIndent}"
-                                ColumnSpacing="8"
+                                Background="{ThemeResource DerivedBgBrush}"
+                                CornerRadius="{StaticResource DerivedBlockCornerRadius}"
+                                Padding="{StaticResource CommandPadding}"
                                 Visibility="{x:Bind HasDerived, Mode=OneWay}">
+                              <Grid ColumnSpacing="8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -433,7 +439,7 @@
                                         <TextBlock
                                             Grid.Column="0"
                                             FontSize="{StaticResource FontSizeCaption}"
-                                            Foreground="{ThemeResource TextTertiaryBrush}"
+                                            Foreground="{ThemeResource TextSecondaryBrush}"
                                             MaxLines="1"
                                             Text="{x:Bind KeypointsDigest, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis" />
@@ -524,7 +530,8 @@
                                         <Run Text="→ " /><Run Text="{x:Bind ResultLine, Mode=OneWay}" />
                                     </TextBlock>
                                 </StackPanel>
-                            </Grid>
+                              </Grid>
+                            </Border>
                         </Grid>
 
                         <!-- 1px hairline divider, inset past the rail gutter -->

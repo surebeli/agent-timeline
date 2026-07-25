@@ -134,8 +134,16 @@ public sealed class DesignTokens
                         tokens._kindColors[prop.Name] = ParseColor(prop.Value.GetString() ?? "#808080");
                     }
                 }
-                // Dual light/dark tokens needed by code-built UI (chip badges, flyouts).
-                foreach (var name in new[] { "accent", "resultLine", "statusChanged", "codenameChipText", "textSecondary", "textTertiary" })
+                // Dual light/dark tokens needed by code-built UI (chip badges, flyouts),
+                // plus the ledger surfaces so DualColor covers every dual-color block.
+                foreach (var name in new[]
+                {
+                    "accent", "resultLine", "statusChanged", "codenameChipText",
+                    "textSecondary", "textTertiary",
+                    "commandText", "commandBg", "derivedBg", "derivedRule",
+                    "entryHover", "entryDivider",
+                    "dayHeaderText", "dayHeaderRule", "dayHeaderBg",
+                })
                 {
                     if (color.TryGetProperty(name, out var dual) &&
                         dual.ValueKind == JsonValueKind.Object)
