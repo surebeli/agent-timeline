@@ -28,10 +28,17 @@ struct DesignTokens: Codable {
         let codenameChipBg: DualColor
         let codenameChipText: DualColor
         let resultLine: DualColor
+        let statusChanged: DualColor
+        let kind: [String: String]
         let agentBadge: [String: String]
 
         func badgeColor(_ agent: AgentKind) -> Color {
             Color(nsColor: NSColor(hexString: agentBadge[agent.rawValue] ?? "#888888") ?? .systemGray)
+        }
+
+        func kindColor(_ raw: String?) -> Color? {
+            guard let raw, let hex = kind[raw] else { return nil }
+            return Color(nsColor: NSColor(hexString: hex) ?? .systemGray)
         }
     }
 

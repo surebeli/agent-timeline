@@ -32,6 +32,8 @@ struct TimelineView: View {
                 .foregroundStyle(tokens.color.textPrimary.color)
             Spacer()
             projectMenu
+            kindMenu
+            dictionaryButton
             Button {
                 alwaysOnTop.toggle()
                 onTogglePin()
@@ -86,6 +88,62 @@ struct TimelineView: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+    }
+
+    private var kindMenu: some View {
+        Menu {
+            Button("全部阶段") { viewModel.kindFilter = nil }
+            Divider()
+            ForEach(NodeKind.allCases, id: \.rawValue) { kind in
+                Button {
+                    viewModel.kindFilter = kind.rawValue
+                } label: {
+                    if viewModel.kindFilter == kind.rawValue {
+                        Label(kind.rawValue, systemImage: "checkmark")
+                    } else {
+                        Text(kind.rawValue)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.system(size: 10))
+                Text(viewModel.kindFilter ?? "阶段")
+                    .font(.system(size: tokens.typography.size.caption))
+            }
+            .foregroundStyle(viewModel.kindFilter == nil
+                             ? tokens.color.textSecondary.color : tokens.color.accent.color)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
+
+    @State private var showDictionary = false
+
+    private var dictionaryButton: some View {
+        Button {
+            showDictionary.toggle()
+        } label: {
+            Image(systemName: "character.book.closed")
+                .font(.system(size: 11))
+                .foregroundStyle(tokens.color.textTertiary.color)
+        }
+        .buttonStyle(.plain)
+        .help("代号词典")
+        .popover(isPresented: $showDictionary, arrowEdge: .bottom) {
+            CodenameDictionaryView(viewModel: viewModel) { showDictionary = false }
+                .onAppear {
+                    NotificationCenter.default.post(
+                        name: FloatingPanel.holdReadableNotification, object: nil,
+                        userInfo: ["hold": true])
+                }
+                .onDisappear {
+                    NotificationCenter.default.post(
+                        name: FloatingPanel.holdReadableNotification, object: nil,
+                        userInfo: ["hold": false])
+                }
+        }
     }
 
     private var timeline: some View {

@@ -57,6 +57,15 @@ final class Store: @unchecked Sendable {
             inode INTEGER NOT NULL
         )
         """)
+
+        // Lifecycle migration (2026-07-26): status machine on codenames, phase
+        // kind on nodes. Replay-needed bookkeeping lives in UserDefaults
+        // (AppDelegate) so a crash mid-replay re-arms on next launch.
+        exec("ALTER TABLE codenames ADD COLUMN status TEXT NOT NULL DEFAULT ''")
+        exec("ALTER TABLE codenames ADD COLUMN status_node TEXT NOT NULL DEFAULT ''")
+        exec("ALTER TABLE codenames ADD COLUMN updated REAL NOT NULL DEFAULT 0")
+        exec("ALTER TABLE codenames ADD COLUMN last_context TEXT NOT NULL DEFAULT ''")
+        exec("ALTER TABLE nodes ADD COLUMN kind TEXT")
     }
 
     deinit { sqlite3_close(db) }
@@ -95,7 +104,8 @@ final class Store: @unchecked Sendable {
         queue.sync {
             let sql = """
             UPDATE nodes SET title=?, key_points=?, codenames=?,
-                result_line=COALESCE(?, result_line), engine=?, summarized=? WHERE id=?
+                result_line=COALESCE(?, result_line), engine=?, summarized=?,
+                kind=COALESCE(?, kind) WHERE id=?
             """
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
@@ -106,7 +116,8 @@ final class Store: @unchecked Sendable {
             bind(stmt, 4, summary.resultLine)
             bind(stmt, 5, summary.engine)
             sqlite3_bind_int(stmt, 6, summary.isLLM ? 2 : 1)
-            bind(stmt, 7, nodeId)
+            bind(stmt, 7, summary.kind)
+            bind(stmt, 8, nodeId)
             sqlite3_step(stmt)
         }
     }
@@ -155,7 +166,7 @@ final class Store: @unchecked Sendable {
         queue.sync {
             let sql = """
             SELECT id, agent, project, cwd, session_id, ts, text, source_file,
-                   title, key_points, codenames, result_line, engine, summarized
+                   title, key_points, codenames, result_line, engine, summarized, kind
             FROM nodes ORDER BY ts DESC LIMIT ?
             """
             var stmt: OpaquePointer?
@@ -175,7 +186,7 @@ final class Store: @unchecked Sendable {
         queue.sync {
             let sql = """
             SELECT id, agent, project, cwd, session_id, ts, text, source_file,
-                   NULL, NULL, NULL, NULL, NULL, 0
+                   NULL, NULL, NULL, NULL, NULL, 0, NULL
             FROM nodes WHERE summarized < 2 AND summary_attempts < 3
             ORDER BY ts DESC LIMIT ?
             """
@@ -194,6 +205,8 @@ final class Store: @unchecked Sendable {
 
     // MARK: - Codenames
 
+    /// Soft sighting (dash-style hit or LLM extraction): bump occurrences and
+    /// only fill an EMPTY definition — derivative sources never overwrite one.
     func recordCodename(name: String, definition: String, nodeId: String, seenAt: Date) {
         queue.sync {
             let sql = """
@@ -214,22 +227,127 @@ final class Store: @unchecked Sendable {
         }
     }
 
+    /// Explicit "N1: xxx" definition sighting: the latest restatement wins.
+    /// A restatement that changes an existing definition flips status to 变更.
+    func defineCodename(name: String, definition: String, nodeId: String, at: Date) {
+        queue.sync {
+            let sql = """
+            INSERT INTO codenames (name, definition, definition_node, first_seen, occurrences, status, status_node, updated)
+            VALUES (?,?,?,?,1,?,?,?)
+            ON CONFLICT(name) DO UPDATE SET
+                occurrences = occurrences + 1,
+                status = CASE WHEN codenames.definition != '' AND codenames.definition != excluded.definition
+                              THEN '变更' ELSE codenames.status END,
+                definition = excluded.definition,
+                status_node = excluded.status_node,
+                updated = excluded.updated
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+            defer { sqlite3_finalize(stmt) }
+            bind(stmt, 1, name)
+            bind(stmt, 2, definition)
+            bind(stmt, 3, nodeId)
+            sqlite3_bind_double(stmt, 4, at.timeIntervalSince1970)
+            bind(stmt, 5, CodenameStatus.defined.rawValue)
+            bind(stmt, 6, nodeId)
+            sqlite3_bind_double(stmt, 7, at.timeIntervalSince1970)
+            sqlite3_step(stmt)
+        }
+    }
+
+    /// A later mention of a known codename: bump occurrences (unless the sighting
+    /// that discovered it this round already counted), remember the context
+    /// excerpt, and advance the status machine when a signal was seen.
+    func touchCodename(name: String, status: CodenameStatus?, context: String,
+                       nodeId: String, at: Date, bumpOccurrence: Bool = true) {
+        queue.sync {
+            let sql = """
+            UPDATE codenames SET
+                occurrences = occurrences + ?6,
+                last_context = CASE WHEN ?1 != '' THEN ?1 ELSE last_context END,
+                status = CASE WHEN ?2 != '' THEN ?2 ELSE status END,
+                status_node = CASE WHEN ?2 != '' THEN ?3 ELSE status_node END,
+                updated = ?4
+            WHERE name = ?5
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+            defer { sqlite3_finalize(stmt) }
+            bind(stmt, 1, context)
+            bind(stmt, 2, status?.rawValue ?? "")
+            bind(stmt, 3, nodeId)
+            sqlite3_bind_double(stmt, 4, at.timeIntervalSince1970)
+            bind(stmt, 5, name)
+            sqlite3_bind_int(stmt, 6, bumpOccurrence ? 1 : 0)
+            sqlite3_step(stmt)
+        }
+    }
+
+    func clearCodenames() {
+        queue.sync { exec("DELETE FROM codenames") }
+    }
+
     func fetchCodenames() -> [String: CodenameEntry] {
         queue.sync {
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(
-                db, "SELECT name, definition, definition_node, first_seen, occurrences FROM codenames",
+                db, """
+                SELECT name, definition, definition_node, first_seen, occurrences,
+                       status, status_node, updated, last_context FROM codenames
+                """,
                 -1, &stmt, nil) == SQLITE_OK else { return [:] }
             defer { sqlite3_finalize(stmt) }
             var out: [String: CodenameEntry] = [:]
             while sqlite3_step(stmt) == SQLITE_ROW {
-                let entry = CodenameEntry(
+                var entry = CodenameEntry(
                     name: column(stmt, 0) ?? "",
                     definition: column(stmt, 1) ?? "",
                     definitionNodeId: column(stmt, 2) ?? "",
                     firstSeen: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 3)),
                     occurrences: Int(sqlite3_column_int(stmt, 4)))
+                entry.status = column(stmt, 5) ?? ""
+                entry.statusNodeId = column(stmt, 6) ?? ""
+                let updated = sqlite3_column_double(stmt, 7)
+                entry.updated = updated > 0 ? Date(timeIntervalSince1970: updated) : nil
+                entry.lastContext = column(stmt, 8) ?? ""
                 out[entry.name] = entry
+            }
+            return out
+        }
+    }
+
+    /// The command node an assistant reply belongs to.
+    func latestNodeId(agent: AgentKind, sessionId: String, before: Date) -> String? {
+        queue.sync {
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(
+                db, "SELECT id FROM nodes WHERE agent=? AND session_id=? AND ts<=? ORDER BY ts DESC LIMIT 1",
+                -1, &stmt, nil) == SQLITE_OK else { return nil }
+            defer { sqlite3_finalize(stmt) }
+            bind(stmt, 1, agent.rawValue)
+            bind(stmt, 2, sessionId)
+            sqlite3_bind_double(stmt, 3, before.timeIntervalSince1970)
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            return column(stmt, 0)
+        }
+    }
+
+    /// Oldest-first full scan for the one-time codename lifecycle replay.
+    func fetchAllNodesAscending() -> [TimelineNode] {
+        queue.sync {
+            let sql = """
+            SELECT id, agent, project, cwd, session_id, ts, text, source_file,
+                   title, key_points, codenames, result_line, engine, summarized, kind
+            FROM nodes ORDER BY ts ASC
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            var out: [TimelineNode] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let node = readNode(stmt) else { continue }
+                out.append(node)
             }
             return out
         }
@@ -284,7 +402,8 @@ final class Store: @unchecked Sendable {
                 keyPoints: decodeJSON([String].self, column(stmt, 9)) ?? [],
                 codenames: decodeJSON([CodenameDef].self, column(stmt, 10)) ?? [],
                 resultLine: column(stmt, 11),
-                engine: column(stmt, 12) ?? SummaryEngineKind.rule.rawValue)
+                engine: column(stmt, 12) ?? SummaryEngineKind.rule.rawValue,
+                kind: column(stmt, 14))
         }
         return TimelineNode(command: cmd, summary: summary)
     }

@@ -70,6 +70,14 @@ struct NodeCardView: View {
             Text(node.command.agent.displayName)
                 .font(.system(size: tokens.typography.size.chip, weight: .medium))
                 .foregroundStyle(tokens.color.badgeColor(node.command.agent))
+            if let kind = node.summary?.kind, let color = tokens.color.kindColor(kind) {
+                Text(kind)
+                    .font(.system(size: tokens.typography.size.chip, weight: .medium))
+                    .foregroundStyle(color)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(color.opacity(0.14)))
+            }
             Spacer(minLength: 0)
             Button {
                 if isExpanded {
@@ -158,18 +166,36 @@ struct CodenameChip: View {
     @Bindable var viewModel: TimelineViewModel
     @State private var showPopover = false
 
+    private var entry: CodenameEntry? { viewModel.entry(forCodename: name) }
+
+    private var statusBadge: (symbol: String, color: Color)? {
+        switch entry?.statusValue {
+        case .completed: return ("✓", tokens.color.resultLine.color)
+        case .changed: return ("△", tokens.color.statusChanged.color)
+        case .active: return ("▶", tokens.color.accent.color)
+        default: return nil
+        }
+    }
+
     var body: some View {
         Button {
             showPopover.toggle()
         } label: {
-            Text(name)
-                .font(.system(size: tokens.typography.size.chip, weight: .medium).monospaced())
-                .foregroundStyle(tokens.color.codenameChipText.color)
-                .padding(.horizontal, tokens.spacing.chipPaddingH)
-                .padding(.vertical, tokens.spacing.chipPaddingV)
-                .background(
-                    RoundedRectangle(cornerRadius: tokens.radius.chip)
-                        .fill(tokens.color.codenameChipBg.color))
+            HStack(spacing: 2) {
+                Text(name)
+                    .font(.system(size: tokens.typography.size.chip, weight: .medium).monospaced())
+                    .foregroundStyle(tokens.color.codenameChipText.color)
+                if let badge = statusBadge {
+                    Text(badge.symbol)
+                        .font(.system(size: tokens.typography.size.chip, weight: .bold))
+                        .foregroundStyle(badge.color)
+                }
+            }
+            .padding(.horizontal, tokens.spacing.chipPaddingH)
+            .padding(.vertical, tokens.spacing.chipPaddingV)
+            .background(
+                RoundedRectangle(cornerRadius: tokens.radius.chip)
+                    .fill(tokens.color.codenameChipBg.color))
         }
         .buttonStyle(.plain)
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
@@ -190,19 +216,36 @@ struct CodenameChip: View {
     @ViewBuilder
     private var popoverContent: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(name)
-                .font(.system(size: tokens.typography.size.title, weight: .semibold).monospaced())
-            if let entry = viewModel.entry(forCodename: name) {
+            HStack(spacing: 6) {
+                Text(name)
+                    .font(.system(size: tokens.typography.size.title, weight: .semibold).monospaced())
+                if let entry, !entry.status.isEmpty {
+                    Text(entry.status)
+                        .font(.system(size: tokens.typography.size.chip, weight: .medium))
+                        .foregroundStyle(statusBadge?.color ?? tokens.color.textSecondary.color)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(RoundedRectangle(cornerRadius: 3)
+                            .fill((statusBadge?.color ?? tokens.color.textSecondary.color).opacity(0.14)))
+                }
+            }
+            if let entry {
                 if !entry.definition.isEmpty {
                     Text(entry.definition)
                         .font(.system(size: tokens.typography.size.body))
                         .textSelection(.enabled)
                 } else {
-                    Text("暂无定义（等待摘要提炼）")
+                    Text("暂无定义（等待摘要提炼或定义式重述）")
                         .font(.system(size: tokens.typography.size.caption))
                         .foregroundStyle(.secondary)
                 }
-                Text("首次出现 \(entry.firstSeen.formatted(date: .abbreviated, time: .shortened)) · 共 \(entry.occurrences) 次")
+                if !entry.lastContext.isEmpty {
+                    Text("最近提及：…\(entry.lastContext)…")
+                        .font(.system(size: tokens.typography.size.caption))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+                Text(metaLine(entry))
                     .font(.system(size: tokens.typography.size.caption))
                     .foregroundStyle(.secondary)
                 Button("跳转到定义节点") {
@@ -217,7 +260,15 @@ struct CodenameChip: View {
             }
         }
         .padding(10)
-        .frame(minWidth: 200, maxWidth: 320)
+        .frame(minWidth: 220, maxWidth: 340)
+    }
+
+    private func metaLine(_ entry: CodenameEntry) -> String {
+        var line = "首次 \(entry.firstSeen.formatted(date: .abbreviated, time: .shortened)) · 共 \(entry.occurrences) 次"
+        if let updated = entry.updated {
+            line += " · 更新 \(updated.formatted(date: .abbreviated, time: .shortened))"
+        }
+        return line
     }
 }
 

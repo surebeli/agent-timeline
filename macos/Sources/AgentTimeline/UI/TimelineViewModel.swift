@@ -8,6 +8,8 @@ final class TimelineViewModel {
     private(set) var codenames: [String: CodenameEntry] = [:]
     var projectFilter: String?
     var agentFilter: Set<AgentKind> = Set(AgentKind.allCases)
+    /// NodeKind rawValue; nil = all phases.
+    var kindFilter: String?
     var expanded: Set<String> = []
     var scrollTarget: String?
 
@@ -38,6 +40,14 @@ final class TimelineViewModel {
         nodes.filter { node in
             agentFilter.contains(node.command.agent)
                 && (projectFilter == nil || node.command.project == projectFilter)
+                && (kindFilter == nil || node.summary?.kind == kindFilter)
+        }
+    }
+
+    /// Dictionary panel ordering: recently updated first, then recently seen.
+    var sortedCodenames: [CodenameEntry] {
+        codenames.values.sorted {
+            ($0.updated ?? $0.firstSeen) > ($1.updated ?? $1.firstSeen)
         }
     }
 
@@ -50,6 +60,7 @@ final class TimelineViewModel {
         // The definition node may be hidden by an active filter — clear them first.
         projectFilter = nil
         agentFilter = Set(AgentKind.allCases)
+        kindFilter = nil
         // …or lie beyond the current fetch window (long backfills).
         if !nodes.contains(where: { $0.id == entry.definitionNodeId }) {
             fetchLimit = 100_000

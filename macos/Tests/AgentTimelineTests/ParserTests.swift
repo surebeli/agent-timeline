@@ -154,6 +154,107 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(text, "已生成 HTML 文件")
     }
 
+    // MARK: - Codename lifecycle（用户场景回归）
+
+    /// 场景1：会话中把需求编号成 N1/N2/N3，后续出现 "N2完成" "N3变更"。
+    func testScenarioRequirementBatchNumbers() {
+        let text = "好的，需求编号如下：\nN1: 登录页改版\nN2: 支付流程重构\nN3: 消息中心优化"
+        let defs = CodenameDetector.detectDefinitions(in: text)
+        XCTAssertEqual(defs.map(\.name), ["N1", "N2", "N3"])
+        XCTAssertEqual(defs[1].definition, "支付流程重构")
+
+        let known: Set<String> = ["N1", "N2", "N3"]
+        let updates = CodenameDetector.detectMentions(in: "N2完成，N3变更，N1 继续推进", known: known)
+        let byName = Dictionary(uniqueKeysWithValues: updates.map { ($0.name, $0.status) })
+        XCTAssertEqual(byName["N2"], .completed)
+        XCTAssertEqual(byName["N3"], .changed)
+        XCTAssertEqual(byName["N1"], .active)
+    }
+
+    /// 场景2：任务编号 T1/T2，"T1 完成，接下去执行T2"。
+    func testScenarioTaskHandoff() {
+        let known: Set<String> = ["T1", "T2"]
+        let updates = CodenameDetector.detectMentions(in: "T1 完成，接下去执行T2", known: known)
+        let byName = Dictionary(uniqueKeysWithValues: updates.map { ($0.name, $0.status) })
+        XCTAssertEqual(byName["T1"], .completed)
+        XCTAssertEqual(byName["T2"], .active)
+    }
+
+    func testDefinitionFormats() {
+        // 行内冒号引导（agent 回复最常见形态）
+        XCTAssertEqual(
+            CodenameDetector.detectDefinitions(in: "好的，编号如下：N1: 登录改版").map(\.name), ["N1"])
+        // markdown 加粗列表键
+        XCTAssertEqual(
+            CodenameDetector.detectDefinitions(in: "- **N1**: 登录页改版").first?.name, "N1")
+        // ASCII 逗号链与顿号链逐个切分
+        let commaChain = CodenameDetector.detectDefinitions(in: "N1: login rework, N2: payment rework")
+        XCTAssertEqual(commaChain.map(\.name), ["N1", "N2"])
+        XCTAssertEqual(commaChain[0].definition, "login rework")
+        // 重放展平文本（换行被替换为空格）
+        let flattened = CodenameDetector.detectDefinitions(in: "编号如下： N1: 登录页改版 N2: 支付重构")
+        XCTAssertEqual(flattened.map(\.name), ["N1", "N2"])
+        XCTAssertEqual(flattened[1].definition, "支付重构")
+    }
+
+    func testStopListBlocksTechVocabulary() {
+        XCTAssertTrue(
+            CodenameDetector.detectDefinitions(in: "S3: 存储桶配置\nQ1: 一季度目标\nEC2: 计算实例").isEmpty)
+        XCTAssertTrue(CodenameDetector.detect(in: "升级到 HTTP-2 和 GPT-4").isEmpty)
+    }
+
+    func testNegatedStatusKeywords() {
+        let known: Set<String> = ["N2", "T3"]
+        let updates = CodenameDetector.detectMentions(in: "N2 尚未完成，T3 不执行", known: known)
+        for update in updates {
+            XCTAssertNil(update.status, "\(update.name) 的否定语境不应产生状态")
+        }
+    }
+
+    func testDefinitionIsNotSelfMention() throws {
+        let dbPath = NSTemporaryDirectory() + "at-test-\(UUID().uuidString).sqlite"
+        defer { try? FileManager.default.removeItem(atPath: dbPath) }
+        let store = try Store(path: dbPath)
+        let registry = CodenameRegistry(store: store)
+        let cmd = UserCommand(agent: .claude, project: "p", cwd: nil, sessionId: "s",
+                              timestamp: Date(timeIntervalSince1970: 1_700_000_000),
+                              text: "N1: 完成支付重构的收尾工作", sourceFile: "/f")
+        registry.processCommand(cmd)
+        let entry = try XCTUnwrap(store.fetchCodenames()["N1"])
+        XCTAssertEqual(entry.statusValue, .defined, "定义句身内的关键词不应翻转刚设的定义状态")
+        XCTAssertEqual(entry.occurrences, 1, "定义时不应重复计数")
+    }
+
+    func testShortCodeWordBoundaryAndUnknown() {
+        // "T1" inside "T12" must not match; unknown short codes never bare-match.
+        let updates = CodenameDetector.detectMentions(in: "T12 完成", known: ["T1"])
+        XCTAssertTrue(updates.isEmpty)
+        XCTAssertTrue(CodenameDetector.detect(in: "N2完成").isEmpty, "短码不允许裸匹配进词典")
+    }
+
+    func testDefinitionRestatementFlipsToChanged() throws {
+        let dbPath = NSTemporaryDirectory() + "at-test-\(UUID().uuidString).sqlite"
+        defer { try? FileManager.default.removeItem(atPath: dbPath) }
+        let store = try Store(path: dbPath)
+        let ts = Date(timeIntervalSince1970: 1_700_000_000)
+        store.defineCodename(name: "N2", definition: "支付流程重构", nodeId: "a", at: ts)
+        store.defineCodename(name: "N2", definition: "支付流程重构（含退款）", nodeId: "b", at: ts.addingTimeInterval(60))
+        let entry = try XCTUnwrap(store.fetchCodenames()["N2"])
+        XCTAssertEqual(entry.definition, "支付流程重构（含退款）", "最新定义生效")
+        XCTAssertEqual(entry.statusValue, .changed, "定义被改写应标记为变更")
+        XCTAssertEqual(entry.definitionNodeId, "a", "首次定义节点保留")
+        store.touchCodename(name: "N2", status: .completed, context: "N2完成", nodeId: "c", at: ts.addingTimeInterval(120))
+        XCTAssertEqual(store.fetchCodenames()["N2"]?.statusValue, .completed)
+    }
+
+    func testSummaryParseWithKindAndStatus() {
+        let raw = #"{"title":"批量编号需求","kind":"需求","keyPoints":[],"codenames":[{"name":"N1","definition":"登录页改版","status":"定义"},{"name":"N2","definition":"","status":"完成"}],"resultLine":null}"#
+        let summary = SummaryPrompt.parse(raw, engine: .cli)
+        XCTAssertEqual(summary?.kind, "需求")
+        XCTAssertEqual(summary?.codenames.count, 2)
+        XCTAssertEqual(summary?.codenames[1].status, "完成")
+    }
+
     // MARK: - Codenames
 
     func testCodenameDetector() {
