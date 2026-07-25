@@ -209,9 +209,10 @@ public sealed partial class MainWindow : Window
         _wsdqHelper = new WindowsSystemDispatcherQueueHelper();
         _wsdqHelper.EnsureWindowsSystemDispatcherQueueController();
 
+        // IsInputActive keeps the acrylic material rendered even while the
+        // panel is not the foreground window (the widget is usually unfocused).
         _backdropConfig = new SystemBackdropConfiguration
         {
-            IsAlwaysActive = false,
             IsInputActive = true,
         };
         SyncBackdropTheme();
