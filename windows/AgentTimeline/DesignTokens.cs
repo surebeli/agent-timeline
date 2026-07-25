@@ -143,6 +143,7 @@ public sealed class DesignTokens
                     "commandText", "commandBg", "derivedBg", "derivedRule",
                     "entryHover", "entryDivider",
                     "dayHeaderText", "dayHeaderRule", "dayHeaderBg",
+                    "panelScrim", "surfaceStroke",
                 })
                 {
                     if (color.TryGetProperty(name, out var dual) &&

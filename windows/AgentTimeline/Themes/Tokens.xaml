@@ -20,6 +20,9 @@
             <Color x:Key="CardBackgroundColor">#B8FFFFFF</Color>
             <Color x:Key="CardBorderColor">#14000000</Color>
             <Color x:Key="TimelineRailColor">#FFC9CDD4</Color>
+            <!-- 自稳对比 (self-contained contrast over arbitrary backdrops) -->
+            <Color x:Key="PanelScrimColor">#B8F5F6F7</Color>
+            <Color x:Key="SurfaceStrokeColor">#1A000000</Color>
             <Color x:Key="CodenameChipBgColor">#1F4F6BF0</Color>
             <Color x:Key="CodenameChipTextColor">#FF3A50C2</Color>
             <Color x:Key="ResultLineColor">#FF0FA968</Color>
@@ -42,6 +45,8 @@
             <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackgroundColor}" />
             <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource CardBorderColor}" />
             <SolidColorBrush x:Key="TimelineRailBrush" Color="{StaticResource TimelineRailColor}" />
+            <SolidColorBrush x:Key="PanelScrimBrush" Color="{StaticResource PanelScrimColor}" />
+            <SolidColorBrush x:Key="SurfaceStrokeBrush" Color="{StaticResource SurfaceStrokeColor}" />
             <SolidColorBrush x:Key="CodenameChipBgBrush" Color="{StaticResource CodenameChipBgColor}" />
             <SolidColorBrush x:Key="CodenameChipTextBrush" Color="{StaticResource CodenameChipTextColor}" />
             <SolidColorBrush x:Key="ResultLineBrush" Color="{StaticResource ResultLineColor}" />
@@ -64,18 +69,21 @@
             <Color x:Key="TextTertiaryColor">#FF6B7280</Color>
             <Color x:Key="CardBackgroundColor">#B81E2128</Color>
             <Color x:Key="CardBorderColor">#1AFFFFFF</Color>
-            <Color x:Key="TimelineRailColor">#FF3A3F4B</Color>
+            <Color x:Key="TimelineRailColor">#FF454B59</Color>
+            <!-- 自稳对比 (self-contained contrast over arbitrary backdrops) -->
+            <Color x:Key="PanelScrimColor">#8C14161C</Color>
+            <Color x:Key="SurfaceStrokeColor">#24FFFFFF</Color>
             <Color x:Key="CodenameChipBgColor">#2E7B93FF</Color>
             <Color x:Key="CodenameChipTextColor">#FFA9B8FF</Color>
             <Color x:Key="ResultLineColor">#FF3DDC97</Color>
             <Color x:Key="StatusChangedColor">#FFF0A050</Color>
             <!-- 台账 (dual-ink ledger) surfaces -->
             <Color x:Key="CommandTextColor">#FFFFFFFF</Color>
-            <Color x:Key="CommandBgColor">#CC2B313D</Color>
-            <Color x:Key="DerivedBgColor">#A8242A36</Color>
-            <Color x:Key="DerivedRuleColor">#994A505E</Color>
+            <Color x:Key="CommandBgColor">#D92E3542</Color>
+            <Color x:Key="DerivedBgColor">#B4242A36</Color>
+            <Color x:Key="DerivedRuleColor">#A6565D6B</Color>
             <Color x:Key="EntryHoverColor">#0FFFFFFF</Color>
-            <Color x:Key="EntryDividerColor">#12FFFFFF</Color>
+            <Color x:Key="EntryDividerColor">#1CFFFFFF</Color>
             <Color x:Key="DayHeaderTextColor">#FF6B7280</Color>
             <Color x:Key="DayHeaderRuleColor">#26FFFFFF</Color>
             <Color x:Key="DayHeaderBgColor">#D91A1D24</Color>
@@ -87,6 +95,8 @@
             <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackgroundColor}" />
             <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource CardBorderColor}" />
             <SolidColorBrush x:Key="TimelineRailBrush" Color="{StaticResource TimelineRailColor}" />
+            <SolidColorBrush x:Key="PanelScrimBrush" Color="{StaticResource PanelScrimColor}" />
+            <SolidColorBrush x:Key="SurfaceStrokeBrush" Color="{StaticResource SurfaceStrokeColor}" />
             <SolidColorBrush x:Key="CodenameChipBgBrush" Color="{StaticResource CodenameChipBgColor}" />
             <SolidColorBrush x:Key="CodenameChipTextBrush" Color="{StaticResource CodenameChipTextColor}" />
             <SolidColorBrush x:Key="ResultLineBrush" Color="{StaticResource ResultLineColor}" />
@@ -110,18 +120,21 @@
             <Color x:Key="TextTertiaryColor">#FF6B7280</Color>
             <Color x:Key="CardBackgroundColor">#B81E2128</Color>
             <Color x:Key="CardBorderColor">#1AFFFFFF</Color>
-            <Color x:Key="TimelineRailColor">#FF3A3F4B</Color>
+            <Color x:Key="TimelineRailColor">#FF454B59</Color>
+            <!-- 自稳对比 (self-contained contrast over arbitrary backdrops) -->
+            <Color x:Key="PanelScrimColor">#8C14161C</Color>
+            <Color x:Key="SurfaceStrokeColor">#24FFFFFF</Color>
             <Color x:Key="CodenameChipBgColor">#2E7B93FF</Color>
             <Color x:Key="CodenameChipTextColor">#FFA9B8FF</Color>
             <Color x:Key="ResultLineColor">#FF3DDC97</Color>
             <Color x:Key="StatusChangedColor">#FFF0A050</Color>
             <!-- 台账 (dual-ink ledger) surfaces -->
             <Color x:Key="CommandTextColor">#FFFFFFFF</Color>
-            <Color x:Key="CommandBgColor">#CC2B313D</Color>
-            <Color x:Key="DerivedBgColor">#A8242A36</Color>
-            <Color x:Key="DerivedRuleColor">#994A505E</Color>
+            <Color x:Key="CommandBgColor">#D92E3542</Color>
+            <Color x:Key="DerivedBgColor">#B4242A36</Color>
+            <Color x:Key="DerivedRuleColor">#A6565D6B</Color>
             <Color x:Key="EntryHoverColor">#0FFFFFFF</Color>
-            <Color x:Key="EntryDividerColor">#12FFFFFF</Color>
+            <Color x:Key="EntryDividerColor">#1CFFFFFF</Color>
             <Color x:Key="DayHeaderTextColor">#FF6B7280</Color>
             <Color x:Key="DayHeaderRuleColor">#26FFFFFF</Color>
             <Color x:Key="DayHeaderBgColor">#D91A1D24</Color>
@@ -133,6 +146,8 @@
             <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackgroundColor}" />
             <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource CardBorderColor}" />
             <SolidColorBrush x:Key="TimelineRailBrush" Color="{StaticResource TimelineRailColor}" />
+            <SolidColorBrush x:Key="PanelScrimBrush" Color="{StaticResource PanelScrimColor}" />
+            <SolidColorBrush x:Key="SurfaceStrokeBrush" Color="{StaticResource SurfaceStrokeColor}" />
             <SolidColorBrush x:Key="CodenameChipBgBrush" Color="{StaticResource CodenameChipBgColor}" />
             <SolidColorBrush x:Key="CodenameChipTextBrush" Color="{StaticResource CodenameChipTextColor}" />
             <SolidColorBrush x:Key="ResultLineBrush" Color="{StaticResource ResultLineColor}" />

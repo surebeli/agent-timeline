@@ -16,6 +16,18 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 
 ## 更新记录
 
+- **2026-07-26 (e) 任意底色自稳对比（对齐 mac 端 PRD §3.2b 末条）**
+  - 新增 `color.panelScrim`（浅 #F5F6F7B8 / 深 #14161C8C）：RootGrid 背景改为 scrim 底幕，
+    垫在 DesktopAcrylic 材质与全部内容之间——压缩透入底色方差（暗色 IDE/terminal 常态）
+    同时保持透光，窗口透明度行为不变；
+  - 新增 `color.surfaceStroke`（浅 #0000001A / 深 #FFFFFF24）：命令块与提炼块两级纸面附
+    1px 自适应描边（Border BorderBrush/Thickness，圆角不变 3,8,8,8 / 8），同色系底上
+    块面自带边界；agent 色墨线仍叠于描边之上（fill → stroke → rule 层序同 mac）；
+  - 暗色值调校：commandBg → #2E3542D9、derivedBg → #242A36B4、timelineRail → #454B59、
+    entryDivider → #FFFFFF1C、derivedRule → #565D6BA6；
+  - Assets JSON 与根 design/ 字节一致，Tokens.xaml（AARRGGBB 换算，Dark 与 Default 同步）
+    与 DesignTokens.cs 双色加载表更新。
+
 - **2026-07-26 (d) 提炼块对比度修正（对齐 mac 端同日反馈）**
   - 提炼块落在自己的次级纸面上：新增 `color.derivedBg`（浅 #FFFFFF8C / 深 #242A36A8），
     Border 圆角 8（普通角，无左上压平）、内边距 8×6，14px 缩进保留在纸面之外、虚线墨线

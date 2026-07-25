@@ -8,12 +8,14 @@
     <!--
       Borderless translucent floating panel (PRD F5). Window chrome is configured in
       code-behind (AppWindow + OverlappedPresenter, DesktopAcrylicController backdrop,
-      layered-window hover opacity). RootGrid keeps a transparent background so the
-      acrylic material shows through.
+      layered-window hover opacity). RootGrid carries the panelScrim (PRD §3.2b 自稳对比):
+      a translucent base layered between the acrylic backdrop and all content, compressing
+      whatever bleeds through (dark IDEs, bright pages) into a predictable base so the
+      token palette always keeps its contrast. Window opacity behavior is unchanged.
     -->
     <Grid
         x:Name="RootGrid"
-        Background="Transparent"
+        Background="{ThemeResource PanelScrimBrush}"
         PointerEntered="RootGrid_PointerEntered"
         PointerExited="RootGrid_PointerExited">
 
@@ -330,6 +332,8 @@
                             <Grid Grid.Row="1">
                                 <Border
                                     Background="{ThemeResource CommandBgBrush}"
+                                    BorderBrush="{ThemeResource SurfaceStrokeBrush}"
+                                    BorderThickness="1"
                                     CornerRadius="{StaticResource CommandBlockCornerRadius}"
                                     Padding="{StaticResource CommandPadding}">
                                     <Grid>
@@ -356,7 +360,9 @@
                                             TextWrapping="Wrap" />
                                     </Grid>
                                 </Border>
-                                <!-- 2px solid agent-colored quote rule flush on the leading edge -->
+                                <!-- 2px solid agent-colored quote rule flush on the leading edge;
+                                     drawn AFTER the paper block so it sits over the 1px
+                                     surfaceStroke there (mac overlay order: fill → stroke → rule) -->
                                 <Border
                                     Width="{StaticResource QuoteRuleWidth}"
                                     HorizontalAlignment="Left"
@@ -389,6 +395,8 @@
                                 Grid.Row="2"
                                 Margin="{StaticResource DerivedIndent}"
                                 Background="{ThemeResource DerivedBgBrush}"
+                                BorderBrush="{ThemeResource SurfaceStrokeBrush}"
+                                BorderThickness="1"
                                 CornerRadius="{StaticResource DerivedBlockCornerRadius}"
                                 Padding="{StaticResource CommandPadding}"
                                 Visibility="{x:Bind HasDerived, Mode=OneWay}">
