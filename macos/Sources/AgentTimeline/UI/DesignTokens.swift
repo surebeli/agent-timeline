@@ -29,6 +29,14 @@ struct DesignTokens: Codable {
         let codenameChipText: DualColor
         let resultLine: DualColor
         let statusChanged: DualColor
+        let commandText: DualColor
+        let commandBg: DualColor
+        let derivedRule: DualColor
+        let entryHover: DualColor
+        let entryDivider: DualColor
+        let dayHeaderText: DualColor
+        let dayHeaderRule: DualColor
+        let dayHeaderBg: DualColor
         let kind: [String: String]
         let agentBadge: [String: String]
 
@@ -48,9 +56,16 @@ struct DesignTokens: Codable {
             let body: Double
             let caption: Double
             let chip: Double
+            let command: Double
+            let derivedTitle: Double
+            let dayHeader: Double
+        }
+        struct LetterSpacing: Codable {
+            let dayHeader: Double
         }
         let size: Sizes
         let lineSpacing: Double
+        let letterSpacing: LetterSpacing
     }
 
     struct Spacing: Codable {
@@ -61,18 +76,57 @@ struct DesignTokens: Codable {
         let railDotSize: Double
         let chipPaddingH: Double
         let chipPaddingV: Double
+        let railGutter: Double
+        let quoteRuleWidth: Double
+        let derivedRuleWidth: Double
+        let ruleTextGap: Double
+        let hangIndent: Double
+        let entryPaddingV: Double
+        let commandPaddingH: Double
+        let commandPaddingV: Double
+        let chipHitInflate: Double
     }
 
     struct Radius: Codable {
         let panel: Double
         let card: Double
         let chip: Double
+        let commandBlock: Double
+        let commandBlockAttach: Double
+        let anchorWash: Double
     }
 
     struct Opacity: Codable {
         let hover: Double
         let idle: Double
         let transitionMs: Double
+        let anchorWash: Double
+        let hoverFadeMs: Double
+    }
+
+    struct Marker: Codable {
+        let anchor: Double
+        let standard: Double
+        let minor: Double
+        let definitionRingWidth: Double
+        let definitionRingOffset: Double
+    }
+
+    struct LineLimits: Codable {
+        let commandCollapsed: Int
+        let keypointsCollapsed: Int
+    }
+
+    struct Glyphs: Codable {
+        let prompt: String
+        let derived: String
+    }
+
+    struct Motion: Codable {
+        let expandSpringResponse: Double
+        let expandSpringDamping: Double
+        let enterRiseMs: Double
+        let copyMorphMs: Double
     }
 
     struct Panel: Codable {
@@ -88,6 +142,10 @@ struct DesignTokens: Codable {
     let radius: Radius
     let opacity: Opacity
     let panel: Panel
+    let marker: Marker
+    let lineLimit: LineLimits
+    let glyph: Glyphs
+    let motion: Motion
 
     static let shared: DesignTokens = {
         // Tokens are embedded at build time (DesignTokensData.swift, generated from

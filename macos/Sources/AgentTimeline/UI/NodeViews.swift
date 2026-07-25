@@ -3,11 +3,21 @@ import SwiftUI
 
 private let tokens = DesignTokens.shared
 
+/// Ledger entry (boxless). The visual grammar the user learns once:
+///   ❯ + solid agent-colored rule + opaque paper block = my literal words
+///   ✦ + dotted gray rule                              = machine-derived
+/// Rail markers carry kind/importance; a ring marks codename-defining nodes.
 struct NodeCardView: View {
     let node: TimelineNode
     @Bindable var viewModel: TimelineViewModel
 
+    @State private var hovering = false
+    @State private var copied = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var isExpanded: Bool { viewModel.expanded.contains(node.id) }
+    private var agentColor: Color { tokens.color.badgeColor(node.command.agent) }
+    private var kindRaw: String? { node.summary?.kind }
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -16,49 +26,90 @@ struct NodeCardView: View {
     }()
 
     var body: some View {
-        HStack(alignment: .top, spacing: tokens.spacing.cardGap) {
-            Circle()
-                .fill(tokens.color.badgeColor(node.command.agent))
-                .frame(width: tokens.spacing.railDotSize, height: tokens.spacing.railDotSize)
-                .padding(.top, 4)
-
-            VStack(alignment: .leading, spacing: 5) {
-                header
-                Text(title)
-                    .font(.system(size: tokens.typography.size.title, weight: .semibold))
-                    .foregroundStyle(tokens.color.textPrimary.color)
-                    .textSelection(.enabled)
-                    .lineLimit(isExpanded ? nil : 2)
-                keyPoints
-                codenameChips
-                if let result = node.summary?.resultLine, !result.isEmpty {
-                    Text("→ " + result)
-                        .font(.system(size: tokens.typography.size.caption))
-                        .foregroundStyle(tokens.color.resultLine.color)
-                        .textSelection(.enabled)
-                        .lineLimit(isExpanded ? nil : 1)
-                }
-                if isExpanded {
-                    expandedBody
-                }
+        HStack(alignment: .top, spacing: 0) {
+            railGutter
+            content
+                .padding(.vertical, tokens.spacing.entryPaddingV)
+                .padding(.trailing, tokens.spacing.panelPadding)
+        }
+        .background(anchorWash)
+        .background(hovering ? tokens.color.entryHover.color : .clear)
+        .contentShape(Rectangle())
+        .onTapGesture { toggleExpanded() }
+        .onHover { inside in
+            withAnimation(.easeOut(duration: tokens.opacity.hoverFadeMs / 1000)) {
+                hovering = inside
             }
         }
-        .padding(tokens.spacing.cardPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: tokens.radius.card)
-                .fill(tokens.color.cardBackground.color)
-                .overlay(
-                    RoundedRectangle(cornerRadius: tokens.radius.card)
-                        .strokeBorder(tokens.color.cardBorder.color, lineWidth: 1)))
-        .contentShape(Rectangle())
+        .contextMenu { menuItems }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(tokens.color.entryDivider.color)
+                .frame(height: 1)
+                .padding(.leading, tokens.spacing.railGutter)
+        }
     }
 
-    private var title: String {
-        node.summary?.title ?? ParserSupport.truncate(node.command.text, to: 40)
+    // MARK: - Rail
+
+    /// Continuous 2px rail per entry (segments join visually) + kind marker
+    /// aligned to the command block's first line, ringed on definition nodes.
+    private var railGutter: some View {
+        ZStack(alignment: .top) {
+            Rectangle()
+                .fill(tokens.color.timelineRail.color)
+                .frame(width: tokens.spacing.railWidth)
+                .frame(maxHeight: .infinity)
+            marker
+                .padding(.top, tokens.spacing.entryPaddingV + 24)
+        }
+        .frame(width: tokens.spacing.railGutter)
     }
 
-    private var header: some View {
+    @ViewBuilder
+    private var marker: some View {
+        let isDefinition = viewModel.definitionNodeIds.contains(node.id)
+        let kindColor = tokens.color.kindColor(kindRaw) ?? tokens.color.timelineRail.color
+        Group {
+            switch kindRaw {
+            case NodeKind.requirement.rawValue, NodeKind.decision.rawValue:
+                Rectangle()
+                    .fill(kindColor)
+                    .frame(width: tokens.marker.anchor / 1.35, height: tokens.marker.anchor / 1.35)
+                    .rotationEffect(.degrees(45))
+            case NodeKind.task.rawValue, NodeKind.fix.rawValue,
+                 NodeKind.research.rawValue, NodeKind.learning.rawValue:
+                Circle()
+                    .fill(kindColor)
+                    .frame(width: tokens.marker.standard, height: tokens.marker.standard)
+            default:
+                Circle()
+                    .strokeBorder(tokens.color.timelineRail.color, lineWidth: 1)
+                    .background(Circle().fill(tokens.color.dayHeaderBg.color))
+                    .frame(width: tokens.marker.minor, height: tokens.marker.minor)
+            }
+        }
+        .overlay {
+            if isDefinition {
+                Circle()
+                    .strokeBorder(tokens.color.accent.color, lineWidth: tokens.marker.definitionRingWidth)
+                    .frame(width: tokens.marker.anchor + 2 * tokens.marker.definitionRingOffset,
+                           height: tokens.marker.anchor + 2 * tokens.marker.definitionRingOffset)
+            }
+        }
+    }
+
+    // MARK: - Content
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            metaRow
+            commandBlock
+            derivedBlock
+        }
+    }
+
+    private var metaRow: some View {
         HStack(spacing: 6) {
             Text(Self.timeFormatter.string(from: node.command.timestamp))
                 .font(.system(size: tokens.typography.size.caption).monospacedDigit())
@@ -69,8 +120,8 @@ struct NodeCardView: View {
                 .lineLimit(1)
             Text(node.command.agent.displayName)
                 .font(.system(size: tokens.typography.size.chip, weight: .medium))
-                .foregroundStyle(tokens.color.badgeColor(node.command.agent))
-            if let kind = node.summary?.kind, let color = tokens.color.kindColor(kind) {
+                .foregroundStyle(agentColor)
+            if let kind = kindRaw, let color = tokens.color.kindColor(kind) {
                 Text(kind)
                     .font(.system(size: tokens.typography.size.chip, weight: .medium))
                     .foregroundStyle(color)
@@ -79,35 +130,162 @@ struct NodeCardView: View {
                     .background(RoundedRectangle(cornerRadius: 3).fill(color.opacity(0.14)))
             }
             Spacer(minLength: 0)
-            Button {
-                if isExpanded {
-                    viewModel.expanded.remove(node.id)
-                } else {
-                    viewModel.expanded.insert(node.id)
-                }
-            } label: {
-                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+            Button(action: toggleExpanded) {
+                Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(tokens.color.textTertiary.color)
+                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
             }
             .buttonStyle(.plain)
+            .frame(width: 24, height: 24)
+            .contentShape(Rectangle())
         }
     }
 
+    /// The hero: my literal words on an opaque "paper" block that survives the
+    /// panel's translucency, flattened corner pointing at the rail marker.
+    private var commandBlock: some View {
+        HStack(alignment: .top, spacing: 0) {
+            Text(tokens.glyph.prompt)
+                .font(.custom("SF Mono", size: tokens.typography.size.command))
+                .foregroundStyle(agentColor)
+                .frame(width: tokens.spacing.hangIndent, alignment: .leading)
+            Text(node.command.text)
+                .font(.system(size: tokens.typography.size.command, weight: .semibold))
+                .foregroundStyle(tokens.color.commandText.color)
+                .lineSpacing(tokens.typography.lineSpacing)
+                .lineLimit(isExpanded ? nil : tokens.lineLimit.commandCollapsed)
+                .truncationMode(.tail)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, tokens.spacing.commandPaddingH)
+        .padding(.vertical, tokens.spacing.commandPaddingV)
+        .background(
+            UnevenRoundedRectangle(
+                topLeadingRadius: tokens.radius.commandBlockAttach,
+                bottomLeadingRadius: tokens.radius.commandBlock,
+                bottomTrailingRadius: tokens.radius.commandBlock,
+                topTrailingRadius: tokens.radius.commandBlock)
+                .fill(tokens.color.commandBg.color))
+        .overlay(alignment: .leading) {
+            UnevenRoundedRectangle(
+                topLeadingRadius: tokens.radius.commandBlockAttach,
+                bottomLeadingRadius: tokens.radius.commandBlock,
+                bottomTrailingRadius: 0, topTrailingRadius: 0)
+                .fill(agentColor)
+                .frame(width: tokens.spacing.quoteRuleWidth)
+        }
+        .overlay(alignment: .topTrailing) {
+            if hovering || copied {
+                copyButton
+                    .padding(4)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private var copyButton: some View {
+        Button {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(node.command.text, forType: .string)
+            withAnimation(.easeOut(duration: 0.15)) { copied = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + tokens.motion.copyMorphMs / 1000) {
+                withAnimation(.easeOut(duration: 0.15)) { copied = false }
+            }
+        } label: {
+            Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                .font(.system(size: 10))
+                .foregroundStyle(copied ? tokens.color.resultLine.color : tokens.color.textTertiary.color)
+        }
+        .buttonStyle(.plain)
+        .frame(width: 20, height: 20)
+        .contentShape(Rectangle())
+        .help("复制原话")
+    }
+
+    /// Everything machine-generated, subordinated behind one dotted rule.
     @ViewBuilder
-    private var keyPoints: some View {
+    private var derivedBlock: some View {
+        let hasAnyDerived = derivedTitle != nil
+            || !(node.summary?.keyPoints.isEmpty ?? true)
+            || !chipNames.isEmpty
+            || !(node.summary?.resultLine ?? "").isEmpty
+        if hasAnyDerived {
+            HStack(alignment: .top, spacing: tokens.spacing.ruleTextGap) {
+                DottedRule()
+                    .frame(width: tokens.spacing.derivedRuleWidth)
+                VStack(alignment: .leading, spacing: 3) {
+                    if let title = derivedTitle {
+                        HStack(alignment: .top, spacing: 4) {
+                            Text(tokens.glyph.derived)
+                                .font(.system(size: tokens.typography.size.chip))
+                                .foregroundStyle(tokens.color.textTertiary.color)
+                            Text(title)
+                                .font(.system(size: tokens.typography.size.derivedTitle))
+                                .foregroundStyle(tokens.color.textSecondary.color)
+                                .lineLimit(1)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    keypointsView
+                    codenameChips
+                    if let result = node.summary?.resultLine, !result.isEmpty {
+                        Text("→ " + result)
+                            .font(.system(size: tokens.typography.size.caption))
+                            .foregroundStyle(tokens.color.resultLine.color)
+                            .textSelection(.enabled)
+                            .lineLimit(isExpanded ? nil : 1)
+                    }
+                }
+            }
+            .padding(.leading, tokens.spacing.hangIndent)
+        }
+    }
+
+    /// LLM title, suppressed when it merely echoes a short command.
+    private var derivedTitle: String? {
+        guard let title = node.summary?.title, !title.isEmpty else { return nil }
+        let command = node.command.text
+        if command.count <= 20 { return nil }
+        let normalize: (String) -> String = { s in
+            String(s.unicodeScalars.filter { !$0.properties.isWhitespace
+                && !CharacterSet.punctuationCharacters.contains($0) })
+        }
+        let normTitle = normalize(title)
+        let normCommand = normalize(command)
+        if !normTitle.isEmpty, normCommand.hasPrefix(normTitle) { return nil }
+        return title
+    }
+
+    @ViewBuilder
+    private var keypointsView: some View {
         let points = node.summary?.keyPoints ?? []
         if !points.isEmpty {
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(Array(points.enumerated()), id: \.offset) { _, point in
-                    HStack(alignment: .top, spacing: 4) {
-                        Text("·")
-                            .font(.system(size: tokens.typography.size.caption, weight: .bold))
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(points.enumerated()), id: \.offset) { _, point in
+                        HStack(alignment: .top, spacing: 4) {
+                            Text("·")
+                                .font(.system(size: tokens.typography.size.caption, weight: .bold))
+                                .foregroundStyle(tokens.color.accent.color)
+                            Text(point)
+                                .font(.system(size: tokens.typography.size.caption))
+                                .foregroundStyle(tokens.color.textSecondary.color)
+                                .textSelection(.enabled)
+                        }
+                    }
+                }
+            } else {
+                HStack(spacing: 4) {
+                    Text(points.joined(separator: " · "))
+                        .font(.system(size: tokens.typography.size.caption))
+                        .foregroundStyle(tokens.color.textTertiary.color)
+                        .lineLimit(tokens.lineLimit.keypointsCollapsed)
+                    if points.count > 2 {
+                        Text("+\(points.count - 2)")
+                            .font(.system(size: tokens.typography.size.chip, weight: .medium))
                             .foregroundStyle(tokens.color.accent.color)
-                        Text(point)
-                            .font(.system(size: tokens.typography.size.caption))
-                            .foregroundStyle(tokens.color.textSecondary.color)
-                            .textSelection(.enabled)
                     }
                 }
             }
@@ -133,31 +311,65 @@ struct NodeCardView: View {
         return (fromSummary + detected).filter { seen.insert($0).inserted }
     }
 
-    private var expandedBody: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Divider()
-            HStack {
-                Text("原始命令")
-                    .font(.system(size: tokens.typography.size.chip, weight: .medium))
-                    .foregroundStyle(tokens.color.textTertiary.color)
-                Spacer()
-                Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(node.command.text, forType: .string)
-                } label: {
-                    Image(systemName: "doc.on.doc")
-                        .font(.system(size: 9))
-                        .foregroundStyle(tokens.color.textTertiary.color)
-                }
-                .buttonStyle(.plain)
-                .help("复制原始命令")
-            }
-            Text(node.command.text)
-                .font(.system(size: tokens.typography.size.caption))
-                .foregroundStyle(tokens.color.textPrimary.color)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
+    /// 需求/决策 anchors get a faint kind-colored wash across the whole entry.
+    @ViewBuilder
+    private var anchorWash: some View {
+        if kindRaw == NodeKind.requirement.rawValue || kindRaw == NodeKind.decision.rawValue,
+           let color = tokens.color.kindColor(kindRaw) {
+            RoundedRectangle(cornerRadius: tokens.radius.anchorWash)
+                .fill(color.opacity(tokens.opacity.anchorWash))
         }
+    }
+
+    @ViewBuilder
+    private var menuItems: some View {
+        Button("复制原话") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(node.command.text, forType: .string)
+        }
+        Button("复制摘要") {
+            var parts: [String] = []
+            if let s = node.summary {
+                parts.append(s.title)
+                parts.append(contentsOf: s.keyPoints)
+                if let r = s.resultLine, !r.isEmpty { parts.append("→ " + r) }
+            }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(parts.joined(separator: "\n"), forType: .string)
+        }
+        if let first = chipNames.first {
+            Button("跳转到 \(first) 定义节点") { viewModel.jumpToDefinition(of: first) }
+        }
+        Button("只看此项目") { viewModel.projectFilter = node.command.project }
+    }
+
+    private func toggleExpanded() {
+        let spring = Animation.spring(
+            response: tokens.motion.expandSpringResponse,
+            dampingFraction: tokens.motion.expandSpringDamping)
+        withAnimation(reduceMotion ? nil : spring) {
+            if isExpanded {
+                viewModel.expanded.remove(node.id)
+            } else {
+                viewModel.expanded.insert(node.id)
+            }
+        }
+    }
+}
+
+/// 1px vertical dotted rule — the "machine-derived" ink.
+private struct DottedRule: View {
+    var body: some View {
+        GeometryReader { geo in
+            Path { path in
+                path.move(to: .zero)
+                path.addLine(to: CGPoint(x: 0, y: geo.size.height))
+            }
+            .stroke(
+                tokens.color.derivedRule.color,
+                style: StrokeStyle(lineWidth: tokens.spacing.derivedRuleWidth, dash: [2, 3]))
+        }
+        .frame(width: tokens.spacing.derivedRuleWidth)
     }
 }
 
@@ -198,6 +410,7 @@ struct CodenameChip: View {
                     .fill(tokens.color.codenameChipBg.color))
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle().inset(by: -tokens.spacing.chipHitInflate))
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
             popoverContent
                 .onAppear { postHold(true) }

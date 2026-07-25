@@ -149,23 +149,29 @@ struct TimelineView: View {
     private var timeline: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: tokens.spacing.cardGap) {
+                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                     if viewModel.visibleNodes.isEmpty {
                         emptyState
                     }
-                    ForEach(viewModel.visibleNodes) { node in
-                        NodeCardView(node: node, viewModel: viewModel)
-                            .id(node.id)
+                    ForEach(viewModel.dayGroups) { group in
+                        Section {
+                            ForEach(group.nodes) { node in
+                                NodeCardView(node: node, viewModel: viewModel)
+                                    .id(node.id)
+                            }
+                        } header: {
+                            DayHeader(label: group.label)
+                        }
                     }
                     if viewModel.canLoadMore {
                         Button("加载更早…") { viewModel.loadMore() }
                             .buttonStyle(.plain)
                             .font(.system(size: tokens.typography.size.caption))
                             .foregroundStyle(tokens.color.accent.color)
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 8)
                     }
                 }
-                .padding(tokens.spacing.panelPadding)
+                .padding(.leading, tokens.spacing.panelPadding)
             }
             .onChange(of: viewModel.scrollTarget) { _, target in
                 guard let target else { return }
@@ -174,6 +180,33 @@ struct TimelineView: View {
                 }
                 viewModel.scrollTarget = nil
             }
+        }
+    }
+
+    /// Pinned day divider: opaque-ish backing so it never ghosts over entries on
+    /// the blur; a short tick crosses the rail at its vertical center.
+    private struct DayHeader: View {
+        let label: String
+
+        var body: some View {
+            HStack(spacing: 8) {
+                Rectangle()
+                    .fill(tokens.color.dayHeaderRule.color)
+                    .frame(width: 6, height: 2)
+                    .padding(.leading, (tokens.spacing.railGutter - 6) / 2)
+                Text(label)
+                    .font(.system(size: tokens.typography.size.dayHeader, weight: .medium))
+                    .kerning(tokens.typography.letterSpacing.dayHeader)
+                    .foregroundStyle(tokens.color.dayHeaderText.color)
+                    .lineLimit(1)
+                    .fixedSize()
+                Rectangle()
+                    .fill(tokens.color.dayHeaderRule.color)
+                    .frame(height: 1)
+            }
+            .padding(.vertical, 5)
+            .padding(.trailing, tokens.spacing.panelPadding)
+            .background(tokens.color.dayHeaderBg.color)
         }
     }
 

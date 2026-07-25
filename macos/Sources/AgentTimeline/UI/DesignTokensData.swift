@@ -7,17 +7,50 @@ enum DesignTokensData {
     "note": "双端共享视觉规范唯一事实源。mac: 编译进 bundle 由 DesignTokens.swift 解析；win: 生成 XAML 资源。系统材质（NSVisualEffectView / Mica)各自保留。"
   },
   "color": {
-    "accent": { "light": "#4F6BF0", "dark": "#7B93FF" },
-    "textPrimary": { "light": "#1D2129", "dark": "#F2F3F5" },
-    "textSecondary": { "light": "#4E5969", "dark": "#A9AEB8" },
-    "textTertiary": { "light": "#86909C", "dark": "#6B7280" },
-    "cardBackground": { "light": "#FFFFFFB8", "dark": "#1E2128B8" },
-    "cardBorder": { "light": "#00000014", "dark": "#FFFFFF1A" },
-    "timelineRail": { "light": "#C9CDD4", "dark": "#3A3F4B" },
-    "codenameChipBg": { "light": "#4F6BF01F", "dark": "#7B93FF2E" },
-    "codenameChipText": { "light": "#3A50C2", "dark": "#A9B8FF" },
-    "resultLine": { "light": "#0FA968", "dark": "#3DDC97" },
-    "statusChanged": { "light": "#C77414", "dark": "#F0A050" },
+    "accent": {
+      "light": "#4F6BF0",
+      "dark": "#7B93FF"
+    },
+    "textPrimary": {
+      "light": "#1D2129",
+      "dark": "#F2F3F5"
+    },
+    "textSecondary": {
+      "light": "#4E5969",
+      "dark": "#A9AEB8"
+    },
+    "textTertiary": {
+      "light": "#86909C",
+      "dark": "#6B7280"
+    },
+    "cardBackground": {
+      "light": "#FFFFFFB8",
+      "dark": "#1E2128B8"
+    },
+    "cardBorder": {
+      "light": "#00000014",
+      "dark": "#FFFFFF1A"
+    },
+    "timelineRail": {
+      "light": "#C9CDD4",
+      "dark": "#3A3F4B"
+    },
+    "codenameChipBg": {
+      "light": "#4F6BF01F",
+      "dark": "#7B93FF2E"
+    },
+    "codenameChipText": {
+      "light": "#3A50C2",
+      "dark": "#A9B8FF"
+    },
+    "resultLine": {
+      "light": "#0FA968",
+      "dark": "#3DDC97"
+    },
+    "statusChanged": {
+      "light": "#C77414",
+      "dark": "#F0A050"
+    },
     "kind": {
       "需求": "#4F6BF0",
       "任务": "#E8833A",
@@ -32,19 +65,71 @@ enum DesignTokensData {
       "codex": "#10A37F",
       "kimi": "#4F8BFF",
       "zcode": "#9B59B6"
+    },
+    "commandText": {
+      "light": "#111418",
+      "dark": "#FFFFFF"
+    },
+    "commandBg": {
+      "light": "#FFFFFFE0",
+      "dark": "#2B313DCC"
+    },
+    "derivedRule": {
+      "light": "#C9CDD4",
+      "dark": "#41465280"
+    },
+    "entryHover": {
+      "light": "#0000000A",
+      "dark": "#FFFFFF0F"
+    },
+    "entryDivider": {
+      "light": "#00000010",
+      "dark": "#FFFFFF12"
+    },
+    "dayHeaderText": {
+      "light": "#86909C",
+      "dark": "#6B7280"
+    },
+    "dayHeaderRule": {
+      "light": "#00000012",
+      "dark": "#FFFFFF14"
+    },
+    "dayHeaderBg": {
+      "light": "#F5F6F7D9",
+      "dark": "#1A1D24D9"
     }
   },
   "typography": {
-    "fontFamily": { "mac": "SF Pro Text", "win": "Segoe UI Variable" },
-    "monoFamily": { "mac": "SF Mono", "win": "Cascadia Code" },
+    "fontFamily": {
+      "mac": "SF Pro Text",
+      "win": "Segoe UI Variable"
+    },
+    "monoFamily": {
+      "mac": "SF Mono",
+      "win": "Cascadia Code"
+    },
     "size": {
       "title": 13,
       "body": 12,
       "caption": 10.5,
-      "chip": 10
+      "chip": 10,
+      "command": 13.5,
+      "derivedTitle": 11.5,
+      "dayHeader": 10
     },
-    "weight": { "title": "semibold", "body": "regular", "caption": "regular", "chip": "medium" },
-    "lineSpacing": 1.3
+    "weight": {
+      "title": "semibold",
+      "body": "regular",
+      "caption": "regular",
+      "chip": "medium",
+      "command": "semibold",
+      "derivedTitle": "regular",
+      "dayHeader": "medium"
+    },
+    "lineSpacing": 1.3,
+    "letterSpacing": {
+      "dayHeader": 1.2
+    }
   },
   "spacing": {
     "panelPadding": 12,
@@ -53,23 +138,58 @@ enum DesignTokensData {
     "railWidth": 2,
     "railDotSize": 7,
     "chipPaddingH": 6,
-    "chipPaddingV": 2
+    "chipPaddingV": 2,
+    "railGutter": 22,
+    "quoteRuleWidth": 2,
+    "derivedRuleWidth": 1,
+    "ruleTextGap": 8,
+    "hangIndent": 14,
+    "entryPaddingV": 9,
+    "commandPaddingH": 8,
+    "commandPaddingV": 6,
+    "chipHitInflate": 4
   },
   "radius": {
     "panel": 14,
     "card": 10,
-    "chip": 5
+    "chip": 5,
+    "commandBlock": 8,
+    "commandBlockAttach": 3,
+    "anchorWash": 6
   },
   "opacity": {
     "hover": 0.95,
     "idle": 0.25,
-    "transitionMs": 180
+    "transitionMs": 180,
+    "anchorWash": 0.08,
+    "hoverFadeMs": 120
   },
   "panel": {
     "defaultWidth": 340,
     "minWidth": 280,
     "maxWidth": 560,
     "defaultHeight": 640
+  },
+  "marker": {
+    "anchor": 9,
+    "standard": 7,
+    "minor": 5,
+    "definitionRingWidth": 1.5,
+    "definitionRingOffset": 2.5
+  },
+  "lineLimit": {
+    "commandCollapsed": 3,
+    "keypointsCollapsed": 1
+  },
+  "glyph": {
+    "prompt": "❯",
+    "derived": "✦"
+  },
+  "motion": {
+    "expandSpringResponse": 0.32,
+    "expandSpringDamping": 0.86,
+    "enterRiseMs": 200,
+    "copyMorphMs": 800
   }
 }
 """#

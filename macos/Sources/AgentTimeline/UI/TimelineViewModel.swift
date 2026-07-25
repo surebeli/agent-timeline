@@ -51,6 +51,45 @@ final class TimelineViewModel {
         }
     }
 
+    /// Nodes that first defined a codename get the accent ring on their rail marker.
+    var definitionNodeIds: Set<String> {
+        Set(codenames.values.map(\.definitionNodeId).filter { !$0.isEmpty })
+    }
+
+    struct DayGroup: Identifiable {
+        let label: String
+        let nodes: [TimelineNode]
+        var id: String { label }
+    }
+
+    /// visibleNodes grouped by calendar day, newest day first, with 今天/昨天
+    /// relative labels for the ledger's pinned section headers.
+    var dayGroups: [DayGroup] {
+        let calendar = Calendar.current
+        var groups: [(day: Date, nodes: [TimelineNode])] = []
+        for node in visibleNodes {
+            let day = calendar.startOfDay(for: node.command.timestamp)
+            if let last = groups.indices.last, groups[last].day == day {
+                groups[last].nodes.append(node)
+            } else {
+                groups.append((day, [node]))
+            }
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM-dd · EEE"
+        return groups.map { group in
+            let label: String
+            if calendar.isDateInToday(group.day) {
+                label = "今天 · \(group.nodes.count)条"
+            } else if calendar.isDateInYesterday(group.day) {
+                label = "昨天"
+            } else {
+                label = formatter.string(from: group.day)
+            }
+            return DayGroup(label: label, nodes: group.nodes)
+        }
+    }
+
     func entry(forCodename name: String) -> CodenameEntry? {
         codenames[name]
     }
