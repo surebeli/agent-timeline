@@ -1,0 +1,79 @@
+design/design-tokens.json
+  s_b85ad4e83942fb::t_98d179eb34fd37 75-76,91-92,97-100
+macos/Sources/AgentTimeline/UI/DesignTokensData.swift
+  s_b85ad4e83942fb::t_98d179eb34fd37 78-79,94-95,100-103
+macos/Sources/AgentTimeline/UI/DesignTokens.swift
+  s_b85ad4e83942fb::t_52a7ca4027305e 34-34
+macos/Sources/AgentTimeline/UI/NodeViews.swift
+  s_b85ad4e83942fb::t_862807528ab5fb 116-116
+  s_b85ad4e83942fb::t_181c2f0fe79d62 219-235
+  s_b85ad4e83942fb::t_2d2e354f1cc7a3 297-297
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "78847f84dd2f0b6715104171bfc7abd5c662fcbc",
+  "prompts": {
+    "s_b85ad4e83942fb::t_98d179eb34fd37": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 16,
+      "total_deletions": 0,
+      "accepted_lines": 16,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_52a7ca4027305e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_181c2f0fe79d62": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 17,
+      "total_deletions": 0,
+      "accepted_lines": 17,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_862807528ab5fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_2d2e354f1cc7a3": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
