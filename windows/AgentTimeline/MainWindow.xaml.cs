@@ -12,6 +12,8 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives; // FlyoutPlacementMode
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
 using WinRT;
 using WinRT.Interop;
@@ -284,6 +286,197 @@ public sealed partial class MainWindow : Window
         if ((sender as FrameworkElement)?.DataContext is NodeViewModel vm)
         {
             vm.IsExpanded = !vm.IsExpanded;
+        }
+    }
+
+    // ─────────────────────────── ledger entry interactions (PRD §3.2b)
+
+    /// <summary>Honors the system "animation effects" setting; resolved once at startup.</summary>
+    private static readonly bool AnimationsEnabled = ReadAnimationsEnabled();
+
+    private static bool ReadAnimationsEnabled()
+    {
+        try
+        {
+            return new Windows.UI.ViewManagement.UISettings().AnimationsEnabled;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    /// <summary>Whole-entry click (background / meta row only — selectable text sits above).</summary>
+    private void EntryBackground_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is NodeViewModel vm)
+        {
+            vm.IsExpanded = !vm.IsExpanded;
+        }
+    }
+
+    private void Entry_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement root || root.DataContext is not NodeViewModel vm) return;
+        vm.IsHovering = true;
+        if (AnimationsEnabled)
+        {
+            FadeIn(root.FindName("HoverLayer") as UIElement);
+            FadeIn(root.FindName("EntryCopyButton") as UIElement);
+        }
+    }
+
+    private void Entry_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is NodeViewModel vm)
+        {
+            vm.IsHovering = false;
+        }
+    }
+
+    /// <summary>Opacity fade-in over opacity.hoverFadeMs (opacity-only, per the motion rules).</summary>
+    private static void FadeIn(UIElement? element)
+    {
+        if (element is null) return;
+        var animation = new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = new Duration(TimeSpan.FromMilliseconds(App.Tokens.HoverFadeMs)),
+        };
+        Storyboard.SetTarget(animation, element);
+        Storyboard.SetTargetProperty(animation, "Opacity");
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        storyboard.Begin();
+    }
+
+    /// <summary>Copies the raw command; the button morphs to a ✓ receipt for 800ms.</summary>
+    private async void CopyCommand_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not NodeViewModel vm) return;
+        CopyToClipboard(vm.PromptText);
+        if (vm.IsCopied) return; // receipt already showing; keep it simple
+        vm.IsCopied = true;
+        await System.Threading.Tasks.Task.Delay(App.Tokens.CopyMorphMs);
+        vm.IsCopied = false;
+    }
+
+    private static void CopyToClipboard(string text)
+    {
+        try
+        {
+            var package = new DataPackage();
+            package.SetText(text);
+            Clipboard.SetContent(package);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Clipboard copy failed", ex);
+        }
+    }
+
+    /// <summary>右键菜单: 复制原话 / 复制摘要 / 跳转到定义节点 / 只看此项目.</summary>
+    private void Entry_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement root || root.DataContext is not NodeViewModel vm) return;
+
+        var menu = new MenuFlyout();
+
+        var copyRaw = new MenuFlyoutItem { Text = "复制原话" };
+        copyRaw.Click += (_, _) => CopyToClipboard(vm.PromptText);
+        menu.Items.Add(copyRaw);
+
+        var copySummary = new MenuFlyoutItem { Text = "复制摘要" };
+        copySummary.Click += (_, _) => CopyToClipboard(vm.SummaryClipboardText);
+        menu.Items.Add(copySummary);
+
+        if (vm.FirstChipName is { } chipName && App.Registry.Lookup(chipName) is { } entry)
+        {
+            var jump = new MenuFlyoutItem { Text = $"跳转到 {chipName} 定义节点" };
+            jump.Click += (_, _) => JumpToNode(entry.DefiningNodeId);
+            menu.Items.Add(jump);
+        }
+
+        var filterProject = new MenuFlyoutItem { Text = "只看此项目" };
+        filterProject.Click += (_, _) =>
+        {
+            // Route through the ComboBox so its display stays in sync with the filter.
+            if (ProjectFilter.Items.Contains(vm.Project))
+            {
+                ProjectFilter.SelectedItem = vm.Project;
+            }
+        };
+        menu.Items.Add(filterProject);
+
+        menu.ShowAt(root, e.GetPosition(root));
+        e.Handled = true;
+    }
+
+    // ─────────────────────────── sticky day header (pinned sections)
+
+    private void TimelineScroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
+    {
+        UpdateStickyDayHeader();
+    }
+
+    /// <summary>
+    /// Emulates mac's pinned section headers: shows the day label of the group whose
+    /// in-flow header has scrolled above the viewport top. Only realized (non-virtualized)
+    /// elements can be measured, which is exactly the set near the viewport.
+    /// </summary>
+    private void UpdateStickyDayHeader()
+    {
+        try
+        {
+            var topmostIndex = -1;
+            var topmostY = double.MaxValue;
+            var childCount = VisualTreeHelper.GetChildrenCount(NodeRepeater);
+            for (var i = 0; i < childCount; i++)
+            {
+                if (VisualTreeHelper.GetChild(NodeRepeater, i) is not UIElement child) continue;
+                var index = NodeRepeater.GetElementIndex(child);
+                if (index < 0) continue;
+                var y = child.TransformToVisual(TimelineScroller)
+                    .TransformPoint(new Windows.Foundation.Point(0, 0)).Y;
+                var height = (child as FrameworkElement)?.ActualHeight ?? 0;
+                // The element spanning (or first below) the viewport top edge.
+                if (y + height > 0 && y < topmostY)
+                {
+                    topmostY = y;
+                    topmostIndex = index;
+                }
+            }
+            if (topmostIndex < 0)
+            {
+                StickyDayHeader.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            // Nearest day header at or above the topmost visible item.
+            DayHeaderViewModel? header = null;
+            for (var i = Math.Min(topmostIndex, ViewModel.Items.Count - 1); i >= 0; i--)
+            {
+                if (ViewModel.Items[i] is DayHeaderViewModel h)
+                {
+                    header = h;
+                    break;
+                }
+            }
+            // Suppress while that header itself is still fully visible below the top edge.
+            if (header is null ||
+                (ViewModel.Items[topmostIndex] is DayHeaderViewModel && topmostY >= 0))
+            {
+                StickyDayHeader.Visibility = Visibility.Collapsed;
+                return;
+            }
+            StickyDayLabel.Text = header.Label;
+            StickyDayHeader.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"Sticky day header update failed: {ex.Message}");
+            StickyDayHeader.Visibility = Visibility.Collapsed;
         }
     }
 

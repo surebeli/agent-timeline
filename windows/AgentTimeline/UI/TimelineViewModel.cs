@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using AgentTimeline.Core;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
 namespace AgentTimeline.UI;
@@ -53,7 +55,37 @@ public sealed class CodenameChipViewModel : ObservableObject
     }
 }
 
-/// <summary>One timeline card. All members are read/written on the UI thread only.</summary>
+/// <summary>Pinned-style day divider row (今天 · n条 / 昨天 / MM-dd · ddd).</summary>
+public sealed class DayHeaderViewModel
+{
+    public DayHeaderViewModel(string label, DateTime day)
+    {
+        Label = label;
+        Day = day;
+    }
+
+    public string Label { get; }
+    public DateTime Day { get; }
+}
+
+/// <summary>Picks the day-header vs ledger-entry template for the mixed timeline list.</summary>
+public sealed class TimelineItemTemplateSelector : DataTemplateSelector
+{
+    public DataTemplate? NodeTemplate { get; set; }
+    public DataTemplate? DayHeaderTemplate { get; set; }
+
+    protected override DataTemplate? SelectTemplateCore(object item) =>
+        item is DayHeaderViewModel ? DayHeaderTemplate : NodeTemplate;
+
+    protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container) =>
+        SelectTemplateCore(item);
+}
+
+/// <summary>
+/// One ledger entry (无框"双墨线台账", PRD §3.2b). All members are read/written on the UI
+/// thread only. The visual grammar: ❯ + solid agent rule + opaque paper block = my literal
+/// words (always visible, 3-line clamp collapsed); ✦ + dotted gray rule = machine-derived.
+/// </summary>
 public sealed class NodeViewModel : ObservableObject
 {
     private static readonly Dictionary<AgentKind, SolidColorBrush> BrushCache = new();
@@ -62,12 +94,16 @@ public sealed class NodeViewModel : ObservableObject
     private readonly Func<string, CodenameEntry?> _codenameLookup;
 
     private string _title = "";
+    private string? _derivedTitle;
     private List<string> _keyPoints = new();
     private List<CodenameChipViewModel> _codenames = new();
     private string? _kind;
     private string? _resultLine;
     private bool _isExpanded;
     private bool _summaryPending;
+    private bool _isHovering;
+    private bool _isCopied;
+    private bool _isDefinitionNode;
 
     public NodeViewModel(TimelineNode node, DesignTokens tokens, Func<string, CodenameEntry?> codenameLookup)
     {
@@ -92,32 +128,73 @@ public sealed class NodeViewModel : ObservableObject
     public string PromptText { get; }
     public string SessionId { get; }
 
-    public string TimeText
-    {
-        get
-        {
-            var local = Timestamp.ToLocalTime();
-            return local.Date == DateTimeOffset.Now.Date
-                ? local.ToString("HH:mm")
-                : local.ToString("M月d日 HH:mm");
-        }
-    }
+    public string TimeText => Timestamp.ToLocalTime().ToString("MM-dd HH:mm");
 
     public string Title { get => _title; private set => Set(ref _title, value); }
+
+    // --- Derived block (✦ + dotted rule): title, keypoints digest, chips, result line ---
+
+    /// <summary>LLM title, suppressed when it merely echoes a short command.</summary>
+    public string? DerivedTitle
+    {
+        get => _derivedTitle;
+        private set { if (Set(ref _derivedTitle, value)) Raise(nameof(HasDerivedTitle)); }
+    }
+    public bool HasDerivedTitle => !string.IsNullOrEmpty(_derivedTitle);
 
     public List<string> KeyPoints
     {
         get => _keyPoints;
-        private set { if (Set(ref _keyPoints, value)) Raise(nameof(HasKeyPoints)); }
+        private set
+        {
+            if (!Set(ref _keyPoints, value)) return;
+            Raise(nameof(HasKeyPoints));
+            Raise(nameof(KeypointsDigest));
+            Raise(nameof(KeypointsOverflow));
+            Raise(nameof(HasKeypointsOverflow));
+            Raise(nameof(ShowKeypointsDigest));
+            Raise(nameof(ShowKeypointsList));
+        }
     }
     public bool HasKeyPoints => _keyPoints.Count > 0;
+
+    /// <summary>Collapsed one-line digest: points joined with " · ".</summary>
+    public string KeypointsDigest => string.Join(" · ", _keyPoints);
+    /// <summary>Accent "+n" counter when more than 2 points hide behind the digest.</summary>
+    public string KeypointsOverflow => _keyPoints.Count > 2 ? $"+{_keyPoints.Count - 2}" : "";
+    public bool HasKeypointsOverflow => _keyPoints.Count > 2;
+    public bool ShowKeypointsDigest => HasKeyPoints && !_isExpanded;
+    public bool ShowKeypointsList => HasKeyPoints && _isExpanded;
 
     public List<CodenameChipViewModel> Codenames
     {
         get => _codenames;
-        private set { if (Set(ref _codenames, value)) Raise(nameof(HasCodenames)); }
+        private set
+        {
+            if (!Set(ref _codenames, value)) return;
+            Raise(nameof(HasCodenames));
+            Raise(nameof(HasDerived));
+        }
     }
     public bool HasCodenames => _codenames.Count > 0;
+
+    /// <summary>Whether anything machine-derived exists (the whole ✦ block hides otherwise).</summary>
+    public bool HasDerived => HasDerivedTitle || HasKeyPoints || HasCodenames || HasResultLine;
+
+    public string? FirstChipName => _codenames.Count > 0 ? _codenames[0].Name : null;
+
+    /// <summary>右键 "复制摘要": title + keypoints + result line.</summary>
+    public string SummaryClipboardText
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (_title.Length > 0) parts.Add(_title);
+            parts.AddRange(_keyPoints);
+            if (!string.IsNullOrEmpty(_resultLine)) parts.Add("→ " + _resultLine);
+            return string.Join("\n", parts);
+        }
+    }
 
     // --- Node kind tag (PRD §3.3b): label colored from color.kind in the design tokens ---
 
@@ -130,6 +207,12 @@ public sealed class NodeViewModel : ObservableObject
             Raise(nameof(HasKind));
             Raise(nameof(KindBrush));
             Raise(nameof(KindBgBrush));
+            Raise(nameof(MarkerBrush));
+            Raise(nameof(ShowAnchorMarker));
+            Raise(nameof(ShowStandardMarker));
+            Raise(nameof(ShowMinorMarker));
+            Raise(nameof(HasAnchorWash));
+            Raise(nameof(AnchorWashBrush));
         }
     }
     public bool HasKind => !string.IsNullOrEmpty(_kind);
@@ -147,29 +230,113 @@ public sealed class NodeViewModel : ObservableObject
         }
     }
 
+    // --- Rail marker + anchor wash (ledger grammar, PRD \u00A73.2b) ---
+
+    private bool IsAnchorKind =>
+        _kind == NodeKind.Requirement.Label() || _kind == NodeKind.Decision.Label();
+    private bool IsStandardKind =>
+        _kind == NodeKind.Task.Label() || _kind == NodeKind.Fix.Label()
+        || _kind == NodeKind.Research.Label() || _kind == NodeKind.Learning.Label();
+
+    /// <summary>Rail marker: \u9700\u6C42/\u51B3\u7B56 diamond, \u4EFB\u52A1/\u4FEE\u590D/\u8C03\u7814/\u5B66\u4E60 dot, else hollow circle.</summary>
+    public bool ShowAnchorMarker => IsAnchorKind;
+    public bool ShowStandardMarker => IsStandardKind;
+    public bool ShowMinorMarker => !IsAnchorKind && !IsStandardKind;
+
+    public SolidColorBrush MarkerBrush => KindBrush;
+
+    /// <summary>\u9700\u6C42/\u51B3\u7B56 anchors get a faint kind-colored wash across the whole entry.</summary>
+    public bool HasAnchorWash => IsAnchorKind;
+
+    public SolidColorBrush AnchorWashBrush
+    {
+        get
+        {
+            var c = _tokens.KindColor(_kind) ?? Microsoft.UI.Colors.Transparent;
+            var alpha = (byte)Math.Clamp(Math.Round(_tokens.AnchorWashOpacity * 255), 0, 255);
+            return new SolidColorBrush(Windows.UI.Color.FromArgb(alpha, c.R, c.G, c.B));
+        }
+    }
+
+    /// <summary>Codename-defining nodes get an accent ring on their rail marker.</summary>
+    public bool IsDefinitionNode
+    {
+        get => _isDefinitionNode;
+        set => Set(ref _isDefinitionNode, value);
+    }
+
     public string? ResultLine
     {
         get => _resultLine;
-        set { if (Set(ref _resultLine, value)) Raise(nameof(HasResultLine)); }
+        set
+        {
+            if (!Set(ref _resultLine, value)) return;
+            Raise(nameof(HasResultLine));
+            Raise(nameof(HasDerived));
+            Raise(nameof(SummaryClipboardText));
+        }
     }
     public bool HasResultLine => !string.IsNullOrWhiteSpace(_resultLine);
 
     public bool SummaryPending { get => _summaryPending; set => Set(ref _summaryPending, value); }
 
+    // --- Expand / hover / copy interaction state ---
+
     public bool IsExpanded
     {
         get => _isExpanded;
-        set { if (Set(ref _isExpanded, value)) Raise(nameof(ExpandGlyph)); }
+        set
+        {
+            if (!Set(ref _isExpanded, value)) return;
+            Raise(nameof(ChevronAngle));
+            Raise(nameof(CommandMaxLines));
+            Raise(nameof(ResultLineMaxLines));
+            Raise(nameof(ShowKeypointsDigest));
+            Raise(nameof(ShowKeypointsList));
+        }
     }
 
-    /// <summary>Segoe Fluent Icons chevron: down (expand) / up (collapse).</summary>
-    public string ExpandGlyph => _isExpanded ? "\uE70E" : "\uE70D";
+    /// <summary>Chevron rotates 180\u00B0 when expanded (bound to its RotateTransform).</summary>
+    public double ChevronAngle => _isExpanded ? 180.0 : 0.0;
+
+    /// <summary>Raw command hero: 3-line clamp collapsed, unlimited (0) expanded.</summary>
+    public int CommandMaxLines => _isExpanded ? 0 : _tokens.CommandCollapsedLines;
+
+    public int ResultLineMaxLines => _isExpanded ? 0 : 1;
+
+    /// <summary>Pointer-over state; shows the entryHover layer and the copy button.</summary>
+    public bool IsHovering
+    {
+        get => _isHovering;
+        set { if (Set(ref _isHovering, value)) Raise(nameof(ShowCopyButton)); }
+    }
+
+    /// <summary>Copy receipt: glyph morphs to a checkmark in resultLine green for 800ms.</summary>
+    public bool IsCopied
+    {
+        get => _isCopied;
+        set
+        {
+            if (!Set(ref _isCopied, value)) return;
+            Raise(nameof(CopyGlyph));
+            Raise(nameof(CopyBrush));
+            Raise(nameof(ShowCopyButton));
+        }
+    }
+
+    public bool ShowCopyButton => _isHovering || _isCopied;
+    /// <summary>Segoe Fluent Icons: Copy \u2192 Accept(checkmark) while the receipt shows.</summary>
+    public string CopyGlyph => _isCopied ? "\uE73E" : "\uE8C8";
+    public SolidColorBrush CopyBrush => new(_isCopied
+        ? _tokens.DualColor("resultLine")
+        : _tokens.DualColor("textTertiary"));
 
     public void ApplySummary(Summary summary)
     {
         Title = summary.Title;
         KeyPoints = summary.KeyPoints.ToList();
         Kind = NodeKinds.Normalize(summary.Kind);
+        DerivedTitle = ComputeDerivedTitle(summary.Title);
         if (summary.ResultLine is not null) ResultLine = summary.ResultLine;
 
         // Chips show the union of extracted codenames (LLM + rule definitions) and regex
@@ -189,6 +356,29 @@ public sealed class NodeViewModel : ObservableObject
             chip.Refresh(_codenameLookup(name), _tokens);
             return chip;
         }).ToList();
+        Raise(nameof(HasDerived));
+        Raise(nameof(SummaryClipboardText));
+        Raise(nameof(FirstChipName));
+    }
+
+    /// <summary>
+    /// Suppress the derived title when the command is short (≤20 chars) or the title is a
+    /// normalized prefix-duplicate of the command (mirrors mac NodeCardView.derivedTitle).
+    /// </summary>
+    private string? ComputeDerivedTitle(string title)
+    {
+        if (string.IsNullOrEmpty(title)) return null;
+        if (PromptText.Length <= 20) return null;
+        var normTitle = Normalize(title);
+        var normCommand = Normalize(PromptText);
+        if (normTitle.Length > 0 && normCommand.StartsWith(normTitle, StringComparison.Ordinal))
+        {
+            return null;
+        }
+        return title;
+
+        static string Normalize(string s) =>
+            new(s.Where(c => !char.IsWhiteSpace(c) && !char.IsPunctuation(c)).ToArray());
     }
 
     /// <summary>Re-reads chip status badges from the registry (dictionary changed).</summary>
@@ -239,7 +429,13 @@ public sealed class TimelineViewModel : ObservableObject
         foreach (var label in NodeKinds.AllLabels) KindOptions.Add(label);
     }
 
-    public ObservableCollection<NodeViewModel> Nodes { get; } = new();
+    private readonly List<NodeViewModel> _ordered = new(); // newest first
+
+    /// <summary>
+    /// The ledger list: DayHeaderViewModel dividers interleaved with NodeViewModel entries
+    /// (mac dayGroups + pinned sections; rendered via TimelineItemTemplateSelector).
+    /// </summary>
+    public ObservableCollection<object> Items { get; } = new();
     public ObservableCollection<string> ProjectOptions { get; } = new() { AllProjects };
     public ObservableCollection<string> KindOptions { get; } = new() { AllKinds };
 
@@ -249,20 +445,60 @@ public sealed class TimelineViewModel : ObservableObject
     {
         foreach (var project in _store.GetProjects()) EnsureProjectOption(project);
 
-        Nodes.Clear();
+        _ordered.Clear();
         _knownIds.Clear();
         _byId.Clear();
         var page = _store.GetRecentNodes(PageSize, long.MaxValue, _projectFilter, _kindFilter);
         foreach (var node in page) Append(node);
         HasMore = page.Count == PageSize;
+        RebuildItems();
+        RefreshDefinitionNodes();
     }
 
     public void LoadMore()
     {
-        var cursor = Nodes.Count > 0 ? Nodes[^1].Id : long.MaxValue;
+        var cursor = _ordered.Count > 0 ? _ordered[^1].Id : long.MaxValue;
         var page = _store.GetRecentNodes(PageSize, cursor, _projectFilter, _kindFilter);
         foreach (var node in page) Append(node);
         HasMore = page.Count == PageSize;
+        RebuildItems();
+        RefreshDefinitionNodes();
+    }
+
+    /// <summary>
+    /// Regenerates Items from the ordered node list: one day header per calendar day
+    /// (今天 · n条 / 昨天 / MM-dd · ddd), then that day's entries. Wholesale rebuild keeps
+    /// grouping trivially correct; entry state lives on the reused NodeViewModels.
+    /// </summary>
+    private void RebuildItems()
+    {
+        var counts = new Dictionary<DateTime, int>();
+        foreach (var vm in _ordered)
+        {
+            var day = vm.Timestamp.ToLocalTime().Date;
+            counts[day] = counts.GetValueOrDefault(day) + 1;
+        }
+
+        Items.Clear();
+        DateTime? currentDay = null;
+        foreach (var vm in _ordered)
+        {
+            var day = vm.Timestamp.ToLocalTime().Date;
+            if (day != currentDay)
+            {
+                Items.Add(new DayHeaderViewModel(DayLabel(day, counts.GetValueOrDefault(day)), day));
+                currentDay = day;
+            }
+            Items.Add(vm);
+        }
+    }
+
+    private static string DayLabel(DateTime day, int count)
+    {
+        var today = DateTime.Now.Date;
+        if (day == today) return $"今天 · {count}条";
+        if (day == today.AddDays(-1)) return "昨天";
+        return $"{day:MM-dd} · {day:ddd}";
     }
 
     public void SetProjectFilter(string option)
@@ -301,10 +537,22 @@ public sealed class TimelineViewModel : ObservableObject
         return _byId.ContainsKey(nodeId);
     }
 
-    /// <summary>Chip badge refresh after the codename dictionary changed.</summary>
+    /// <summary>Chip badge + definition-ring refresh after the codename dictionary changed.</summary>
     public void RefreshCodenameStatuses()
     {
         foreach (var vm in _byId.Values) vm.RefreshCodenameStatuses();
+        RefreshDefinitionNodes();
+    }
+
+    /// <summary>Nodes that first defined a codename get the accent ring on their rail marker.</summary>
+    private void RefreshDefinitionNodes()
+    {
+        var ids = new HashSet<long>(
+            _registry.All().Select(e => e.DefiningNodeId).Where(id => id > 0));
+        foreach (var vm in _byId.Values)
+        {
+            vm.IsDefinitionNode = ids.Contains(vm.Id);
+        }
     }
 
     // ------------------------------------------------- coordinator event sinks (UI thread)
@@ -319,9 +567,11 @@ public sealed class TimelineViewModel : ObservableObject
         var vm = new NodeViewModel(node, _tokens, _registry.Lookup);
         // Newest on top; backfill may deliver out of order, so find the insertion point.
         var index = 0;
-        while (index < Nodes.Count && Nodes[index].Timestamp > vm.Timestamp) index++;
-        Nodes.Insert(index, vm);
+        while (index < _ordered.Count && _ordered[index].Timestamp > vm.Timestamp) index++;
+        _ordered.Insert(index, vm);
         _byId[node.Id] = vm;
+        RebuildItems();
+        RefreshDefinitionNodes();
     }
 
     public void OnSummaryUpdated(long nodeId, Summary summary)
@@ -339,13 +589,13 @@ public sealed class TimelineViewModel : ObservableObject
     public NodeViewModel? FindById(long nodeId) =>
         _byId.TryGetValue(nodeId, out var vm) ? vm : null;
 
-    public int IndexOf(NodeViewModel vm) => Nodes.IndexOf(vm);
+    public int IndexOf(NodeViewModel vm) => Items.IndexOf(vm);
 
     private void Append(TimelineNode node)
     {
         if (!_knownIds.Add(node.Id)) return;
         var vm = new NodeViewModel(node, _tokens, _registry.Lookup);
-        Nodes.Add(vm);
+        _ordered.Add(vm);
         _byId[node.Id] = vm;
     }
 

@@ -130,118 +130,324 @@
             </StackPanel>
         </Grid>
 
-        <!-- ═══════════════ Timeline (newest on top) ═══════════════ -->
-        <ScrollViewer
-            x:Name="TimelineScroller"
-            Grid.Row="1"
-            Padding="12,0,12,0"
-            VerticalScrollBarVisibility="Auto">
-            <ItemsRepeater x:Name="NodeRepeater" ItemsSource="{x:Bind ViewModel.Nodes, Mode=OneWay}">
-                <ItemsRepeater.Layout>
-                    <StackLayout Orientation="Vertical" Spacing="8" />
-                </ItemsRepeater.Layout>
-                <ItemsRepeater.ItemTemplate>
-                    <DataTemplate x:DataType="ui:NodeViewModel">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="16" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+        <!-- ═══════════ Timeline: 双墨线台账 ledger (PRD §3.2b), newest on top ═══════════ -->
+        <Grid Grid.Row="1">
+            <Grid.Resources>
 
-                            <!-- timeline rail + agent-colored node dot -->
+                <!-- Day divider (今天 · n条 / 昨天 / MM-dd · ddd): opaque-ish backing,
+                     6px tick crossing the rail, letter-spaced label, hairline rule. -->
+                <DataTemplate x:Key="DayHeaderTemplate" x:DataType="ui:DayHeaderViewModel">
+                    <Grid
+                        Background="{ThemeResource DayHeaderBgBrush}"
+                        ColumnSpacing="8"
+                        Padding="0,5,12,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Rectangle
+                            Grid.Column="0"
+                            Width="6"
+                            Height="2"
+                            Margin="8,0,0,0"
+                            VerticalAlignment="Center"
+                            Fill="{ThemeResource DayHeaderRuleBrush}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            CharacterSpacing="{StaticResource DayHeaderCharacterSpacing}"
+                            FontSize="{StaticResource FontSizeDayHeader}"
+                            FontWeight="Medium"
+                            Foreground="{ThemeResource DayHeaderTextBrush}"
+                            Text="{x:Bind Label}" />
+                        <Rectangle
+                            Grid.Column="2"
+                            Height="1"
+                            VerticalAlignment="Center"
+                            Fill="{ThemeResource DayHeaderRuleBrush}" />
+                    </Grid>
+                </DataTemplate>
+
+                <!-- Boxless ledger entry. Grammar: ❯ + solid agent rule + opaque paper
+                     block = my literal words; ✦ + dotted rule = machine-derived. -->
+                <DataTemplate x:Key="NodeTemplate" x:DataType="ui:NodeViewModel">
+                    <Grid
+                        Background="Transparent"
+                        PointerEntered="Entry_PointerEntered"
+                        PointerExited="Entry_PointerExited"
+                        RightTapped="Entry_RightTapped">
+
+                        <!-- 需求/决策 anchor wash: full-width kind color @8%, radius 6 -->
+                        <Border
+                            Background="{x:Bind AnchorWashBrush, Mode=OneWay}"
+                            CornerRadius="{StaticResource AnchorWashCornerRadius}"
+                            IsHitTestVisible="False"
+                            Visibility="{x:Bind HasAnchorWash, Mode=OneWay}" />
+                        <!-- hover layer -->
+                        <Border
+                            x:Name="HoverLayer"
+                            Background="{ThemeResource EntryHoverBrush}"
+                            IsHitTestVisible="False"
+                            Visibility="{x:Bind IsHovering, Mode=OneWay}" />
+                        <!-- expand hit layer: catches taps on the entry background / meta row;
+                             selectable text and buttons sit ABOVE it, so text selection wins -->
+                        <Border Background="Transparent" Tapped="EntryBackground_Tapped" />
+
+                        <!-- rail gutter: continuous 2px segment (joins across entries) + kind marker -->
+                        <Grid
+                            Width="22"
+                            HorizontalAlignment="Left"
+                            IsHitTestVisible="False">
                             <Rectangle
-                                Grid.Column="0"
                                 Width="{StaticResource RailWidth}"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Stretch"
                                 Fill="{ThemeResource TimelineRailBrush}" />
-                            <Ellipse
-                                Grid.Column="0"
-                                Width="{StaticResource RailDotSize}"
-                                Height="{StaticResource RailDotSize}"
-                                Margin="0,14,0,0"
+                            <Grid
+                                Width="{StaticResource MarkerRingSize}"
+                                Height="{StaticResource MarkerRingSize}"
+                                Margin="0,30,0,0"
                                 HorizontalAlignment="Center"
-                                VerticalAlignment="Top"
-                                Fill="{x:Bind AgentBrush}" />
+                                VerticalAlignment="Top">
+                                <!-- 需求/决策: filled kind-color diamond (rotated rect) -->
+                                <Rectangle
+                                    Width="{StaticResource MarkerAnchorSide}"
+                                    Height="{StaticResource MarkerAnchorSide}"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Fill="{x:Bind MarkerBrush, Mode=OneWay}"
+                                    RenderTransformOrigin="0.5,0.5"
+                                    Visibility="{x:Bind ShowAnchorMarker, Mode=OneWay}">
+                                    <Rectangle.RenderTransform>
+                                        <RotateTransform Angle="45" />
+                                    </Rectangle.RenderTransform>
+                                </Rectangle>
+                                <!-- 任务/修复/调研/学习: filled 7px dot -->
+                                <Ellipse
+                                    Width="{StaticResource MarkerStandardSize}"
+                                    Height="{StaticResource MarkerStandardSize}"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Fill="{x:Bind MarkerBrush, Mode=OneWay}"
+                                    Visibility="{x:Bind ShowStandardMarker, Mode=OneWay}" />
+                                <!-- 其他/未归类: hollow 5px circle -->
+                                <Ellipse
+                                    Width="{StaticResource MarkerMinorSize}"
+                                    Height="{StaticResource MarkerMinorSize}"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Fill="{ThemeResource DayHeaderBgBrush}"
+                                    Stroke="{ThemeResource TimelineRailBrush}"
+                                    StrokeThickness="1"
+                                    Visibility="{x:Bind ShowMinorMarker, Mode=OneWay}" />
+                                <!-- codename-defining node: accent ring -->
+                                <Ellipse
+                                    Width="{StaticResource MarkerRingSize}"
+                                    Height="{StaticResource MarkerRingSize}"
+                                    Stroke="{ThemeResource AccentBrush}"
+                                    StrokeThickness="{StaticResource MarkerRingWidth}"
+                                    Visibility="{x:Bind IsDefinitionNode, Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
 
-                            <!-- node card -->
-                            <Border
-                                Grid.Column="1"
-                                Background="{ThemeResource CardBackgroundBrush}"
-                                BorderBrush="{ThemeResource CardBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="{StaticResource CardCornerRadius}"
-                                Padding="{StaticResource CardPadding}">
-                                <StackPanel Spacing="4">
+                        <!-- entry content, inset past the rail gutter -->
+                        <Grid Margin="22,9,12,9" RowSpacing="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
 
-                                    <!-- meta row: time · project · agent · kind tag, expand chevron -->
-                                    <Grid ColumnSpacing="6">
+                            <!-- meta row: time · project · agent · kind tag, rotating chevron;
+                                 the row itself is an expand hit zone (text here not selectable) -->
+                            <Grid
+                                Grid.Row="0"
+                                Background="Transparent"
+                                ColumnSpacing="6"
+                                Tapped="EntryBackground_Tapped">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    Grid.Column="0"
+                                    VerticalAlignment="Center"
+                                    FontSize="{StaticResource FontSizeCaption}"
+                                    Foreground="{ThemeResource TextTertiaryBrush}"
+                                    Text="{x:Bind TimeText}" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    FontSize="{StaticResource FontSizeCaption}"
+                                    Foreground="{ThemeResource TextSecondaryBrush}"
+                                    Text="{x:Bind Project}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    FontSize="{StaticResource FontSizeChip}"
+                                    FontWeight="Medium"
+                                    Foreground="{x:Bind AgentBrush}"
+                                    Text="{x:Bind AgentName}" />
+                                <!-- node kind tag (PRD §3.3b), colors from color.kind tokens -->
+                                <Border
+                                    Grid.Column="3"
+                                    Padding="4,1"
+                                    VerticalAlignment="Center"
+                                    Background="{x:Bind KindBgBrush, Mode=OneWay}"
+                                    CornerRadius="3"
+                                    Visibility="{x:Bind HasKind, Mode=OneWay}">
+                                    <TextBlock
+                                        FontSize="{StaticResource FontSizeChip}"
+                                        FontWeight="Medium"
+                                        Foreground="{x:Bind KindBrush, Mode=OneWay}"
+                                        Text="{x:Bind Kind, Mode=OneWay}" />
+                                </Border>
+                                <Button
+                                    Grid.Column="4"
+                                    Width="24"
+                                    Height="24"
+                                    Click="ExpandNode_Click"
+                                    Style="{StaticResource HeaderIconButtonStyle}"
+                                    ToolTipService.ToolTip="展开 / 收起">
+                                    <FontIcon
+                                        FontSize="9"
+                                        Glyph="&#xE70D;"
+                                        RenderTransformOrigin="0.5,0.5">
+                                        <FontIcon.RenderTransform>
+                                            <RotateTransform Angle="{x:Bind ChevronAngle, Mode=OneWay}" />
+                                        </FontIcon.RenderTransform>
+                                    </FontIcon>
+                                </Button>
+                            </Grid>
+
+                            <!-- COMMAND BLOCK hero: raw words always visible on an opaque paper
+                                 block; flattened top-left corner points at the rail marker -->
+                            <Grid Grid.Row="1">
+                                <Border
+                                    Background="{ThemeResource CommandBgBrush}"
+                                    CornerRadius="{StaticResource CommandBlockCornerRadius}"
+                                    Padding="{StaticResource CommandPadding}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            FontFamily="{StaticResource MonoFontFamily}"
+                                            FontSize="{StaticResource FontSizeCommand}"
+                                            Foreground="{x:Bind AgentBrush}"
+                                            Text="❯" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            FontFamily="{StaticResource AppFontFamily}"
+                                            FontSize="{StaticResource FontSizeCommand}"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource CommandTextBrush}"
+                                            IsTextSelectionEnabled="True"
+                                            MaxLines="{x:Bind CommandMaxLines, Mode=OneWay}"
+                                            Text="{x:Bind PromptText}"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="Wrap" />
+                                    </Grid>
+                                </Border>
+                                <!-- 2px solid agent-colored quote rule flush on the leading edge -->
+                                <Border
+                                    Width="{StaticResource QuoteRuleWidth}"
+                                    HorizontalAlignment="Left"
+                                    Background="{x:Bind AgentBrush}"
+                                    CornerRadius="{StaticResource CommandRuleCornerRadius}"
+                                    IsHitTestVisible="False" />
+                                <!-- hover copy button; glyph morphs to ✓ (resultLine green) for 800ms -->
+                                <Button
+                                    x:Name="EntryCopyButton"
+                                    Margin="0,2,2,0"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Top"
+                                    Click="CopyCommand_Click"
+                                    Style="{StaticResource HeaderIconButtonStyle}"
+                                    ToolTipService.ToolTip="复制原话"
+                                    Visibility="{x:Bind ShowCopyButton, Mode=OneWay}">
+                                    <FontIcon
+                                        FontSize="10"
+                                        Foreground="{x:Bind CopyBrush, Mode=OneWay}"
+                                        Glyph="{x:Bind CopyGlyph, Mode=OneWay}" />
+                                </Button>
+                            </Grid>
+
+                            <!-- DERIVED BLOCK: everything machine-generated, indented behind
+                                 one 1px dotted rule -->
+                            <Grid
+                                Grid.Row="2"
+                                Margin="{StaticResource DerivedIndent}"
+                                ColumnSpacing="8"
+                                Visibility="{x:Bind HasDerived, Mode=OneWay}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Line
+                                    Grid.Column="0"
+                                    Width="{StaticResource DerivedRuleWidth}"
+                                    VerticalAlignment="Stretch"
+                                    Stretch="Fill"
+                                    Stroke="{ThemeResource DerivedRuleBrush}"
+                                    StrokeDashArray="2,3"
+                                    StrokeThickness="{StaticResource DerivedRuleWidth}"
+                                    X1="0.5"
+                                    X2="0.5"
+                                    Y1="0"
+                                    Y2="1" />
+                                <StackPanel Grid.Column="1" Spacing="3">
+                                    <!-- ✦ + demoted LLM title (suppressed for short/echo commands) -->
+                                    <Grid ColumnSpacing="4" Visibility="{x:Bind HasDerivedTitle, Mode=OneWay}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            FontSize="{StaticResource FontSizeChip}"
+                                            Foreground="{ThemeResource TextTertiaryBrush}"
+                                            Text="✦" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            FontSize="{StaticResource FontSizeDerivedTitle}"
+                                            Foreground="{ThemeResource TextSecondaryBrush}"
+                                            IsTextSelectionEnabled="True"
+                                            MaxLines="1"
+                                            Text="{x:Bind DerivedTitle, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                    <!-- collapsed: one-line keypoints digest + accent "+n" -->
+                                    <Grid ColumnSpacing="4" Visibility="{x:Bind ShowKeypointsDigest, Mode=OneWay}">
+                                        <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock
                                             Grid.Column="0"
-                                            VerticalAlignment="Center"
                                             FontSize="{StaticResource FontSizeCaption}"
                                             Foreground="{ThemeResource TextTertiaryBrush}"
-                                            IsTextSelectionEnabled="True"
-                                            Text="{x:Bind TimeText}" />
+                                            MaxLines="1"
+                                            Text="{x:Bind KeypointsDigest, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis" />
                                         <TextBlock
                                             Grid.Column="1"
                                             VerticalAlignment="Center"
-                                            FontSize="{StaticResource FontSizeCaption}"
-                                            Foreground="{ThemeResource TextTertiaryBrush}"
-                                            IsTextSelectionEnabled="True"
-                                            Text="{x:Bind Project}"
-                                            TextTrimming="CharacterEllipsis" />
-                                        <TextBlock
-                                            Grid.Column="2"
-                                            VerticalAlignment="Center"
-                                            FontSize="{StaticResource FontSizeCaption}"
-                                            FontWeight="SemiBold"
-                                            Foreground="{x:Bind AgentBrush}"
-                                            IsTextSelectionEnabled="True"
-                                            Text="{x:Bind AgentName}" />
-                                        <!-- node kind tag (PRD §3.3b), colors from color.kind tokens -->
-                                        <Border
-                                            Grid.Column="3"
-                                            Padding="4,1"
-                                            VerticalAlignment="Center"
-                                            Background="{x:Bind KindBgBrush, Mode=OneWay}"
-                                            CornerRadius="3"
-                                            Visibility="{x:Bind HasKind, Mode=OneWay}">
-                                            <TextBlock
-                                                FontSize="{StaticResource FontSizeChip}"
-                                                FontWeight="Medium"
-                                                Foreground="{x:Bind KindBrush, Mode=OneWay}"
-                                                Text="{x:Bind Kind, Mode=OneWay}" />
-                                        </Border>
-                                        <Button
-                                            Grid.Column="4"
-                                            Click="ExpandNode_Click"
-                                            Style="{StaticResource HeaderIconButtonStyle}"
-                                            ToolTipService.ToolTip="展开 / 收起原始命令">
-                                            <FontIcon FontSize="10" Glyph="{x:Bind ExpandGlyph, Mode=OneWay}" />
-                                        </Button>
+                                            FontSize="{StaticResource FontSizeChip}"
+                                            FontWeight="Medium"
+                                            Foreground="{ThemeResource AccentBrush}"
+                                            Text="{x:Bind KeypointsOverflow, Mode=OneWay}"
+                                            Visibility="{x:Bind HasKeypointsOverflow, Mode=OneWay}" />
                                     </Grid>
-
-                                    <!-- LLM (or rule) title -->
-                                    <TextBlock
-                                        FontSize="{StaticResource FontSizeTitle}"
-                                        FontWeight="SemiBold"
-                                        Foreground="{ThemeResource TextPrimaryBrush}"
-                                        IsTextSelectionEnabled="True"
-                                        Text="{x:Bind Title, Mode=OneWay}"
-                                        TextWrapping="Wrap" />
-
-                                    <!-- key points -->
-                                    <ItemsControl
-                                        ItemsSource="{x:Bind KeyPoints, Mode=OneWay}"
-                                        Visibility="{x:Bind HasKeyPoints, Mode=OneWay}">
+                                    <!-- expanded: full bullet list -->
+                                    <ItemsControl ItemsSource="{x:Bind KeyPoints, Mode=OneWay}" Visibility="{x:Bind ShowKeypointsList, Mode=OneWay}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="x:String">
                                                 <Grid ColumnSpacing="4">
@@ -251,12 +457,13 @@
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock
                                                         Grid.Column="0"
-                                                        FontSize="{StaticResource FontSizeBody}"
-                                                        Foreground="{ThemeResource TextSecondaryBrush}"
+                                                        FontSize="{StaticResource FontSizeCaption}"
+                                                        FontWeight="Bold"
+                                                        Foreground="{ThemeResource AccentBrush}"
                                                         Text="·" />
                                                     <TextBlock
                                                         Grid.Column="1"
-                                                        FontSize="{StaticResource FontSizeBody}"
+                                                        FontSize="{StaticResource FontSizeCaption}"
                                                         Foreground="{ThemeResource TextSecondaryBrush}"
                                                         IsTextSelectionEnabled="True"
                                                         Text="{x:Bind}"
@@ -265,76 +472,125 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-
-                                    <!-- codename chips: name + live status badge ✓/△/▶ (click → lifecycle flyout) -->
-                                    <ItemsControl
-                                        ItemsSource="{x:Bind Codenames, Mode=OneWay}"
-                                        Visibility="{x:Bind HasCodenames, Mode=OneWay}">
+                                    <!-- codename chips: 4px hit inflate (padding grows the hit
+                                         box, negative margin keeps layout), status badge live -->
+                                    <ItemsControl ItemsSource="{x:Bind Codenames, Mode=OneWay}" Visibility="{x:Bind HasCodenames, Mode=OneWay}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
-                                                <!-- No inbox WrapPanel in WinUI 3; chips are few, a row suffices -->
                                                 <StackPanel Orientation="Horizontal" Spacing="4" />
                                             </ItemsPanelTemplate>
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="ui:CodenameChipViewModel">
                                                 <Button
+                                                    Margin="-4"
+                                                    Padding="4"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
                                                     Click="CodenameChip_Click"
-                                                    Style="{StaticResource CodenameChipStyle}">
-                                                    <StackPanel Orientation="Horizontal" Spacing="2">
-                                                        <TextBlock
-                                                            FontSize="{StaticResource FontSizeChip}"
-                                                            FontWeight="Medium"
-                                                            Text="{x:Bind Name}" />
-                                                        <TextBlock
-                                                            FontSize="{StaticResource FontSizeChip}"
-                                                            FontWeight="Bold"
-                                                            Foreground="{x:Bind StatusBrush, Mode=OneWay}"
-                                                            Text="{x:Bind StatusGlyph, Mode=OneWay}"
-                                                            Visibility="{x:Bind HasStatus, Mode=OneWay}" />
-                                                    </StackPanel>
+                                                    MinHeight="0"
+                                                    MinWidth="0">
+                                                    <Border
+                                                        Background="{ThemeResource CodenameChipBgBrush}"
+                                                        CornerRadius="{StaticResource ChipCornerRadius}"
+                                                        Padding="{StaticResource ChipPadding}">
+                                                        <StackPanel Orientation="Horizontal" Spacing="2">
+                                                            <TextBlock
+                                                                FontSize="{StaticResource FontSizeChip}"
+                                                                FontWeight="Medium"
+                                                                Foreground="{ThemeResource CodenameChipTextBrush}"
+                                                                Text="{x:Bind Name}" />
+                                                            <TextBlock
+                                                                FontSize="{StaticResource FontSizeChip}"
+                                                                FontWeight="Bold"
+                                                                Foreground="{x:Bind StatusBrush, Mode=OneWay}"
+                                                                Text="{x:Bind StatusGlyph, Mode=OneWay}"
+                                                                Visibility="{x:Bind HasStatus, Mode=OneWay}" />
+                                                        </StackPanel>
+                                                    </Border>
                                                 </Button>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-
-                                    <!-- summarizing hint -->
-                                    <TextBlock
-                                        FontSize="{StaticResource FontSizeCaption}"
-                                        Foreground="{ThemeResource TextTertiaryBrush}"
-                                        Text="摘要生成中…"
-                                        Visibility="{x:Bind SummaryPending, Mode=OneWay}" />
-
-                                    <!-- expanded: full prompt + result line -->
-                                    <StackPanel Spacing="4" Visibility="{x:Bind IsExpanded, Mode=OneWay}">
-                                        <Rectangle
-                                            Height="1"
-                                            Margin="0,2,0,2"
-                                            Fill="{ThemeResource CardBorderBrush}" />
-                                        <TextBlock
-                                            FontFamily="{StaticResource MonoFontFamily}"
-                                            FontSize="{StaticResource FontSizeBody}"
-                                            Foreground="{ThemeResource TextPrimaryBrush}"
-                                            IsTextSelectionEnabled="True"
-                                            Text="{x:Bind PromptText}"
-                                            TextWrapping="Wrap" />
-                                    </StackPanel>
-
-                                    <!-- agent result line -->
+                                    <!-- green result line, last -->
                                     <TextBlock
                                         FontSize="{StaticResource FontSizeCaption}"
                                         Foreground="{ThemeResource ResultLineBrush}"
                                         IsTextSelectionEnabled="True"
-                                        Text="{x:Bind ResultLine, Mode=OneWay}"
+                                        MaxLines="{x:Bind ResultLineMaxLines, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis"
                                         TextWrapping="Wrap"
-                                        Visibility="{x:Bind HasResultLine, Mode=OneWay}" />
+                                        Visibility="{x:Bind HasResultLine, Mode=OneWay}">
+                                        <Run Text="→ " /><Run Text="{x:Bind ResultLine, Mode=OneWay}" />
+                                    </TextBlock>
                                 </StackPanel>
-                            </Border>
+                            </Grid>
                         </Grid>
-                    </DataTemplate>
-                </ItemsRepeater.ItemTemplate>
-            </ItemsRepeater>
-        </ScrollViewer>
+
+                        <!-- 1px hairline divider, inset past the rail gutter -->
+                        <Rectangle
+                            Height="1"
+                            Margin="{StaticResource EntryDividerInset}"
+                            VerticalAlignment="Bottom"
+                            Fill="{ThemeResource EntryDividerBrush}"
+                            IsHitTestVisible="False" />
+                    </Grid>
+                </DataTemplate>
+            </Grid.Resources>
+
+            <ScrollViewer
+                x:Name="TimelineScroller"
+                Padding="12,0,12,0"
+                VerticalScrollBarVisibility="Auto"
+                ViewChanged="TimelineScroller_ViewChanged">
+                <ItemsRepeater x:Name="NodeRepeater" ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Orientation="Vertical" Spacing="0" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <ui:TimelineItemTemplateSelector DayHeaderTemplate="{StaticResource DayHeaderTemplate}" NodeTemplate="{StaticResource NodeTemplate}" />
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </ScrollViewer>
+
+            <!-- sticky (pinned) day header: mirrors the in-flow divider for the day
+                 currently scrolled past the top; updated from ViewChanged -->
+            <Grid
+                x:Name="StickyDayHeader"
+                Margin="12,0,12,0"
+                VerticalAlignment="Top"
+                Background="{ThemeResource DayHeaderBgBrush}"
+                ColumnSpacing="8"
+                IsHitTestVisible="False"
+                Padding="0,5,12,5"
+                Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Rectangle
+                    Grid.Column="0"
+                    Width="6"
+                    Height="2"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    Fill="{ThemeResource DayHeaderRuleBrush}" />
+                <TextBlock
+                    x:Name="StickyDayLabel"
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    CharacterSpacing="{StaticResource DayHeaderCharacterSpacing}"
+                    FontSize="{StaticResource FontSizeDayHeader}"
+                    FontWeight="Medium"
+                    Foreground="{ThemeResource DayHeaderTextBrush}" />
+                <Rectangle
+                    Grid.Column="2"
+                    Height="1"
+                    VerticalAlignment="Center"
+                    Fill="{ThemeResource DayHeaderRuleBrush}" />
+            </Grid>
+        </Grid>
 
         <!-- ═══════════════ Footer: lazy loading ═══════════════ -->
         <Button

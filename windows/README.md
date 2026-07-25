@@ -16,6 +16,29 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 
 ## 更新记录
 
+- **2026-07-26 (c) "双墨线台账" 时间线视觉重构（对齐 mac 端 PRD §3.2b）**
+  - 节点改为无框台账条目：1px entryDivider 细线（越过 22px rail gutter 内缩），需求/决策
+    条目附 8% kind 色整条洗染（radius 6）；旧卡片边框/背景与"展开看原文"区块删除；
+  - **命令块主角**：原话永远可见（折叠 3 行 / 展开全文），高不透明 commandBg 纸面块
+    （CornerRadius 3,8,8,8 左上压平指向 rail），左缘 2px agent 色实线墨线，Cascadia Code
+    "❯" 14px 悬挂缩进列，正文 Segoe UI Variable 13.5 SemiBold commandText 可划选；
+  - **提炼块**：14px 缩进 + 1px 虚线竖墨线（Line StrokeDashArray 2,3），✦+降级标题
+    （命令 ≤20 字或标题为命令归一化前缀重复时隐去），关键点摘要单行 " · " 连接 + accent
+    "+n" 计数（展开为完整列表），chips（4px 命中区外扩），绿色结果行；
+  - **rail 语法**：每条目连续 2px 轨道段；需求/决策 = kind 色菱形（~9px 旋转矩形），
+    任务/修复/调研/学习 = 7px 实心圆，其他/未归类 = 5px 空心圆；定义代号的节点加 accent
+    色环（1.5px 描边、2.5px 外扩）；
+  - **日期分组**：按自然日分组（今天 · n条 / 昨天 / MM-dd · 周X），条目内嵌分隔行 +
+    ViewChanged 驱动的置顶粘性日期条（dayHeaderBg 背衬、CharacterSpacing 120、6px 轨道刻度）；
+  - **交互**：整条点击展开（仅背景/元信息行命中，文本划选优先）、chevron 展开旋转 180°、
+    hover 浮现 entryHover 背景 + 原话复制按钮（✓ 绿色回执 800ms）、右键菜单
+    （复制原话/复制摘要/跳转定义/只看此项目）；动效仅 opacity（hover 120ms 淡入），尊重系统
+    UISettings.AnimationsEnabled；
+  - tokens 三处同步：Assets JSON 与根 design/ 字节一致（command*/derivedRule/entryHover/
+    entryDivider/dayHeader* 色、command/derivedTitle/dayHeader 字号与字距、rail/墨线/缩进
+    间距、commandBlock/anchorWash 圆角、marker/lineLimit/glyph/motion 块），Tokens.xaml 与
+    DesignTokens.cs 补齐对应资源与解析。
+
 - **2026-07-26 (b) 检测语义对抗性修订（对齐 mac 端同日五处变更）**
   - 定义式正则整体替换：引导符接受冒号/ASCII 逗号/空白、代号可带 `**加粗**`、定义体排除
     顿号与 ASCII 逗号并以负向前瞻在下一个行内 "CODE:" 前截断——行内 "编号如下：N1: 登录,
@@ -161,8 +184,8 @@ CodenameDetector 同源）——首段量词是 `{0,9}` 而非 `{1,9}`，否则 
 ## 与 PRD 的对应
 
 - F1 session 跟踪：`SessionWatcher` + 三个解析器 + zcode 预留 ✅
-- F2 timeline 展示：倒序、节点卡片（时间/项目/agent 色点/kind 标签/标题/关键点/代号 chip）、
-  展开原文、结果行、项目过滤 + 阶段过滤、全文可划选复制 ✅
+- F2/F2b timeline 展示：倒序、双墨线台账条目（命令块主角 + ✦ 提炼块 + rail 标记 + 日期
+  分组），项目过滤 + 阶段过滤、命令原文常显可划选复制 ✅
 - F3 代号词典（含生命周期）：定义式登记 + 词典引导匹配 + LLM 提取三路并集、状态机
   （定义→进行中→完成/变更）、定义重述最新生效、chip 状态徽标与 flyout、词典总览面板、
   历史一次性重放 ✅

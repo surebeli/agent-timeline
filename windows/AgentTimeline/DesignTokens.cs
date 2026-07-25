@@ -22,6 +22,13 @@ public sealed class DesignTokens
     public double IdleOpacity { get; private set; } = 0.25;
     public int TransitionMs { get; private set; } = 180;
 
+    // --- 台账 (dual-ink ledger) values consumed from code-behind / view-models ---
+    public double AnchorWashOpacity { get; private set; } = 0.08;
+    public int HoverFadeMs { get; private set; } = 120;
+    public int CopyMorphMs { get; private set; } = 800;
+    public int CommandCollapsedLines { get; private set; } = 3;
+    public int KeypointsCollapsedLines { get; private set; } = 1;
+
     public int PanelDefaultWidth { get; private set; } = 340;
     public int PanelMinWidth { get; private set; } = 280;
     public int PanelMaxWidth { get; private set; } = 560;
@@ -86,6 +93,21 @@ public sealed class DesignTokens
                 tokens.HoverOpacity = GetDouble(opacity, "hover", tokens.HoverOpacity);
                 tokens.IdleOpacity = GetDouble(opacity, "idle", tokens.IdleOpacity);
                 tokens.TransitionMs = (int)GetDouble(opacity, "transitionMs", tokens.TransitionMs);
+                tokens.AnchorWashOpacity = GetDouble(opacity, "anchorWash", tokens.AnchorWashOpacity);
+                tokens.HoverFadeMs = (int)GetDouble(opacity, "hoverFadeMs", tokens.HoverFadeMs);
+            }
+
+            if (root.TryGetProperty("motion", out var motion))
+            {
+                tokens.CopyMorphMs = (int)GetDouble(motion, "copyMorphMs", tokens.CopyMorphMs);
+            }
+
+            if (root.TryGetProperty("lineLimit", out var lineLimit))
+            {
+                tokens.CommandCollapsedLines =
+                    (int)GetDouble(lineLimit, "commandCollapsed", tokens.CommandCollapsedLines);
+                tokens.KeypointsCollapsedLines =
+                    (int)GetDouble(lineLimit, "keypointsCollapsed", tokens.KeypointsCollapsedLines);
             }
 
             if (root.TryGetProperty("panel", out var panel))

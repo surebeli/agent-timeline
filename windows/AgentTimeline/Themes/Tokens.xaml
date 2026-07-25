@@ -24,6 +24,15 @@
             <Color x:Key="CodenameChipTextColor">#FF3A50C2</Color>
             <Color x:Key="ResultLineColor">#FF0FA968</Color>
             <Color x:Key="StatusChangedColor">#FFC77414</Color>
+            <!-- 台账 (dual-ink ledger) surfaces -->
+            <Color x:Key="CommandTextColor">#FF111418</Color>
+            <Color x:Key="CommandBgColor">#E0FFFFFF</Color>
+            <Color x:Key="DerivedRuleColor">#FFC9CDD4</Color>
+            <Color x:Key="EntryHoverColor">#0A000000</Color>
+            <Color x:Key="EntryDividerColor">#10000000</Color>
+            <Color x:Key="DayHeaderTextColor">#FF86909C</Color>
+            <Color x:Key="DayHeaderRuleColor">#12000000</Color>
+            <Color x:Key="DayHeaderBgColor">#D9F5F6F7</Color>
 
             <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
@@ -36,6 +45,14 @@
             <SolidColorBrush x:Key="CodenameChipTextBrush" Color="{StaticResource CodenameChipTextColor}" />
             <SolidColorBrush x:Key="ResultLineBrush" Color="{StaticResource ResultLineColor}" />
             <SolidColorBrush x:Key="StatusChangedBrush" Color="{StaticResource StatusChangedColor}" />
+            <SolidColorBrush x:Key="CommandTextBrush" Color="{StaticResource CommandTextColor}" />
+            <SolidColorBrush x:Key="CommandBgBrush" Color="{StaticResource CommandBgColor}" />
+            <SolidColorBrush x:Key="DerivedRuleBrush" Color="{StaticResource DerivedRuleColor}" />
+            <SolidColorBrush x:Key="EntryHoverBrush" Color="{StaticResource EntryHoverColor}" />
+            <SolidColorBrush x:Key="EntryDividerBrush" Color="{StaticResource EntryDividerColor}" />
+            <SolidColorBrush x:Key="DayHeaderTextBrush" Color="{StaticResource DayHeaderTextColor}" />
+            <SolidColorBrush x:Key="DayHeaderRuleBrush" Color="{StaticResource DayHeaderRuleColor}" />
+            <SolidColorBrush x:Key="DayHeaderBgBrush" Color="{StaticResource DayHeaderBgColor}" />
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
@@ -50,6 +67,15 @@
             <Color x:Key="CodenameChipTextColor">#FFA9B8FF</Color>
             <Color x:Key="ResultLineColor">#FF3DDC97</Color>
             <Color x:Key="StatusChangedColor">#FFF0A050</Color>
+            <!-- 台账 (dual-ink ledger) surfaces -->
+            <Color x:Key="CommandTextColor">#FFFFFFFF</Color>
+            <Color x:Key="CommandBgColor">#CC2B313D</Color>
+            <Color x:Key="DerivedRuleColor">#80414652</Color>
+            <Color x:Key="EntryHoverColor">#0FFFFFFF</Color>
+            <Color x:Key="EntryDividerColor">#12FFFFFF</Color>
+            <Color x:Key="DayHeaderTextColor">#FF6B7280</Color>
+            <Color x:Key="DayHeaderRuleColor">#14FFFFFF</Color>
+            <Color x:Key="DayHeaderBgColor">#D91A1D24</Color>
 
             <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
@@ -62,6 +88,14 @@
             <SolidColorBrush x:Key="CodenameChipTextBrush" Color="{StaticResource CodenameChipTextColor}" />
             <SolidColorBrush x:Key="ResultLineBrush" Color="{StaticResource ResultLineColor}" />
             <SolidColorBrush x:Key="StatusChangedBrush" Color="{StaticResource StatusChangedColor}" />
+            <SolidColorBrush x:Key="CommandTextBrush" Color="{StaticResource CommandTextColor}" />
+            <SolidColorBrush x:Key="CommandBgBrush" Color="{StaticResource CommandBgColor}" />
+            <SolidColorBrush x:Key="DerivedRuleBrush" Color="{StaticResource DerivedRuleColor}" />
+            <SolidColorBrush x:Key="EntryHoverBrush" Color="{StaticResource EntryHoverColor}" />
+            <SolidColorBrush x:Key="EntryDividerBrush" Color="{StaticResource EntryDividerColor}" />
+            <SolidColorBrush x:Key="DayHeaderTextBrush" Color="{StaticResource DayHeaderTextColor}" />
+            <SolidColorBrush x:Key="DayHeaderRuleBrush" Color="{StaticResource DayHeaderRuleColor}" />
+            <SolidColorBrush x:Key="DayHeaderBgBrush" Color="{StaticResource DayHeaderBgColor}" />
         </ResourceDictionary>
 
         <!-- "Default" mirrors Dark (used when no explicit theme dictionary matches). -->
@@ -77,6 +111,15 @@
             <Color x:Key="CodenameChipTextColor">#FFA9B8FF</Color>
             <Color x:Key="ResultLineColor">#FF3DDC97</Color>
             <Color x:Key="StatusChangedColor">#FFF0A050</Color>
+            <!-- 台账 (dual-ink ledger) surfaces -->
+            <Color x:Key="CommandTextColor">#FFFFFFFF</Color>
+            <Color x:Key="CommandBgColor">#CC2B313D</Color>
+            <Color x:Key="DerivedRuleColor">#80414652</Color>
+            <Color x:Key="EntryHoverColor">#0FFFFFFF</Color>
+            <Color x:Key="EntryDividerColor">#12FFFFFF</Color>
+            <Color x:Key="DayHeaderTextColor">#FF6B7280</Color>
+            <Color x:Key="DayHeaderRuleColor">#14FFFFFF</Color>
+            <Color x:Key="DayHeaderBgColor">#D91A1D24</Color>
 
             <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
@@ -89,6 +132,14 @@
             <SolidColorBrush x:Key="CodenameChipTextBrush" Color="{StaticResource CodenameChipTextColor}" />
             <SolidColorBrush x:Key="ResultLineBrush" Color="{StaticResource ResultLineColor}" />
             <SolidColorBrush x:Key="StatusChangedBrush" Color="{StaticResource StatusChangedColor}" />
+            <SolidColorBrush x:Key="CommandTextBrush" Color="{StaticResource CommandTextColor}" />
+            <SolidColorBrush x:Key="CommandBgBrush" Color="{StaticResource CommandBgColor}" />
+            <SolidColorBrush x:Key="DerivedRuleBrush" Color="{StaticResource DerivedRuleColor}" />
+            <SolidColorBrush x:Key="EntryHoverBrush" Color="{StaticResource EntryHoverColor}" />
+            <SolidColorBrush x:Key="EntryDividerBrush" Color="{StaticResource EntryDividerColor}" />
+            <SolidColorBrush x:Key="DayHeaderTextBrush" Color="{StaticResource DayHeaderTextColor}" />
+            <SolidColorBrush x:Key="DayHeaderRuleBrush" Color="{StaticResource DayHeaderRuleColor}" />
+            <SolidColorBrush x:Key="DayHeaderBgBrush" Color="{StaticResource DayHeaderBgColor}" />
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>
@@ -126,6 +177,11 @@
     <x:Double x:Key="FontSizeBody">12</x:Double>
     <x:Double x:Key="FontSizeCaption">10.5</x:Double>
     <x:Double x:Key="FontSizeChip">10</x:Double>
+    <x:Double x:Key="FontSizeCommand">13.5</x:Double>
+    <x:Double x:Key="FontSizeDerivedTitle">11.5</x:Double>
+    <x:Double x:Key="FontSizeDayHeader">10</x:Double>
+    <!-- typography.letterSpacing.dayHeader 1.2pt @10pt ≈ 0.12em → TextBlock.CharacterSpacing (1/1000 em) -->
+    <x:Int32 x:Key="DayHeaderCharacterSpacing">120</x:Int32>
 
     <!-- spacing -->
     <Thickness x:Key="PanelPadding">12</Thickness>
@@ -134,10 +190,35 @@
     <x:Double x:Key="RailWidth">2</x:Double>
     <x:Double x:Key="RailDotSize">7</x:Double>
     <Thickness x:Key="ChipPadding">6,2</Thickness>
+    <!-- ledger metrics (spacing.railGutter/quoteRuleWidth/derivedRuleWidth/ruleTextGap/
+         hangIndent/entryPaddingV/commandPadding*; GridLength-typed usages keep the same
+         values as literals in MainWindow.xaml because x:Double does not convert) -->
+    <x:Double x:Key="RailGutter">22</x:Double>
+    <x:Double x:Key="QuoteRuleWidth">2</x:Double>
+    <x:Double x:Key="DerivedRuleWidth">1</x:Double>
+    <x:Double x:Key="RuleTextGap">8</x:Double>
+    <x:Double x:Key="HangIndent">14</x:Double>
+    <Thickness x:Key="EntryPadding">0,9,12,9</Thickness>
+    <Thickness x:Key="CommandPadding">8,6</Thickness>
+    <Thickness x:Key="EntryDividerInset">22,0,0,0</Thickness>
+    <Thickness x:Key="DerivedIndent">14,0,0,0</Thickness>
 
     <!-- radius -->
     <CornerRadius x:Key="PanelCornerRadius">14</CornerRadius>
     <CornerRadius x:Key="CardCornerRadius">10</CornerRadius>
     <CornerRadius x:Key="ChipCornerRadius">5</CornerRadius>
+    <!-- radius.commandBlockAttach(3, flattened top-left points at the rail) + commandBlock(8) -->
+    <CornerRadius x:Key="CommandBlockCornerRadius">3,8,8,8</CornerRadius>
+    <CornerRadius x:Key="CommandRuleCornerRadius">3,0,0,8</CornerRadius>
+    <CornerRadius x:Key="AnchorWashCornerRadius">6</CornerRadius>
+
+    <!-- marker.* : rail markers (anchor diamond 9 / standard dot 7 / minor hollow 5,
+         definition ring 1.5 stroke at 2.5 offset → 14 outer) -->
+    <x:Double x:Key="MarkerAnchorSize">9</x:Double>
+    <x:Double x:Key="MarkerAnchorSide">6.67</x:Double>
+    <x:Double x:Key="MarkerStandardSize">7</x:Double>
+    <x:Double x:Key="MarkerMinorSize">5</x:Double>
+    <x:Double x:Key="MarkerRingSize">14</x:Double>
+    <x:Double x:Key="MarkerRingWidth">1.5</x:Double>
 
 </ResourceDictionary>
