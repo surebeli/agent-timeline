@@ -48,6 +48,15 @@ public sealed class AppSettings
     /// <summary>zcode session root — the format is reserved; path is user-provided (PRD 3.1).</summary>
     public string ZcodeSessionRoot { get; set; } = "";
 
+    // --- Codename lifecycle (F3) ---
+
+    /// <summary>
+    /// Highest codename-replay version already completed (mac: UserDefaults
+    /// "codenameReplayVersion"). TimelineCoordinator replays stored history when this is
+    /// below its current version, and writes the marker only AFTER the replay finishes.
+    /// </summary>
+    public int CodenameReplayVersion { get; set; }
+
     // ------------------------------------------------------------------
 
     private static readonly JsonSerializerOptions JsonOptions = new()

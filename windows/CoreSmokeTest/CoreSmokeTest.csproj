@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Core smoke test — compiles the WinUI-free Core/ + Interop/ sources (linked in below)
+    into a plain console app so the shared logic can be verified on any OS with the
+    .NET SDK (the macOS dev machine included; no Windows App SDK required).
+
+    TargetFramework is net7.0 so it builds under the macOS dev machine's .NET 7 SDK;
+    RollForward=Major lets the built binary run on a machine that only has the .NET 8
+    runtime. LangVersion is pinned to 11 — the main WinUI project (net8.0, C# 12) is a
+    superset, so anything that compiles here compiles there.
+
+    Not referenced by AgentTimeline.sln on purpose. Run it standalone:
+        dotnet run  (from inside windows/CoreSmokeTest)
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <LangVersion>11</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>AgentTimeline.CoreSmokeTest</RootNamespace>
+    <AssemblyName>CoreSmokeTest</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../AgentTimeline/Core/**/*.cs" LinkBase="Core" />
+    <!-- SessionWatcher depends on FileIdentity; P/Invoke declarations compile everywhere. -->
+    <Compile Include="../AgentTimeline/Interop/FileIdentity.cs" Link="Interop/FileIdentity.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.6" />
+  </ItemGroup>
+
+</Project>

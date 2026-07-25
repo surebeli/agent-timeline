@@ -27,10 +27,50 @@ public sealed class DesignTokens
     public int PanelMaxWidth { get; private set; } = 560;
     public int PanelDefaultHeight { get; private set; } = 640;
 
+    /// <summary>
+    /// Set once at launch from Application.RequestedTheme; picks the light/dark variant of
+    /// dual-color tokens for code-built UI (flyouts, chip badges). The XAML side keeps using
+    /// ThemeResource lookups from Themes/Tokens.xaml.
+    /// </summary>
+    public bool DarkTheme { get; set; } = true;
+
     private readonly Dictionary<string, Color> _agentColors = new();
+    private readonly Dictionary<string, Color> _kindColors = new();
+    private readonly Dictionary<string, (Color Light, Color Dark)> _dualColors = new();
+
+    private static readonly Color FallbackGray = Color.FromArgb(255, 128, 128, 128);
 
     public Color AgentColor(AgentKind kind) =>
-        _agentColors.TryGetValue(kind.Key(), out var c) ? c : Color.FromArgb(255, 128, 128, 128);
+        _agentColors.TryGetValue(kind.Key(), out var c) ? c : FallbackGray;
+
+    /// <summary>color.kind[label] — the phase-tag color for a NodeKind label (需求/任务/…).</summary>
+    public Color? KindColor(string? label) =>
+        label is not null && _kindColors.TryGetValue(label, out var c) ? c : null;
+
+    /// <summary>A dual light/dark token color (accent / resultLine / statusChanged / …).</summary>
+    public Color DualColor(string name) =>
+        _dualColors.TryGetValue(name, out var pair) ? (DarkTheme ? pair.Dark : pair.Light) : FallbackGray;
+
+    /// <summary>
+    /// Codename status → display color, mirroring the mac chip/dictionary mapping:
+    /// 完成 → resultLine, 变更 → statusChanged, 进行中 → accent, else secondary text.
+    /// </summary>
+    public Color StatusColor(CodenameStatus? status) => status switch
+    {
+        CodenameStatus.Completed => DualColor("resultLine"),
+        CodenameStatus.Changed => DualColor("statusChanged"),
+        CodenameStatus.Active => DualColor("accent"),
+        _ => DualColor("textSecondary"),
+    };
+
+    /// <summary>The ✓/△/▶ chip badge for statuses that have one (定义/提及 render none).</summary>
+    public static string StatusGlyph(CodenameStatus? status) => status switch
+    {
+        CodenameStatus.Completed => "✓",
+        CodenameStatus.Changed => "△",
+        CodenameStatus.Active => "▶",
+        _ => "",
+    };
 
     public static DesignTokens Load()
     {
@@ -56,12 +96,32 @@ public sealed class DesignTokens
                 tokens.PanelDefaultHeight = (int)GetDouble(panel, "defaultHeight", tokens.PanelDefaultHeight);
             }
 
-            if (root.TryGetProperty("color", out var color) &&
-                color.TryGetProperty("agentBadge", out var badges))
+            if (root.TryGetProperty("color", out var color))
             {
-                foreach (var prop in badges.EnumerateObject())
+                if (color.TryGetProperty("agentBadge", out var badges))
                 {
-                    tokens._agentColors[prop.Name] = ParseColor(prop.Value.GetString() ?? "#808080");
+                    foreach (var prop in badges.EnumerateObject())
+                    {
+                        tokens._agentColors[prop.Name] = ParseColor(prop.Value.GetString() ?? "#808080");
+                    }
+                }
+                if (color.TryGetProperty("kind", out var kinds))
+                {
+                    foreach (var prop in kinds.EnumerateObject())
+                    {
+                        tokens._kindColors[prop.Name] = ParseColor(prop.Value.GetString() ?? "#808080");
+                    }
+                }
+                // Dual light/dark tokens needed by code-built UI (chip badges, flyouts).
+                foreach (var name in new[] { "accent", "resultLine", "statusChanged", "codenameChipText", "textSecondary", "textTertiary" })
+                {
+                    if (color.TryGetProperty(name, out var dual) &&
+                        dual.ValueKind == JsonValueKind.Object)
+                    {
+                        tokens._dualColors[name] = (
+                            ParseColor(GetStringProp(dual, "light") ?? "#808080"),
+                            ParseColor(GetStringProp(dual, "dark") ?? "#808080"));
+                    }
                 }
             }
         }
@@ -74,6 +134,10 @@ public sealed class DesignTokens
 
     private static double GetDouble(JsonElement parent, string name, double fallback) =>
         parent.TryGetProperty(name, out var el) && el.TryGetDouble(out var v) ? v : fallback;
+
+    private static string? GetStringProp(JsonElement parent, string name) =>
+        parent.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String
+            ? el.GetString() : null;
 
     /// <summary>Parses "#RRGGBB" or "#RRGGBBAA" (token order: alpha last).</summary>
     public static Color ParseColor(string hex)

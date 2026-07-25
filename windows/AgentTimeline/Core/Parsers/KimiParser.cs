@@ -88,7 +88,8 @@ public sealed class KimiParser : IAgentSessionParser
                             Agent: AgentKind.Kimi,
                             SessionId: sessionId,
                             Timestamp: timestamp,
-                            ResultLine: ParserUtil.FirstLine(resultLine, 160)));
+                            ResultLine: ParserUtil.FirstLine(resultLine, 160),
+                            FullText: resultLine)); // untruncated — mined for codenames
                     }
                 }
             }

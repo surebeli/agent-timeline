@@ -26,18 +26,22 @@ public sealed class TimelineCoordinator : IDisposable
     private readonly Store _store;
     private readonly CodenameRegistry _registry;
     private readonly SummaryEngine _engine;
+    private readonly AppSettings _settings;
     private readonly SessionWatcher _watcher;
     private readonly RuleSummarizer _rule = new();
 
     public event Action<TimelineNode>? NodeAdded;
     public event Action<long, Summary>? NodeSummaryUpdated;
     public event Action<long, string>? NodeResultLineUpdated;
+    /// <summary>Codename dictionary rows changed (statuses/definitions); UI refreshes chip badges.</summary>
+    public event Action? CodenamesChanged;
 
     public TimelineCoordinator(Store store, CodenameRegistry registry, SummaryEngine engine, AppSettings settings)
     {
         _store = store;
         _registry = registry;
         _engine = engine;
+        _settings = settings;
 
         var parsers = new List<IAgentSessionParser>
         {
@@ -55,8 +59,64 @@ public sealed class TimelineCoordinator : IDisposable
 
     public void Start() => _watcher.Start();
 
+    /// <summary>Bump when detection semantics change enough that history deserves a re-run.</summary>
+    public const int CodenameReplayVersionCurrent = 3;
+
+    /// <summary>
+    /// One-time per replay version (mirrors macos AppDelegate.replayCodenamesIfNeeded):
+    /// rebuild the dictionary from stored history oldest-first on a background task so
+    /// short codes, statuses and definitions light up. The done marker
+    /// (AppSettings.CodenameReplayVersion) is written only AFTER completion — a crash
+    /// mid-replay re-arms. <paramref name="completion"/> always fires (immediately when no
+    /// replay is due); the caller starts the watcher/engine from it so replay and watcher
+    /// never write the codenames table concurrently.
+    /// </summary>
+    public void ReplayCodenamesIfNeeded(Action? completion = null)
+    {
+        if (_settings.CodenameReplayVersion >= CodenameReplayVersionCurrent)
+        {
+            completion?.Invoke();
+            return;
+        }
+        Task.Run(() =>
+        {
+            try
+            {
+                ReplayCodenames(_store, _registry);
+                _settings.CodenameReplayVersion = CodenameReplayVersionCurrent;
+                _settings.Save();
+                CodenamesChanged?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                // Marker intentionally NOT written — next launch re-runs the replay.
+                Log.Error("Codename lifecycle replay failed", ex);
+            }
+            completion?.Invoke();
+        });
+    }
+
+    /// <summary>Synchronous replay core (static so the Core smoke test can drive it directly).</summary>
+    public static void ReplayCodenames(Store store, CodenameRegistry registry)
+    {
+        store.ClearCodenames();
+        registry.ReloadCache();
+        foreach (var node in store.GetAllNodesAscending())
+        {
+            var ts = node.Command.Timestamp;
+            registry.ProcessText(node.Id, ts, node.Command.Text);
+            registry.RecordFromSummary(node.Summary, node.Id, ts);
+            // Definitions often live in the reply — mine the stored result line too.
+            if (!string.IsNullOrEmpty(node.Summary.ResultLine))
+            {
+                registry.ProcessText(node.Id, ts, node.Summary.ResultLine);
+            }
+        }
+    }
+
     private void OnEventsParsed(IReadOnlyList<SessionEvent> events)
     {
+        var codenamesTouched = false;
         foreach (var evt in events)
         {
             try
@@ -64,12 +124,19 @@ public sealed class TimelineCoordinator : IDisposable
                 switch (evt)
                 {
                     case UserCommand cmd:
-                        IngestUserCommand(cmd);
+                        codenamesTouched |= IngestUserCommand(cmd);
                         break;
                     case TaskComplete done:
                         if (_store.SetResultLine(done.Agent, done.SessionId, done.ResultLine) is { } nodeId)
                         {
                             NodeResultLineUpdated?.Invoke(nodeId, done.ResultLine);
+                        }
+                        // Mine the agent reply for codename definitions/status signals
+                        // (PRD §3.3 来源覆盖), attributed to the command node it answers.
+                        if (_store.LatestNodeId(done.Agent, done.SessionId, done.Timestamp) is { } target)
+                        {
+                            codenamesTouched |= _registry.ProcessText(
+                                target, done.Timestamp, done.FullText ?? done.ResultLine);
                         }
                         break;
                 }
@@ -79,9 +146,10 @@ public sealed class TimelineCoordinator : IDisposable
                 Log.Error("Coordinator failed to ingest event", ex);
             }
         }
+        if (codenamesTouched) CodenamesChanged?.Invoke();
     }
 
-    private void IngestUserCommand(UserCommand cmd)
+    private bool IngestUserCommand(UserCommand cmd)
     {
         var hash = SummaryEngine.ComputeHash(cmd);
 
@@ -91,9 +159,15 @@ public sealed class TimelineCoordinator : IDisposable
         var pending = cached is null && _engine.HasLlm;
 
         var id = _store.InsertNode(cmd, summary, hash, pending);
-        if (id < 0) return; // duplicate (already ingested in an earlier run)
+        if (id < 0) return false; // duplicate (already ingested in an earlier run)
 
-        _registry.RegisterOccurrences(id, cmd.Timestamp, cmd.Text, summary.Codenames);
+        // Rule-based mining of the raw command text (definitions → dash codes → mentions).
+        var touched = _registry.ProcessText(id, cmd.Timestamp, cmd.Text);
+        // On a cache hit the LLM extraction never flows through OnLlmSummarized — register it here.
+        if (cached is not null)
+        {
+            touched |= _registry.RecordFromSummary(summary, id, cmd.Timestamp);
+        }
 
         var node = new TimelineNode
         {
@@ -106,6 +180,7 @@ public sealed class TimelineCoordinator : IDisposable
         NodeAdded?.Invoke(node);
 
         if (pending) _engine.Enqueue(id, cmd, hash);
+        return touched;
     }
 
     private void OnLlmSummarized(long nodeId, string hash, Summary summary)
@@ -113,13 +188,11 @@ public sealed class TimelineCoordinator : IDisposable
         _store.UpdateSummary(nodeId, summary, pending: false);
         _store.CacheSummary(hash, summary);
 
-        // Re-register only to pick up LLM definitions; counters must not double-count.
         var node = _store.GetNode(nodeId);
-        if (node is not null)
+        if (node is not null &&
+            _registry.RecordFromSummary(summary, nodeId, node.Command.Timestamp))
         {
-            _registry.RegisterOccurrences(
-                nodeId, node.Command.Timestamp, node.Command.Text,
-                summary.Codenames, countOccurrences: false);
+            CodenamesChanged?.Invoke();
         }
         NodeSummaryUpdated?.Invoke(nodeId, summary);
     }

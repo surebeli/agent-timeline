@@ -79,21 +79,42 @@
                     Text="Agent Timeline" />
             </StackPanel>
 
-            <ComboBox
-                x:Name="ProjectFilter"
+            <StackPanel
                 Grid.Column="1"
-                MinWidth="110"
                 HorizontalAlignment="Right"
-                VerticalAlignment="Center"
-                FontSize="{StaticResource FontSizeBody}"
-                ItemsSource="{x:Bind ViewModel.ProjectOptions, Mode=OneWay}"
-                SelectionChanged="ProjectFilter_SelectionChanged" />
+                Orientation="Horizontal"
+                Spacing="4"
+                VerticalAlignment="Center">
+                <ComboBox
+                    x:Name="ProjectFilter"
+                    MinWidth="90"
+                    VerticalAlignment="Center"
+                    FontSize="{StaticResource FontSizeBody}"
+                    ItemsSource="{x:Bind ViewModel.ProjectOptions, Mode=OneWay}"
+                    SelectionChanged="ProjectFilter_SelectionChanged" />
+                <!-- Node kind filter (PRD §3.3b 阶段锚点): 全部阶段 / 需求 / 任务 / … -->
+                <ComboBox
+                    x:Name="KindFilter"
+                    MinWidth="86"
+                    VerticalAlignment="Center"
+                    FontSize="{StaticResource FontSizeBody}"
+                    ItemsSource="{x:Bind ViewModel.KindOptions, Mode=OneWay}"
+                    SelectionChanged="KindFilter_SelectionChanged" />
+            </StackPanel>
 
             <StackPanel
                 Grid.Column="2"
                 Orientation="Horizontal"
                 Spacing="2"
                 VerticalAlignment="Center">
+                <!-- Codename dictionary panel (PRD §3.3b 词典总览入口) -->
+                <Button
+                    x:Name="DictionaryButton"
+                    Click="OpenDictionary_Click"
+                    Style="{StaticResource HeaderIconButtonStyle}"
+                    ToolTipService.ToolTip="代号词典">
+                    <FontIcon FontSize="12" Glyph="&#xE82D;" />
+                </Button>
                 <Button
                     Click="OpenSettings_Click"
                     Style="{StaticResource HeaderIconButtonStyle}"
@@ -153,11 +174,12 @@
                                 Padding="{StaticResource CardPadding}">
                                 <StackPanel Spacing="4">
 
-                                    <!-- meta row: time · project · agent, expand chevron -->
+                                    <!-- meta row: time · project · agent · kind tag, expand chevron -->
                                     <Grid ColumnSpacing="6">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
@@ -184,8 +206,22 @@
                                             Foreground="{x:Bind AgentBrush}"
                                             IsTextSelectionEnabled="True"
                                             Text="{x:Bind AgentName}" />
-                                        <Button
+                                        <!-- node kind tag (PRD §3.3b), colors from color.kind tokens -->
+                                        <Border
                                             Grid.Column="3"
+                                            Padding="4,1"
+                                            VerticalAlignment="Center"
+                                            Background="{x:Bind KindBgBrush, Mode=OneWay}"
+                                            CornerRadius="3"
+                                            Visibility="{x:Bind HasKind, Mode=OneWay}">
+                                            <TextBlock
+                                                FontSize="{StaticResource FontSizeChip}"
+                                                FontWeight="Medium"
+                                                Foreground="{x:Bind KindBrush, Mode=OneWay}"
+                                                Text="{x:Bind Kind, Mode=OneWay}" />
+                                        </Border>
+                                        <Button
+                                            Grid.Column="4"
                                             Click="ExpandNode_Click"
                                             Style="{StaticResource HeaderIconButtonStyle}"
                                             ToolTipService.ToolTip="展开 / 收起原始命令">
@@ -230,7 +266,7 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
 
-                                    <!-- codename chips (click → definition flyout) -->
+                                    <!-- codename chips: name + live status badge ✓/△/▶ (click → lifecycle flyout) -->
                                     <ItemsControl
                                         ItemsSource="{x:Bind Codenames, Mode=OneWay}"
                                         Visibility="{x:Bind HasCodenames, Mode=OneWay}">
@@ -241,11 +277,23 @@
                                             </ItemsPanelTemplate>
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="x:String">
+                                            <DataTemplate x:DataType="ui:CodenameChipViewModel">
                                                 <Button
                                                     Click="CodenameChip_Click"
-                                                    Content="{x:Bind}"
-                                                    Style="{StaticResource CodenameChipStyle}" />
+                                                    Style="{StaticResource CodenameChipStyle}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="2">
+                                                        <TextBlock
+                                                            FontSize="{StaticResource FontSizeChip}"
+                                                            FontWeight="Medium"
+                                                            Text="{x:Bind Name}" />
+                                                        <TextBlock
+                                                            FontSize="{StaticResource FontSizeChip}"
+                                                            FontWeight="Bold"
+                                                            Foreground="{x:Bind StatusBrush, Mode=OneWay}"
+                                                            Text="{x:Bind StatusGlyph, Mode=OneWay}"
+                                                            Visibility="{x:Bind HasStatus, Mode=OneWay}" />
+                                                    </StackPanel>
+                                                </Button>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>

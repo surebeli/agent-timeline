@@ -1,48 +1,26 @@
-using System.Text.RegularExpressions;
-
 namespace AgentTimeline.Core;
 
 /// <summary>
-/// The codename dictionary (PRD F3): union of regex candidates and LLM-extracted codenames.
-/// First occurrence defines the entry (first-seen wins); later occurrences only bump the
-/// counter and may fill in a missing definition from a later LLM summary.
-/// Backed by the SQLite `codenames` table, fronted by an in-memory cache for chip lookups.
+/// The codename dictionary (PRD F3 + 生命周期扩展) — mirrors macos CodenameRegistry.
+/// Merges three sources: rule-based text mining of user commands AND agent replies,
+/// plus LLM extraction. Persistence semantics live in the Store (DefineCodename
+/// latest-wins with 变更 flip / RecordCodename fill-empty / TouchCodename status
+/// machine); this class orchestrates and fronts an in-memory cache for UI lookups.
 /// </summary>
-public sealed partial class CodenameRegistry
+public sealed class CodenameRegistry
 {
-    /// <summary>
-    /// Candidate pattern, e.g. T-PLUGIN-00, HOP-CLI-7, FOO-BAR-BAZ (2–4 dash-separated
-    /// uppercase/digit groups, first group starts with a letter).
-    /// NOTE: the first quantifier is {0,9} (not {1,9}) so single-letter first segments
-    /// like "T-PLUGIN-00" match — the PRD's own flagship example requires this
-    /// (verified by the Core smoke test).
-    /// </summary>
-    public static readonly Regex CandidateRegex = new(
-        @"\b[A-Z][A-Z0-9]{0,9}(?:-[A-Z0-9]{1,10}){1,3}\b",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
     private readonly Store _store;
-    private readonly Dictionary<string, CodenameEntry> _cache = new();
+    private readonly Dictionary<string, CodenameEntry> _cache = new(StringComparer.Ordinal);
     private readonly object _gate = new();
 
     public CodenameRegistry(Store store)
     {
         _store = store;
-        foreach (var entry in store.GetAllCodenames())
-        {
-            _cache[entry.Name] = entry;
-        }
+        ReloadCache();
     }
 
-    public static IReadOnlyList<string> ExtractCandidates(string text)
-    {
-        var seen = new List<string>();
-        foreach (Match m in CandidateRegex.Matches(text))
-        {
-            if (!seen.Contains(m.Value)) seen.Add(m.Value);
-        }
-        return seen;
-    }
+    /// <summary>Dash-style regex candidates in a text (used by the UI to render chips).</summary>
+    public static IReadOnlyList<string> ExtractCandidates(string text) => CodenameDetector.Detect(text);
 
     public CodenameEntry? Lookup(string name)
     {
@@ -52,77 +30,113 @@ public sealed partial class CodenameRegistry
         }
     }
 
+    /// <summary>Dictionary panel ordering: recently updated first, then recently seen.</summary>
     public IReadOnlyList<CodenameEntry> All()
     {
         lock (_gate)
         {
-            return _cache.Values.OrderByDescending(e => e.FirstSeen).ToList();
+            return _cache.Values
+                .OrderByDescending(e => e.Updated ?? e.FirstSeen)
+                .ToList();
         }
     }
 
     /// <summary>
-    /// Registers all codenames appearing in one command (regex candidates ∪ LLM extraction).
-    /// <paramref name="countOccurrences"/> is false when re-registering the SAME node after its
-    /// LLM summary arrives — definitions get filled in, but counters must not double-count.
-    /// Returns the union list (used to render chips).
+    /// Mine one text (user command or agent reply): definitions, dash-style mentions,
+    /// then status updates against everything known (including codes just defined).
+    /// Returns true when any dictionary row was touched (UI refresh signal).
     /// </summary>
-    public IReadOnlyList<string> RegisterOccurrences(
-        long nodeId,
-        DateTimeOffset timestamp,
-        string text,
-        IReadOnlyList<CodenameDefinition> llmCodenames,
-        bool countOccurrences = true)
+    public bool ProcessText(long nodeId, DateTimeOffset at, string text)
     {
-        var union = new List<string>(ExtractCandidates(text));
-        var definitions = new Dictionary<string, string?>();
-        foreach (var cn in llmCodenames)
-        {
-            if (string.IsNullOrWhiteSpace(cn.Name)) continue;
-            if (!union.Contains(cn.Name)) union.Add(cn.Name);
-            definitions[cn.Name] = cn.Definition;
-        }
-
+        HashSet<string> known;
         lock (_gate)
         {
-            foreach (var name in union)
-            {
-                definitions.TryGetValue(name, out var llmDefinition);
-                if (_cache.TryGetValue(name, out var existing))
-                {
-                    if (countOccurrences && existing.DefiningNodeId != nodeId) existing.Occurrences++;
-                    if (existing.Definition is null && llmDefinition is not null)
-                    {
-                        existing.Definition = llmDefinition;
-                    }
-                    _store.UpsertCodename(existing);
-                }
-                else
-                {
-                    var entry = new CodenameEntry
-                    {
-                        Name = name,
-                        FirstSeen = timestamp,
-                        DefiningNodeId = nodeId,
-                        Definition = llmDefinition,
-                        ContextExcerpt = ExcerptAround(text, name),
-                        Occurrences = 1,
-                    };
-                    _cache[name] = entry;
-                    _store.UpsertCodename(entry);
-                }
-            }
+            known = new HashSet<string>(_cache.Keys, StringComparer.Ordinal);
         }
-        return union;
+        var touched = new HashSet<string>(StringComparer.Ordinal);
+        var definedNow = new HashSet<string>(StringComparer.Ordinal);
+        var bornNow = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var (name, definition) in CodenameDetector.DetectDefinitions(text))
+        {
+            _store.DefineCodename(name, definition, nodeId, at);
+            definedNow.Add(name);
+            known.Add(name);
+            touched.Add(name);
+        }
+        foreach (var name in CodenameDetector.Detect(text))
+        {
+            if (known.Contains(name)) continue;
+            _store.RecordCodename(name, "", nodeId, at);
+            known.Add(name);
+            bornNow.Add(name);
+            touched.Add(name);
+        }
+        // A definition sentence is not a status update about itself — keywords in the
+        // definition body ("N1: 完成支付重构") must not flip the fresh 定义 status, and
+        // DefineCodename already counted the occurrence.
+        var mentionTargets = new HashSet<string>(known, StringComparer.Ordinal);
+        mentionTargets.ExceptWith(definedNow);
+        foreach (var (name, status, context) in CodenameDetector.DetectMentions(text, mentionTargets))
+        {
+            _store.TouchCodename(name, status, context, nodeId, at,
+                bumpOccurrence: !bornNow.Contains(name));
+            touched.Add(name);
+        }
+
+        RefreshFromStore(touched);
+        return touched.Count > 0;
     }
 
-    /// <summary>±40 chars of context around the first occurrence, single line.</summary>
-    private static string ExcerptAround(string text, string name)
+    /// <summary>
+    /// Register LLM-extracted codenames: soft sighting (never overwrites an existing
+    /// definition), plus a status-machine advance when the model saw a lifecycle signal
+    /// (定义/提及 carry no transition and are skipped, mirroring mac). Names must pass
+    /// the plausibility gate — models occasionally emit list indices as "codenames".
+    /// </summary>
+    public bool RecordFromSummary(Summary summary, long nodeId, DateTimeOffset seenAt)
     {
-        var idx = text.IndexOf(name, StringComparison.Ordinal);
-        if (idx < 0) return "";
-        var start = Math.Max(0, idx - 40);
-        var end = Math.Min(text.Length, idx + name.Length + 40);
-        var excerpt = text[start..end].ReplaceLineEndings(" ").Trim();
-        return (start > 0 ? "…" : "") + excerpt + (end < text.Length ? "…" : "");
+        var touched = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var def in summary.Codenames)
+        {
+            var name = def.Name?.Trim();
+            if (name is null || !CodenameDetector.IsPlausibleName(name)) continue;
+            _store.RecordCodename(name, def.Definition ?? "", nodeId, seenAt);
+            touched.Add(name);
+            if (CodenameStatuses.FromLabel(def.Status) is { } status &&
+                status != CodenameStatus.Defined && status != CodenameStatus.Mentioned)
+            {
+                _store.TouchCodename(name, status, "", nodeId, seenAt);
+            }
+        }
+        RefreshFromStore(touched);
+        return touched.Count > 0;
+    }
+
+    /// <summary>Rebuilds the whole cache from the store (used after the one-time replay).</summary>
+    public void ReloadCache()
+    {
+        var all = _store.GetAllCodenames();
+        lock (_gate)
+        {
+            _cache.Clear();
+            foreach (var entry in all)
+            {
+                _cache[entry.Name] = entry;
+            }
+        }
+    }
+
+    private void RefreshFromStore(IEnumerable<string> names)
+    {
+        foreach (var name in names)
+        {
+            var entry = _store.GetCodename(name);
+            if (entry is null) continue;
+            lock (_gate)
+            {
+                _cache[name] = entry;
+            }
+        }
     }
 }

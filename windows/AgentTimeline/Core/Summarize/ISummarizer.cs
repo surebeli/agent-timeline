@@ -12,18 +12,23 @@ public interface ISummarizer
 }
 
 /// <summary>
-/// Shared prompt + strict-JSON parsing for the summary contract
-/// (docs/ARCHITECTURE.md 摘要 JSON 契约, used verbatim by CLI and provider paths):
-///   {"title", "keyPoints"[], "codenames"[{name, definition}], "resultLine"}
+/// Shared prompt + strict-JSON parsing for the summary contract, mirroring macos
+/// SummaryPrompt (lifecycle revision):
+///   {"title", "kind", "keyPoints"[], "codenames"[{name, definition, status}], "resultLine"}
+/// kind ∈ 需求|任务|调研|学习|决策|修复|其他; codename status ∈ 定义|进行中|完成|变更|提及.
 /// </summary>
 public static class SummaryJson
 {
     public static string BuildPrompt(string commandText) =>
         $$"""
-        你是一个命令摘要器。下面是用户提交给 AI agent 的一条命令原文。
-        请输出严格的 JSON（单个对象，不要 markdown 代码块，不要多余文字），格式：
-        {"title":"≤20字标题","keyPoints":["关键点/需求点/任务点，每条≤30字，最多5条"],"codenames":[{"name":"命令中出现的任务/需求代号（如 T-PLUGIN-00）","definition":"该代号在本命令中的含义"}],"resultLine":""}
-        没有代号时 codenames 用空数组；resultLine 留空字符串。
+        你是一个命令摘要器。下面是用户提交给 AI agent 的一条命令原文。请只输出一个 JSON 对象（不要 markdown 代码块、不要任何解释），字段如下：
+        {"title": "≤20字的标题，概括这条命令要做什么",
+         "kind": "按命令主要意图归类，取 需求|任务|调研|学习|决策|修复|其他 之一",
+         "keyPoints": ["关键点/需求点/任务点，每条≤30字，最多5条；命令简单时可为空数组"],
+         "codenames": [{"name": "命令中出现的需求/任务/里程碑代号，短码（N1、T2、M1）和长码（REQ-3、T-PLUGIN-00）都算；没有则空数组",
+                        "definition": "该代号指代的具体内容，≤40字；若本命令只是提及或更新状态而没有给出定义，留空字符串",
+                        "status": "该代号在本命令中的生命周期信号，取 定义|进行中|完成|变更|提及 之一"}],
+         "resultLine": null}
 
         <command>
         {{commandText}}
@@ -71,15 +76,23 @@ public static class SummaryJson
                 {
                     if (item.ValueKind != JsonValueKind.Object) continue;
                     var name = (GetString(item, "name") ?? "").Trim();
-                    if (name.Length == 0) continue;
-                    codenames.Add(new CodenameDefinition(name, GetString(item, "definition")));
+                    // Plausibility gate: models occasionally emit list indices ("1"),
+                    // punctuation, or tech vocabulary (S3/Q1) as "codenames".
+                    if (!CodenameDetector.IsPlausibleName(name)) continue;
+                    var definition = GetString(item, "definition");
+                    if (definition is { Length: > 60 }) definition = definition[..60] + "…";
+                    // Status label passes through raw; CodenameRegistry validates on use.
+                    codenames.Add(new CodenameDefinition(name, definition, GetString(item, "status")));
                 }
             }
 
             var resultLine = GetString(root, "resultLine");
             if (string.IsNullOrWhiteSpace(resultLine)) resultLine = null;
 
-            return new Summary(title, keyPoints, codenames, resultLine, source);
+            // Kind must be one of the NodeKind labels; anything else is dropped.
+            var kind = NodeKinds.Normalize(GetString(root, "kind"));
+
+            return new Summary(title, keyPoints, codenames, resultLine, source, kind);
         }
         catch (JsonException)
         {

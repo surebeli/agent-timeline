@@ -33,6 +33,8 @@ public partial class App : Application
         AppPaths.EnsureDataDirs();
         Settings = AppSettings.Load();
         Tokens = DesignTokens.Load();
+        // Code-built UI (chip badges, flyouts) picks dual-token variants by app theme.
+        Tokens.DarkTheme = RequestedTheme == ApplicationTheme.Dark;
 
         // First run: seed opacity settings from the design tokens (afterwards 设置 owns them).
         if (!File.Exists(AppPaths.SettingsFile))
@@ -50,10 +52,16 @@ public partial class App : Application
         MainWindowInstance = new MainWindow();
         MainWindowInstance.Activate();
 
-        // Start watching only after the window subscribed to coordinator events,
-        // so backfill nodes stream into the visible timeline.
-        Coordinator.Start();
-        Coordinator.RetryPendingSummaries();
+        // One-time per replay version: rebuild the codename dictionary from stored history
+        // (PRD §3.3, marker persisted only after completion). The watcher and summary
+        // engine start only from the completion callback, so replay and watcher never
+        // write the codenames table concurrently — and the window has already subscribed
+        // to coordinator events, so backfill nodes stream into the visible timeline.
+        Coordinator.ReplayCodenamesIfNeeded(() =>
+        {
+            Coordinator.Start();
+            Coordinator.RetryPendingSummaries();
+        });
     }
 
     /// <summary>Full teardown; invoked from the tray menu 退出.</summary>

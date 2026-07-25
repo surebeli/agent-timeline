@@ -22,20 +22,57 @@ public abstract class ObservableObject : INotifyPropertyChanged
     }
 }
 
+/// <summary>
+/// One codename chip on a card: the name plus a live status badge (✓ 完成 / △ 变更 / ▶ 进行中,
+/// mirroring the mac CodenameChip). Badge state is refreshed from the registry whenever the
+/// coordinator reports dictionary changes.
+/// </summary>
+public sealed class CodenameChipViewModel : ObservableObject
+{
+    private string _statusGlyph = "";
+    private SolidColorBrush _statusBrush = new(Microsoft.UI.Colors.Transparent);
+
+    public CodenameChipViewModel(string name) => Name = name;
+
+    public string Name { get; }
+
+    public string StatusGlyph
+    {
+        get => _statusGlyph;
+        private set { if (Set(ref _statusGlyph, value)) Raise(nameof(HasStatus)); }
+    }
+    public bool HasStatus => _statusGlyph.Length > 0;
+
+    public SolidColorBrush StatusBrush { get => _statusBrush; private set => Set(ref _statusBrush, value); }
+
+    public void Refresh(CodenameEntry? entry, DesignTokens tokens)
+    {
+        var status = entry?.StatusValue;
+        StatusGlyph = DesignTokens.StatusGlyph(status);
+        if (HasStatus) StatusBrush = new SolidColorBrush(tokens.StatusColor(status));
+    }
+}
+
 /// <summary>One timeline card. All members are read/written on the UI thread only.</summary>
 public sealed class NodeViewModel : ObservableObject
 {
     private static readonly Dictionary<AgentKind, SolidColorBrush> BrushCache = new();
 
+    private readonly DesignTokens _tokens;
+    private readonly Func<string, CodenameEntry?> _codenameLookup;
+
     private string _title = "";
     private List<string> _keyPoints = new();
-    private List<string> _codenames = new();
+    private List<CodenameChipViewModel> _codenames = new();
+    private string? _kind;
     private string? _resultLine;
     private bool _isExpanded;
     private bool _summaryPending;
 
-    public NodeViewModel(TimelineNode node, DesignTokens tokens)
+    public NodeViewModel(TimelineNode node, DesignTokens tokens, Func<string, CodenameEntry?> codenameLookup)
     {
+        _tokens = tokens;
+        _codenameLookup = codenameLookup;
         Id = node.Id;
         Timestamp = node.Command.Timestamp;
         Project = node.Command.Project;
@@ -75,12 +112,40 @@ public sealed class NodeViewModel : ObservableObject
     }
     public bool HasKeyPoints => _keyPoints.Count > 0;
 
-    public List<string> Codenames
+    public List<CodenameChipViewModel> Codenames
     {
         get => _codenames;
         private set { if (Set(ref _codenames, value)) Raise(nameof(HasCodenames)); }
     }
     public bool HasCodenames => _codenames.Count > 0;
+
+    // --- Node kind tag (PRD §3.3b): label colored from color.kind in the design tokens ---
+
+    public string? Kind
+    {
+        get => _kind;
+        private set
+        {
+            if (!Set(ref _kind, value)) return;
+            Raise(nameof(HasKind));
+            Raise(nameof(KindBrush));
+            Raise(nameof(KindBgBrush));
+        }
+    }
+    public bool HasKind => !string.IsNullOrEmpty(_kind);
+
+    public SolidColorBrush KindBrush =>
+        new(_tokens.KindColor(_kind) ?? Microsoft.UI.Colors.Gray);
+
+    /// <summary>Same kind color at 14% alpha — the tag pill background (mac opacity 0.14).</summary>
+    public SolidColorBrush KindBgBrush
+    {
+        get
+        {
+            var c = _tokens.KindColor(_kind) ?? Microsoft.UI.Colors.Gray;
+            return new SolidColorBrush(Windows.UI.Color.FromArgb(0x24, c.R, c.G, c.B));
+        }
+    }
 
     public string? ResultLine
     {
@@ -104,10 +169,11 @@ public sealed class NodeViewModel : ObservableObject
     {
         Title = summary.Title;
         KeyPoints = summary.KeyPoints.ToList();
+        Kind = NodeKinds.Normalize(summary.Kind);
         if (summary.ResultLine is not null) ResultLine = summary.ResultLine;
 
-        // Chips show the union of LLM-extracted codenames and regex candidates,
-        // consistent with what CodenameRegistry registered for this node.
+        // Chips show the union of extracted codenames (LLM + rule definitions) and regex
+        // candidates, consistent with what CodenameRegistry registered for this node.
         var union = new List<string>();
         foreach (var cn in summary.Codenames)
         {
@@ -117,7 +183,21 @@ public sealed class NodeViewModel : ObservableObject
         {
             if (!union.Contains(name)) union.Add(name);
         }
-        Codenames = union;
+        Codenames = union.Select(name =>
+        {
+            var chip = new CodenameChipViewModel(name);
+            chip.Refresh(_codenameLookup(name), _tokens);
+            return chip;
+        }).ToList();
+    }
+
+    /// <summary>Re-reads chip status badges from the registry (dictionary changed).</summary>
+    public void RefreshCodenameStatuses()
+    {
+        foreach (var chip in _codenames)
+        {
+            chip.Refresh(_codenameLookup(chip.Name), _tokens);
+        }
     }
 
     private static SolidColorBrush BrushFor(AgentKind kind, DesignTokens tokens)
@@ -132,29 +212,36 @@ public sealed class NodeViewModel : ObservableObject
 }
 
 /// <summary>
-/// The timeline (PRD F2): newest first, lazily paged, filterable by project.
-/// Fed by TimelineCoordinator events which MainWindow marshals onto the UI thread.
+/// The timeline (PRD F2): newest first, lazily paged, filterable by project and by node
+/// kind (PRD §3.3b 阶段过滤). Fed by TimelineCoordinator events which MainWindow marshals
+/// onto the UI thread.
 /// </summary>
 public sealed class TimelineViewModel : ObservableObject
 {
     public const string AllProjects = "全部项目";
+    public const string AllKinds = "全部阶段";
     private const int PageSize = 200;
 
     private readonly Store _store;
+    private readonly CodenameRegistry _registry;
     private readonly DesignTokens _tokens;
     private readonly HashSet<long> _knownIds = new();
     private readonly Dictionary<long, NodeViewModel> _byId = new();
     private string? _projectFilter; // null = all
+    private string? _kindFilter;    // NodeKind label; null = all
     private bool _hasMore;
 
-    public TimelineViewModel(Store store, DesignTokens tokens)
+    public TimelineViewModel(Store store, CodenameRegistry registry, DesignTokens tokens)
     {
         _store = store;
+        _registry = registry;
         _tokens = tokens;
+        foreach (var label in NodeKinds.AllLabels) KindOptions.Add(label);
     }
 
     public ObservableCollection<NodeViewModel> Nodes { get; } = new();
     public ObservableCollection<string> ProjectOptions { get; } = new() { AllProjects };
+    public ObservableCollection<string> KindOptions { get; } = new() { AllKinds };
 
     public bool HasMore { get => _hasMore; private set => Set(ref _hasMore, value); }
 
@@ -165,7 +252,7 @@ public sealed class TimelineViewModel : ObservableObject
         Nodes.Clear();
         _knownIds.Clear();
         _byId.Clear();
-        var page = _store.GetRecentNodes(PageSize, long.MaxValue, _projectFilter);
+        var page = _store.GetRecentNodes(PageSize, long.MaxValue, _projectFilter, _kindFilter);
         foreach (var node in page) Append(node);
         HasMore = page.Count == PageSize;
     }
@@ -173,7 +260,7 @@ public sealed class TimelineViewModel : ObservableObject
     public void LoadMore()
     {
         var cursor = Nodes.Count > 0 ? Nodes[^1].Id : long.MaxValue;
-        var page = _store.GetRecentNodes(PageSize, cursor, _projectFilter);
+        var page = _store.GetRecentNodes(PageSize, cursor, _projectFilter, _kindFilter);
         foreach (var node in page) Append(node);
         HasMore = page.Count == PageSize;
     }
@@ -184,15 +271,52 @@ public sealed class TimelineViewModel : ObservableObject
         LoadInitial();
     }
 
+    public void SetKindFilter(string option)
+    {
+        _kindFilter = option == AllKinds ? null : option;
+        LoadInitial();
+    }
+
+    public bool HasActiveFilters => _projectFilter is not null || _kindFilter is not null;
+
+    /// <summary>Drops both filters and reloads (used before jumping to a filtered-out node).</summary>
+    public void ClearFilters()
+    {
+        _projectFilter = null;
+        _kindFilter = null;
+        LoadInitial();
+    }
+
+    /// <summary>
+    /// Pages until <paramref name="nodeId"/> is materialized (jump target beyond the loaded
+    /// window, e.g. an old definition node). Bounded so a huge history cannot stall the UI.
+    /// </summary>
+    public bool EnsureLoaded(long nodeId)
+    {
+        var guard = 0;
+        while (!_byId.ContainsKey(nodeId) && HasMore && guard++ < 50)
+        {
+            LoadMore();
+        }
+        return _byId.ContainsKey(nodeId);
+    }
+
+    /// <summary>Chip badge refresh after the codename dictionary changed.</summary>
+    public void RefreshCodenameStatuses()
+    {
+        foreach (var vm in _byId.Values) vm.RefreshCodenameStatuses();
+    }
+
     // ------------------------------------------------- coordinator event sinks (UI thread)
 
     public void OnNodeAdded(TimelineNode node)
     {
         EnsureProjectOption(node.Command.Project);
         if (_projectFilter is not null && node.Command.Project != _projectFilter) return;
+        if (_kindFilter is not null && node.Summary.Kind != _kindFilter) return;
         if (!_knownIds.Add(node.Id)) return;
 
-        var vm = new NodeViewModel(node, _tokens);
+        var vm = new NodeViewModel(node, _tokens, _registry.Lookup);
         // Newest on top; backfill may deliver out of order, so find the insertion point.
         var index = 0;
         while (index < Nodes.Count && Nodes[index].Timestamp > vm.Timestamp) index++;
@@ -220,7 +344,7 @@ public sealed class TimelineViewModel : ObservableObject
     private void Append(TimelineNode node)
     {
         if (!_knownIds.Add(node.Id)) return;
-        var vm = new NodeViewModel(node, _tokens);
+        var vm = new NodeViewModel(node, _tokens, _registry.Lookup);
         Nodes.Add(vm);
         _byId[node.Id] = vm;
     }

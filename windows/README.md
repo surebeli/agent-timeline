@@ -10,7 +10,46 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 > ✅ 已验证部分：`Core/`（解析器/Store/词典/摘要引擎/协调器）与 `Interop/` **不依赖 WinUI**，
 > 已在 macOS 用 .NET SDK 实际编译通过（0 警告 0 错误），并对三个解析器的过滤规则、
 > 代号正则、SQLite 读写/去重/偏移表、摘要 JSON 契约跑过功能冒烟测试（全部通过）。
+> 冒烟测试工程在 `windows/CoreSmokeTest/`（独立 console 工程，未挂进 .sln），
+> 在仓库任意平台 `dotnet run` 即可复跑。
 > 未验证的主要是 UI 层（XAML / WinUI API / H.NotifyIcon / Win32 interop 行为）。
+
+## 更新记录
+
+- **2026-07-26 (b) 检测语义对抗性修订（对齐 mac 端同日五处变更）**
+  - 定义式正则整体替换：引导符接受冒号/ASCII 逗号/空白、代号可带 `**加粗**`、定义体排除
+    顿号与 ASCII 逗号并以负向前瞻在下一个行内 "CODE:" 前截断——行内 "编号如下：N1: 登录,
+    N2: 支付"、"- **N1**: xxx"、重放展平的空格分隔列表全部可解析；
+  - stopList 归一化存储（去连字符/点后大写比较，`IsStopped`）并扩充技术/规划短码
+    （S3/EC2/R2/B2/K8/X86/X64/I18N/L10N/V1–V5/Q1–Q4/H1/H2/P0–P2/MP3/MP4）；新增
+    `IsPlausibleName`（2–24 字符、含字母、非停用）闸门 LLM 提取代号（registry 与
+    摘要 JSON 解析双侧）；
+  - 状态关键词否定检测：关键词前两字符内出现 未没不别无非 则忽略（"尚未完成"/"不执行"
+    不再落状态）；
+  - ProcessText 自提及排除：本轮定义的代号不参与随后的提及扫描（定义句不是对自身的状态
+    更新，define 已计数）；本轮 dash 通道新登记的代号 touch 时 `bumpOccurrence=false`
+    不重复计数；
+  - 重放标记改为持久化整数 `AppSettings.CodenameReplayVersion`（当前版本 3，存
+    settings.json），替代列存在性判断；标记仅在重放**完成后**写入（中途崩溃自动重跑），
+    watcher/摘要引擎改为在重放完成回调中启动；
+  - CoreSmokeTest 新增 定义式四形态 / 停用词表 / 否定语境 / 定义非自提及 等场景，
+    共 85 条断言全部通过。
+
+- **2026-07-26 代号生命周期 + 阶段锚点（对齐 mac 端 PRD §3.3 / §3.3b）**
+  - `Core/CodenameDetector.cs`（新增）：与 mac 完全同源的三通道检测——连字符长代号正则、
+    `N1: xxx` 定义式（含全角冒号/子句边界）、词典引导短代号精确匹配（ASCII 词边界 +
+    子句窗口状态推断 完成/变更/进行中）；
+  - `Store`：`codenames` 表迁移（status / status_node / updated / last_context 列）+
+    `nodes.kind` / `summaries.kind` 列；`DefineCodename`（最新定义生效，定义改写自动置 变更）/
+    `RecordCodename` / `TouchCodename`；`NeedsCodenameReplay` 一次性历史重放标记；
+  - `TimelineCoordinator`：agent 回复全文挖掘（TaskComplete.FullText → latest-node 归属）+
+    启动时一次性重放 `ReplayCodenamesIfNeeded`；`CodenamesChanged` 事件驱动 chip 徽标刷新；
+  - 摘要 JSON 契约升级：`kind`（需求|任务|调研|学习|决策|修复|其他）+ codename `status`
+    （定义|进行中|完成|变更|提及）；RuleSummarizer 关键词兜底 `GuessKind`；
+  - UI：节点 kind 彩色标签（tokens `color.kind`）、阶段过滤下拉、chip 状态徽标 ✓/△/▶、
+    chip flyout 增加状态/最近提及/更新时间、头部代号词典面板（按最近更新排序，点击跳转定义节点）；
+  - tokens：`Assets/design-tokens.json` 与根 `design/design-tokens.json` 重新同步
+    （新增 `color.statusChanged` 与 `color.kind`），`Themes/Tokens.xaml` 补齐对应资源。
 
 ## 环境要求
 
@@ -76,8 +115,10 @@ AgentTimeline/
 │   └── FileIdentity.cs         # 文件 fileId（inode 等价物，检测文件重建）
 └── Core/                       # 与 mac 端 Core 镜像（namespace AgentTimeline.Core）
     ├── Models.cs               # AgentKind/UserCommand/TaskComplete/Summary/TimelineNode/CodenameEntry
-    ├── Store.cs                # SQLite：nodes/summaries/codenames/file_offsets（WAL）
-    ├── CodenameRegistry.cs     # 代号词典：正则候选 ∪ LLM 提取，首见即定义
+    │                           #   + CodenameStatus/NodeKind（生命周期与阶段标签）
+    ├── Store.cs                # SQLite：nodes/summaries/codenames/file_offsets（WAL）+ 生命周期迁移
+    ├── CodenameDetector.cs     # 代号检测：长码正则 / 定义式 / 词典引导短码匹配（与 mac 同源）
+    ├── CodenameRegistry.cs     # 代号词典：命令+回复+LLM 三路并集，状态机落库与缓存
     ├── SessionWatcher.cs       # FileSystemWatcher + 字节偏移增量 tail + 7 天回填
     ├── TimelineCoordinator.cs  # 数据流编排（watcher→parser→store→engine→UI 事件）
     ├── Parsers/                # Claude/Codex/Kimi 按规范实现；Zcode 占位
@@ -112,16 +153,19 @@ AgentTimeline/
    如需精确可乘 `RasterizationScale`。
 7. 未做单实例保护（重复启动会有两个托盘图标）。
 
-另：代号正则采用 `\b[A-Z][A-Z0-9]{0,9}(?:-[A-Z0-9]{1,10}){1,3}\b` ——
-首段量词是 `{0,9}` 而非 `{1,9}`，否则 PRD 自己的示例 `T-PLUGIN-00`（首段单字母 T）
-无法命中，只会匹配到 `PLUGIN-00`（冒烟测试验证过）。
+另：连字符代号正则采用 `\b[A-Z][A-Z0-9]{0,9}(?:-[A-Z0-9]{1,12}){1,3}\b`（与 mac 端
+CodenameDetector 同源）——首段量词是 `{0,9}` 而非 `{1,9}`，否则 PRD 自己的示例
+`T-PLUGIN-00`（首段单字母 T）无法命中，只会匹配到 `PLUGIN-00`（冒烟测试验证过）。
+短码（`N1`/`T2`）只经 `N1: xxx` 定义式或词典引导匹配进入词典，从不裸匹配。
 
 ## 与 PRD 的对应
 
 - F1 session 跟踪：`SessionWatcher` + 三个解析器 + zcode 预留 ✅
-- F2 timeline 展示：倒序、节点卡片（时间/项目/agent 色点/标题/关键点/代号 chip）、
-  展开原文、结果行、项目过滤、全文可划选复制 ✅
-- F3 代号词典：正则 ∪ LLM、首见定义、chip 点击弹出定义/出处/跳转 ✅
+- F2 timeline 展示：倒序、节点卡片（时间/项目/agent 色点/kind 标签/标题/关键点/代号 chip）、
+  展开原文、结果行、项目过滤 + 阶段过滤、全文可划选复制 ✅
+- F3 代号词典（含生命周期）：定义式登记 + 词典引导匹配 + LLM 提取三路并集、状态机
+  （定义→进行中→完成/变更）、定义重述最新生效、chip 状态徽标与 flyout、词典总览面板、
+  历史一次性重放 ✅
 - F4 摘要引擎：CLI / Provider / Rule 三实现 + hash 缓存 + 串行限速 + 降级 ✅
 - F5 窗口交互：托盘、半透明两档 + 动画、置顶开关、位置尺寸记忆 ✅
   （「非激活面板不抢焦点」为 mac NSPanel 特性，Windows 无直接等价物，未实现）

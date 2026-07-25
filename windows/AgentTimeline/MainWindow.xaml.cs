@@ -9,6 +9,7 @@ using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives; // FlyoutPlacementMode
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
@@ -47,7 +48,7 @@ public sealed partial class MainWindow : Window
 
     public MainWindow()
     {
-        ViewModel = new TimelineViewModel(App.Store, App.Tokens);
+        ViewModel = new TimelineViewModel(App.Store, App.Registry, App.Tokens);
         InitializeComponent();
 
         _hwnd = WindowNative.GetWindowHandle(this);
@@ -67,6 +68,7 @@ public sealed partial class MainWindow : Window
         // (raised on background threads → marshalled onto this window's DispatcherQueue).
         ViewModel.LoadInitial();
         ProjectFilter.SelectedIndex = 0;
+        KindFilter.SelectedIndex = 0;
         _filterReady = true;
 
         App.Coordinator.NodeAdded += node =>
@@ -75,6 +77,9 @@ public sealed partial class MainWindow : Window
             DispatcherQueue.TryEnqueue(() => ViewModel.OnSummaryUpdated(id, summary));
         App.Coordinator.NodeResultLineUpdated += (id, line) =>
             DispatcherQueue.TryEnqueue(() => ViewModel.OnResultLineUpdated(id, line));
+        // Dictionary rows changed (new definition / status advance) → refresh chip badges.
+        App.Coordinator.CodenamesChanged += () =>
+            DispatcherQueue.TryEnqueue(() => ViewModel.RefreshCodenameStatuses());
 
         // Tray icon must be explicitly created for unpackaged WinUI apps.
         TrayIcon.ForceCreate();
@@ -288,6 +293,12 @@ public sealed partial class MainWindow : Window
         ViewModel.SetProjectFilter(option);
     }
 
+    private void KindFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_filterReady || KindFilter.SelectedItem is not string option) return;
+        ViewModel.SetKindFilter(option);
+    }
+
     private void LoadMore_Click(object sender, RoutedEventArgs e) => ViewModel.LoadMore();
 
     private void HidePanel_Click(object sender, RoutedEventArgs e)
@@ -296,68 +307,222 @@ public sealed partial class MainWindow : Window
         AppWindow.Hide();
     }
 
-    // ─────────────────────────────────────────── codename chips (F3)
+    // ──────────────────────────── codename chips + dictionary (F3 + 生命周期)
 
     private void CodenameChip_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button chip || chip.Content is not string name) return;
-        var entry = App.Registry.Lookup(name);
+        if (sender is not Button chip || chip.DataContext is not CodenameChipViewModel chipVm) return;
+        var entry = App.Registry.Lookup(chipVm.Name);
 
-        var panel = new StackPanel { Spacing = 4, MaxWidth = 300 };
-        panel.Children.Add(new TextBlock
+        var panel = new StackPanel { Spacing = 6, MaxWidth = 320 };
+
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        header.Children.Add(new TextBlock
         {
-            Text = name,
+            Text = chipVm.Name,
+            FontFamily = new FontFamily("Cascadia Code"),
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             IsTextSelectionEnabled = true,
         });
-        panel.Children.Add(new TextBlock
+        if (entry is not null && entry.Status.Length > 0)
         {
-            Text = entry?.Definition ?? "暂无定义（等待 LLM 提炼，或该代号仅由正则识别）",
-            TextWrapping = TextWrapping.Wrap,
-            IsTextSelectionEnabled = true,
-        });
+            header.Children.Add(StatusPill(entry));
+        }
+        panel.Children.Add(header);
 
-        if (entry is not null)
+        if (entry is null)
         {
-            panel.Children.Add(new TextBlock
+            panel.Children.Add(SecondaryText("尚未登记"));
+            new Flyout { Content = panel }.ShowAt(chip);
+            return;
+        }
+
+        panel.Children.Add(string.IsNullOrEmpty(entry.Definition)
+            ? SecondaryText("暂无定义（等待摘要提炼或定义式重述）")
+            : new TextBlock
             {
-                Text = $"首次出现：{entry.FirstSeen.ToLocalTime():yyyy-MM-dd HH:mm} · 共出现 {entry.Occurrences} 次",
-                FontSize = 10.5,
-                Opacity = 0.6,
+                Text = entry.Definition,
+                TextWrapping = TextWrapping.Wrap,
                 IsTextSelectionEnabled = true,
             });
-            if (!string.IsNullOrEmpty(entry.ContextExcerpt))
-            {
-                panel.Children.Add(new TextBlock
-                {
-                    Text = entry.ContextExcerpt,
-                    FontSize = 10.5,
-                    TextWrapping = TextWrapping.Wrap,
-                    Opacity = 0.7,
-                    IsTextSelectionEnabled = true,
-                });
-            }
 
-            var flyout = new Flyout { Content = panel };
-            var jump = new Button { Content = "跳转到定义节点", Margin = new Thickness(0, 4, 0, 0) };
-            jump.Click += (_, _) =>
-            {
-                flyout.Hide();
-                ScrollToNode(entry.DefiningNodeId);
-            };
-            panel.Children.Add(jump);
-            flyout.ShowAt(chip);
+        if (entry.LastContext.Length > 0)
+        {
+            panel.Children.Add(SecondaryText($"最近提及：…{entry.LastContext}…"));
+        }
+        panel.Children.Add(SecondaryText(MetaLine(entry)));
+
+        var flyout = new Flyout { Content = panel };
+        var jump = new Button { Content = "跳转到定义节点", Margin = new Thickness(0, 4, 0, 0) };
+        jump.Click += (_, _) =>
+        {
+            flyout.Hide();
+            JumpToNode(entry.DefiningNodeId);
+        };
+        panel.Children.Add(jump);
+        flyout.ShowAt(chip);
+    }
+
+    /// <summary>
+    /// The dictionary panel (PRD §3.3b 词典总览入口): all registered codes, most recently
+    /// updated first — 代号 + 状态 + 定义 + 最近提及, click → jump to the defining node.
+    /// </summary>
+    private void OpenDictionary_Click(object sender, RoutedEventArgs e)
+    {
+        var entries = App.Registry.All();
+        var root = new StackPanel { Spacing = 6, MinWidth = 280, MaxWidth = 340 };
+        root.Children.Add(new TextBlock
+        {
+            Text = $"代号词典（{entries.Count}）",
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+        });
+
+        var flyout = new Flyout { Content = root, Placement = FlyoutPlacementMode.Bottom };
+        if (entries.Count == 0)
+        {
+            root.Children.Add(SecondaryText(
+                "尚无登记的代号 — 会话中出现 \"N1: xxx\" 式定义或 REQ-3 式长代号后会自动登记"));
         }
         else
         {
-            new Flyout { Content = panel }.ShowAt(chip);
+            var list = new StackPanel { Spacing = 2 };
+            foreach (var entry in entries)
+            {
+                list.Children.Add(DictionaryRow(entry, flyout));
+            }
+            root.Children.Add(new ScrollViewer
+            {
+                Content = list,
+                MaxHeight = 380,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            });
         }
+        flyout.ShowAt(DictionaryButton);
+    }
+
+    private Button DictionaryRow(Core.CodenameEntry entry, Flyout flyout)
+    {
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        header.Children.Add(new TextBlock
+        {
+            Text = entry.Name,
+            FontFamily = new FontFamily("Cascadia Code"),
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(App.Tokens.DualColor("codenameChipText")),
+        });
+        if (entry.Status.Length > 0)
+        {
+            header.Children.Add(StatusPill(entry));
+        }
+        header.Children.Add(new TextBlock
+        {
+            Text = (entry.Updated ?? entry.FirstSeen).ToLocalTime().ToString("MM-dd HH:mm"),
+            FontSize = 10,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = new SolidColorBrush(App.Tokens.DualColor("textTertiary")),
+        });
+
+        var content = new StackPanel { Spacing = 2 };
+        content.Children.Add(header);
+        content.Children.Add(new TextBlock
+        {
+            Text = string.IsNullOrEmpty(entry.Definition) ? "（暂无定义）" : entry.Definition,
+            FontSize = 10.5,
+            Opacity = string.IsNullOrEmpty(entry.Definition) ? 0.5 : 0.8,
+            TextWrapping = TextWrapping.Wrap,
+            MaxLines = 2,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        if (entry.LastContext.Length > 0)
+        {
+            content.Children.Add(new TextBlock
+            {
+                Text = $"…{entry.LastContext}…",
+                FontSize = 10,
+                Opacity = 0.55,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxLines = 1,
+            });
+        }
+
+        var row = new Button
+        {
+            Content = content,
+            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(6, 4, 6, 4),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+        };
+        row.Click += (_, _) =>
+        {
+            flyout.Hide();
+            JumpToNode(entry.DefiningNodeId);
+        };
+        return row;
+    }
+
+    /// <summary>Colored status label pill (完成/变更/进行中/定义), mac chip-popover style.</summary>
+    private static Border StatusPill(Core.CodenameEntry entry)
+    {
+        var color = App.Tokens.StatusColor(entry.StatusValue);
+        return new Border
+        {
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x24, color.R, color.G, color.B)),
+            CornerRadius = new CornerRadius(3),
+            Padding = new Thickness(4, 1, 4, 1),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = entry.Status,
+                FontSize = 10,
+                FontWeight = Microsoft.UI.Text.FontWeights.Medium,
+                Foreground = new SolidColorBrush(color),
+            },
+        };
+    }
+
+    private static TextBlock SecondaryText(string text) => new()
+    {
+        Text = text,
+        FontSize = 10.5,
+        Opacity = 0.7,
+        TextWrapping = TextWrapping.Wrap,
+        IsTextSelectionEnabled = true,
+    };
+
+    private static string MetaLine(Core.CodenameEntry entry)
+    {
+        var line = $"首次 {entry.FirstSeen.ToLocalTime():yyyy-MM-dd HH:mm} · 共 {entry.Occurrences} 次";
+        if (entry.Updated is { } updated)
+        {
+            line += $" · 更新 {updated.ToLocalTime():MM-dd HH:mm}";
+        }
+        return line;
+    }
+
+    /// <summary>
+    /// Jump to a node: clear filters when they hide it (mirrors mac jumpToDefinition),
+    /// page in older history when it lies beyond the loaded window, then scroll + expand.
+    /// </summary>
+    private void JumpToNode(long nodeId)
+    {
+        if (ViewModel.FindById(nodeId) is null && ViewModel.HasActiveFilters)
+        {
+            _filterReady = false;
+            ProjectFilter.SelectedIndex = 0;
+            KindFilter.SelectedIndex = 0;
+            _filterReady = true;
+            ViewModel.ClearFilters();
+        }
+        if (ViewModel.FindById(nodeId) is null && !ViewModel.EnsureLoaded(nodeId)) return;
+        ScrollToNode(nodeId);
     }
 
     private void ScrollToNode(long nodeId)
     {
         var vm = ViewModel.FindById(nodeId);
-        if (vm is null) return; // filtered out or beyond the loaded pages
+        if (vm is null) return; // still not materialized (e.g. beyond the paging guard)
         var index = ViewModel.IndexOf(vm);
         if (index < 0) return;
         vm.IsExpanded = true;
