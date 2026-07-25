@@ -31,6 +31,7 @@ struct DesignTokens: Codable {
         let statusChanged: DualColor
         let commandText: DualColor
         let commandBg: DualColor
+        let derivedBg: DualColor
         let derivedRule: DualColor
         let entryHover: DualColor
         let entryDivider: DualColor

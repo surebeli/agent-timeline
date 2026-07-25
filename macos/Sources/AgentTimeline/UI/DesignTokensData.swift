@@ -75,8 +75,8 @@ enum DesignTokensData {
       "dark": "#2B313DCC"
     },
     "derivedRule": {
-      "light": "#C9CDD4",
-      "dark": "#41465280"
+      "light": "#A9AFBB",
+      "dark": "#4A505E99"
     },
     "entryHover": {
       "light": "#0000000A",
@@ -91,12 +91,16 @@ enum DesignTokensData {
       "dark": "#6B7280"
     },
     "dayHeaderRule": {
-      "light": "#00000012",
-      "dark": "#FFFFFF14"
+      "light": "#00000022",
+      "dark": "#FFFFFF26"
     },
     "dayHeaderBg": {
       "light": "#F5F6F7D9",
       "dark": "#1A1D24D9"
+    },
+    "derivedBg": {
+      "light": "#FFFFFF8C",
+      "dark": "#242A36A8"
     }
   },
   "typography": {

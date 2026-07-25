@@ -113,7 +113,7 @@ struct NodeCardView: View {
         HStack(spacing: 6) {
             Text(Self.timeFormatter.string(from: node.command.timestamp))
                 .font(.system(size: tokens.typography.size.caption).monospacedDigit())
-                .foregroundStyle(tokens.color.textTertiary.color)
+                .foregroundStyle(tokens.color.textSecondary.color)
             Text(node.command.project)
                 .font(.system(size: tokens.typography.size.caption))
                 .foregroundStyle(tokens.color.textSecondary.color)
@@ -216,6 +216,23 @@ struct NodeCardView: View {
                 DottedRule()
                     .frame(width: tokens.spacing.derivedRuleWidth)
                 VStack(alignment: .leading, spacing: 3) {
+                    derivedContent
+                }
+            }
+            .padding(.horizontal, tokens.spacing.commandPaddingH)
+            .padding(.vertical, tokens.spacing.commandPaddingV)
+            .background(
+                RoundedRectangle(cornerRadius: tokens.radius.commandBlock)
+                    .fill(tokens.color.derivedBg.color))
+            .padding(.leading, tokens.spacing.hangIndent)
+        }
+    }
+
+    /// The machine-derived rows, hosted on the secondary "paper" so they never
+    /// sink into the wallpaper bleeding through the translucent panel.
+    @ViewBuilder
+    private var derivedContent: some View {
+        Group {
                     if let title = derivedTitle {
                         HStack(alignment: .top, spacing: 4) {
                             Text(tokens.glyph.derived)
@@ -237,9 +254,6 @@ struct NodeCardView: View {
                             .textSelection(.enabled)
                             .lineLimit(isExpanded ? nil : 1)
                     }
-                }
-            }
-            .padding(.leading, tokens.spacing.hangIndent)
         }
     }
 
@@ -280,7 +294,7 @@ struct NodeCardView: View {
                 HStack(spacing: 4) {
                     Text(points.joined(separator: " · "))
                         .font(.system(size: tokens.typography.size.caption))
-                        .foregroundStyle(tokens.color.textTertiary.color)
+                        .foregroundStyle(tokens.color.textSecondary.color)
                         .lineLimit(tokens.lineLimit.keypointsCollapsed)
                     if points.count > 2 {
                         Text("+\(points.count - 2)")
