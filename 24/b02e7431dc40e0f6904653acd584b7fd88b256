@@ -1,0 +1,21 @@
+windows/AgentTimeline/AgentTimeline.csproj
+  s_b85ad4e83942fb::t_882a4c6762d930 14-16
+.github/workflows/ci.yml
+  s_b85ad4e83942fb::t_c4bcd9ca4d2738 50-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "24b02e7431dc40e0f6904653acd584b7fd88b256",
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
