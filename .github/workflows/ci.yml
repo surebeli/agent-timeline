@@ -37,11 +37,9 @@ jobs:
         run: dotnet run --project windows/CoreSmokeTest -c Release
 
   winui:
-    # WinUI 层此前仅在 mac 上做过 XML/结构审校 — 此 job 是它的首个真实编译关。
-    # 通过前标记为 experimental，失败不阻塞主线。
-    name: WinUI · dotnet build (experimental)
+    # WinUI 层的真实编译关（VS msbuild；2026-07-26 起转为硬门禁）。
+    name: WinUI · msbuild
     runs-on: windows-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4

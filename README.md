@@ -50,7 +50,7 @@ swift test                                # 21 项单测
 
 ### Windows（WinUI 3 / .NET 8）
 
-完整源码在 [`windows/`](windows/)，Core 解析层已跨平台编译验证（85 断言冒烟）；WinUI 层用 Visual Studio 2022 打开 `windows/AgentTimeline.sln` 构建，详见 [windows/README.md](windows/README.md)。
+完整源码在 [`windows/`](windows/)，Core 解析层已跨平台编译验证（85 断言冒烟）；WinUI 层已通过 CI 的 VS msbuild 编译门禁；实机用 Visual Studio 2022 打开 `windows/AgentTimeline.sln` 构建运行，详见 [windows/README.md](windows/README.md)。
 
 ## 工作原理
 
@@ -76,7 +76,7 @@ flowchart LR
 ## Roadmap
 
 - **M2**：代号按项目命名空间（跨项目同名短码隔离）、搜索、词典管理界面
-- **M3**：Windows 端实机调试与双端视觉对齐验收（源码已就绪，CI 含实验性 WinUI 编译关）
+- **M3**：Windows 端实机调试与双端视觉对齐验收（源码已就绪，**WinUI 层已过 CI 编译硬门禁**，待实机运行验证）
 
 ## License
 
