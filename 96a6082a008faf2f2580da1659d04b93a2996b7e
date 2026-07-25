@@ -1,0 +1,23 @@
+.github/workflows/ci.yml
+  s_b85ad4e83942fb::t_bbd02754a50568 55-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "96a6082a008faf2f2580da1659d04b93a2996b7e",
+  "prompts": {
+    "s_b85ad4e83942fb::t_bbd02754a50568": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 0,
+      "accepted_lines": 7,
+      "overriden_lines": 0
+    }
+  }
+}
