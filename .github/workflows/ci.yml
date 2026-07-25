@@ -52,8 +52,13 @@ jobs:
         # win10-* RID 会触发 NETSDK1083 — 用 global.json 钉住 8.x。
         shell: pwsh
         run: '''{"sdk":{"version":"8.0.100","rollForward":"latestFeature"}}'' | Out-File global.json -Encoding utf8'
-      - name: Build WinUI app (x64)
-        run: dotnet build windows/AgentTimeline/AgentTimeline.csproj -c Release -p:Platform=x64
+      - name: Add VS msbuild to PATH
+        # PRI 打包任务（ExpandPriContent）只随 Visual Studio 的 MSBuild 分发，
+        # dotnet CLI 构建 WinUI 会 MSB4062 — 必须用 VS msbuild。
+        uses: microsoft/setup-msbuild@v2
+      - name: Build WinUI app (x64, VS msbuild)
+        shell: pwsh
+        run: msbuild windows\AgentTimeline\AgentTimeline.csproj /restore /p:Configuration=Release /p:Platform=x64 /m /v:minimal
 
   tokens-sync:
     name: Design tokens · 双端同源校验
