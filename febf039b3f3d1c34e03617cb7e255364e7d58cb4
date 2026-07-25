@@ -1,0 +1,23 @@
+windows/AgentTimeline/MainWindow.xaml.cs
+  s_b85ad4e83942fb::t_48b20ae3f491ea 212-213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "febf039b3f3d1c34e03617cb7e255364e7d58cb4",
+  "prompts": {
+    "s_b85ad4e83942fb::t_48b20ae3f491ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 0,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
