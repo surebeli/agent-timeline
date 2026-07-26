@@ -408,8 +408,12 @@ public sealed class NodeViewModel : ObservableObject
 /// </summary>
 public sealed class TimelineViewModel : ObservableObject
 {
-    public const string AllProjects = "全部项目";
-    public const string AllKinds = "全部阶段";
+    // 紧凑标签对齐 mac 参照物（"全部"/"阶段"）：340px 面板宽装不下
+    // 标题 + 两个"全部项目/全部阶段"宽下拉 + 三个头部按钮，右对齐的下拉栈会
+    // 溢出压到标题上（M3 实机发现）。ComboBox 折叠态显示的就是选中项文本，
+    // 因此 all-选项本身必须是短标签。
+    public const string AllProjects = "全部";
+    public const string AllKinds = "阶段";
     private const int PageSize = 200;
 
     private readonly Store _store;
@@ -448,7 +452,7 @@ public sealed class TimelineViewModel : ObservableObject
         _ordered.Clear();
         _knownIds.Clear();
         _byId.Clear();
-        var page = _store.GetRecentNodes(PageSize, long.MaxValue, _projectFilter, _kindFilter);
+        var page = _store.GetRecentNodes(PageSize, project: _projectFilter, kind: _kindFilter);
         foreach (var node in page) Append(node);
         HasMore = page.Count == PageSize;
         RebuildItems();
@@ -457,8 +461,10 @@ public sealed class TimelineViewModel : ObservableObject
 
     public void LoadMore()
     {
-        var cursor = _ordered.Count > 0 ? _ordered[^1].Id : long.MaxValue;
-        var page = _store.GetRecentNodes(PageSize, cursor, _projectFilter, _kindFilter);
+        // (ts,id) 复合游标与查询排序键一致（见 Store.GetRecentNodes 注释）。
+        var cursorTs = _ordered.Count > 0 ? _ordered[^1].Timestamp.ToUnixTimeMilliseconds() : long.MaxValue;
+        var cursorId = _ordered.Count > 0 ? _ordered[^1].Id : long.MaxValue;
+        var page = _store.GetRecentNodes(PageSize, cursorTs, cursorId, _projectFilter, _kindFilter);
         foreach (var node in page) Append(node);
         HasMore = page.Count == PageSize;
         RebuildItems();

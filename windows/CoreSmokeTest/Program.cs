@@ -28,6 +28,7 @@ internal static class Program
         GuessKindFallback();
         RegistryProcessTextEndToEnd();
         StoreKindColumnAndFilter();
+        StoreCompoundCursorPaging();
         StoreLatestNodeId();
         ReplayRebuildsFromHistory();
 
@@ -336,6 +337,47 @@ internal static class Program
             store.UpdateSummary(id1, new Summary("t2", Array.Empty<string>(),
                 Array.Empty<CodenameDefinition>(), null, SummarySource.Cli, Kind: null), pending: false);
             CheckEqual(store.GetNode(id1)?.Summary.Kind, "任务", "kind: null update keeps existing kind");
+        }
+        finally
+        {
+            CleanupDb(dbPath);
+        }
+    }
+
+    /// <summary>
+    /// 分页游标必须与排序键一致（(ts,id) 复合）：多 agent 回填按 root 串行入库会产生
+    /// 「ts 更旧但 id 更大」的行，旧的 id-only 游标会把它们永久跳过（M3 实机审计发现）。
+    /// 场景：新 ts 先入库拿小 id，旧 ts 后入库拿大 id，且含同 ts 并列。
+    /// </summary>
+    private static void StoreCompoundCursorPaging()
+    {
+        var dbPath = TempDbPath();
+        try
+        {
+            using var store = new Store(dbPath);
+            var rule = new RuleSummarizer();
+            long Insert(string text, long ts)
+            {
+                var c = Cmd(text, ts);
+                return store.InsertNode(c, rule.Summarize(c), SummaryEngine.ComputeHash(c), false);
+            }
+            var idA = Insert("A 最新", 1_700_000_300);   // 新 ts、小 id
+            var idB = Insert("B 最旧一", 1_700_000_100); // 旧 ts、较大 id
+            var idC = Insert("C 中间", 1_700_000_200);
+            var idD = Insert("D 最旧二", 1_700_000_100); // 与 B 同 ts、更大 id
+
+            var p1 = store.GetRecentNodes(2);
+            CheckEqual(p1.Count, 2, "cursor: page1 has 2 rows");
+            Check(p1[0].Id == idA && p1[1].Id == idC, "cursor: page1 = A,C (ts DESC)");
+
+            var last = p1[^1];
+            var p2 = store.GetRecentNodes(2, last.Command.Timestamp.ToUnixTimeMilliseconds(), last.Id);
+            CheckEqual(p2.Count, 2, "cursor: page2 has 2 rows (old-ts high-id rows not skipped)");
+            Check(p2[0].Id == idD && p2[1].Id == idB, "cursor: page2 = D,B (same-ts tie by id DESC)");
+
+            var last2 = p2[^1];
+            var p3 = store.GetRecentNodes(2, last2.Command.Timestamp.ToUnixTimeMilliseconds(), last2.Id);
+            CheckEqual(p3.Count, 0, "cursor: page3 empty (no dup, no loop)");
         }
         finally
         {

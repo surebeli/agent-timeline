@@ -44,6 +44,15 @@ public sealed class SessionWatcher : IDisposable
 
         foreach (var root in WatchRoots())
         {
+            // 内置三个 root 预创建：目标机器可能从没跑过对应 agent（如全新 Windows 上的
+            // ~/.claude/projects），若只在 Start 时 Exists 检查一次，之后装了 agent 也
+            // 永远不会被监听，必须重启 app 才恢复（M3 实机审计发现）。目录都在用户目录
+            // 下，创建无副作用；zcode 自定义路径不代建（用户可能填错盘符）。
+            if (IsBuiltinRoot(root))
+            {
+                try { Directory.CreateDirectory(root); }
+                catch (Exception ex) { Log.Error($"Failed to create watch root {root}", ex); }
+            }
             if (!Directory.Exists(root)) continue;
             try
             {
@@ -57,6 +66,14 @@ public sealed class SessionWatcher : IDisposable
                 watcher.Changed += (_, e) => Enqueue(e.FullPath);
                 watcher.Created += (_, e) => Enqueue(e.FullPath);
                 watcher.Renamed += (_, e) => Enqueue(e.FullPath);
+                // 缓冲溢出（事件风暴）时变更会被静默丢弃；用一次幂等补扫兜底，
+                // 否则缺口要等下次重启回填才补上。
+                var rootCopy = root;
+                watcher.Error += (_, e) =>
+                {
+                    Log.Warn($"Watcher buffer overflow on {rootCopy}: {e.GetException().Message}; rescanning");
+                    Task.Run(() => BackfillRoot(rootCopy));
+                };
                 watcher.EnableRaisingEvents = true;
                 _watchers.Add(watcher);
                 Log.Info($"Watching {root}");
@@ -82,25 +99,32 @@ public sealed class SessionWatcher : IDisposable
         }
     }
 
+    private static bool IsBuiltinRoot(string root) =>
+        root == AppPaths.ClaudeProjectsRoot ||
+        root == AppPaths.CodexSessionsRoot ||
+        root == AppPaths.KimiSessionsRoot;
+
     private void Backfill()
     {
+        foreach (var root in WatchRoots()) BackfillRoot(root);
+    }
+
+    private void BackfillRoot(string root)
+    {
         var cutoff = DateTime.UtcNow.AddDays(-Math.Max(0, _settings.BackfillDays));
-        foreach (var root in WatchRoots())
+        if (!Directory.Exists(root)) return;
+        try
         {
-            if (!Directory.Exists(root)) continue;
-            try
-            {
-                var files = Directory
-                    .EnumerateFiles(root, "*.jsonl", SearchOption.AllDirectories)
-                    .Select(p => new FileInfo(p))
-                    .Where(f => f.LastWriteTimeUtc >= cutoff)
-                    .OrderBy(f => f.LastWriteTimeUtc); // oldest first → timeline fills chronologically
-                foreach (var file in files) Enqueue(file.FullName);
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Backfill scan failed for {root}", ex);
-            }
+            var files = Directory
+                .EnumerateFiles(root, "*.jsonl", SearchOption.AllDirectories)
+                .Select(p => new FileInfo(p))
+                .Where(f => f.LastWriteTimeUtc >= cutoff)
+                .OrderBy(f => f.LastWriteTimeUtc); // oldest first → timeline fills chronologically
+            foreach (var file in files) Enqueue(file.FullName);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Backfill scan failed for {root}", ex);
         }
     }
 
@@ -193,8 +217,10 @@ public sealed class SessionWatcher : IDisposable
         var lines = SplitLines(buffer, consumed, offset);
         var events = parser.ParseLines(path, lines);
 
-        _store.SetFileOffset(path, offset + consumed, fileId);
+        // 崩溃安全顺序：先入库（订阅方同步写 store，nodes 表 UNIQUE 约束保证重放幂等），
+        // 成功后才推进偏移——反过来会在「偏移已推进、事件未入库」窗口里静默丢数据。
         if (events.Count > 0) EventsParsed?.Invoke(events);
+        _store.SetFileOffset(path, offset + consumed, fileId);
     }
 
     /// <summary>Splits a byte range on '\n', tracking each line's absolute byte offset.</summary>

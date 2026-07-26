@@ -202,12 +202,14 @@ public sealed class Store : IDisposable
     }
 
     /// <summary>
-    /// Pages newest-first. <paramref name="beforeId"/> is an exclusive cursor for lazy loading
-    /// (pass long.MaxValue for the first page); <paramref name="project"/> and
-    /// <paramref name="kind"/> (NodeKind label, PRD §3.3b 按 kind 过滤) filter when non-null.
+    /// Pages newest-first. Cursor is the (ts, id) compound of the previous page's last row —
+    /// 排序键与游标键必须一致：多 agent 回填按 root 串行入库会产生「ts 更旧但 id 更大」的行，
+    /// 单纯 id 游标会永久跳过它们（M3 实机审计发现）。First page: both cursor params at
+    /// long.MaxValue. <paramref name="project"/> / <paramref name="kind"/> filter when non-null.
     /// </summary>
     public List<TimelineNode> GetRecentNodes(
-        int limit, long beforeId = long.MaxValue, string? project = null, string? kind = null)
+        int limit, long beforeTs = long.MaxValue, long beforeId = long.MaxValue,
+        string? project = null, string? kind = null)
     {
         lock (_gate)
         {
@@ -216,9 +218,10 @@ public sealed class Store : IDisposable
                 SELECT id, agent, project, session_id, ts, text, source_file, source_offset,
                        command_hash, title, key_points, codenames, result_line, summary_source, summary_pending, kind
                 FROM nodes
-                WHERE id < $before {(project is null ? "" : "AND project = $project")} {(kind is null ? "" : "AND kind = $kind")}
+                WHERE (ts < $beforeTs OR (ts = $beforeTs AND id < $before)) {(project is null ? "" : "AND project = $project")} {(kind is null ? "" : "AND kind = $kind")}
                 ORDER BY ts DESC, id DESC LIMIT $limit;
                 """;
+            cmd.Parameters.AddWithValue("$beforeTs", beforeTs);
             cmd.Parameters.AddWithValue("$before", beforeId);
             cmd.Parameters.AddWithValue("$limit", limit);
             if (project is not null) cmd.Parameters.AddWithValue("$project", project);
