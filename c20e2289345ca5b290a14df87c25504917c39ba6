@@ -1,0 +1,22 @@
+windows/AgentTimeline/SettingsWindow.xaml
+  s_5b0458546b11e2::t_013d32aad46f91 61-61,65-66
+windows/AgentTimeline/Core/AppPaths.cs
+  s_5b0458546b11e2::t_7bfc6b1d7a39f0 29-31
+windows/CoreSmokeTest/Program.cs
+  s_5b0458546b11e2::t_599ff300ee0c4d 35-37,349-350
+  s_5b0458546b11e2::t_2a841b63271e73 351-429
+  s_5b0458546b11e2::t_e28a564326795a 7-7
+windows/AgentTimeline/Core/SessionWatcher.cs
+  s_5b0458546b11e2::t_6c4ff0093d41aa 96-96,98-101,105-105,109-110
+windows/AgentTimeline/Core/TimelineCoordinator.cs
+  s_5b0458546b11e2::t_b38d18d4a2895e 51-51
+windows/AgentTimeline/Core/Parsers/ZcodeParser.cs
+  s_5b0458546b11e2::t_e66c1b175d6242 1-2,6-6,8-13,15-17,19-20,24-25,29-34,36-48,50-89,95-98,100-103,105-106,108-114,116-124,126-128
+  s_5b0458546b11e2::t_60d8445c7ec906 92-93,104-104,107-107,115-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c20e2289345ca5b290a14df87c25504917c39ba6",
+  "prompts": {}
+}
