@@ -1,0 +1,68 @@
+windows/AgentTimeline/Core/Models.cs
+  s_5b0458546b11e2::t_f62370a919e7d8 1-215
+windows/AgentTimeline/UI/TimelineViewModel.cs
+  s_5b0458546b11e2::t_b9560d4d0616b8 1-674
+windows/AgentTimeline/MainWindow.xaml
+  s_5b0458546b11e2::t_36ad9a125814c1 1-674
+windows/AgentTimeline/MainWindow.xaml.cs
+  s_5b0458546b11e2::t_dbf778524d9bbb 1-928
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "50b97935029ac9e2b7e67eacf262fcdbd8164d0f",
+  "prompts": {
+    "s_5b0458546b11e2::t_f62370a919e7d8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 215,
+      "total_deletions": 0,
+      "accepted_lines": 215,
+      "overriden_lines": 0
+    },
+    "s_5b0458546b11e2::t_b9560d4d0616b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 674,
+      "total_deletions": 0,
+      "accepted_lines": 674,
+      "overriden_lines": 0
+    },
+    "s_5b0458546b11e2::t_36ad9a125814c1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 674,
+      "total_deletions": 0,
+      "accepted_lines": 674,
+      "overriden_lines": 0
+    },
+    "s_5b0458546b11e2::t_dbf778524d9bbb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 928,
+      "total_deletions": 0,
+      "accepted_lines": 928,
+      "overriden_lines": 0
+    }
+  }
+}
