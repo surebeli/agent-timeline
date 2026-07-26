@@ -1,0 +1,38 @@
+windows/AgentTimeline/MainWindow.xaml
+  s_5b0458546b11e2::t_9a32a270cd9f09 114
+  s_5b0458546b11e2::t_123a325f42aa2d 62-63,66,69-73,75,81,85-87
+  s_5b0458546b11e2::t_53f281badc6373 100,104-107,111,116,119-122,125
+  s_5b0458546b11e2::t_be88ed0f0bbe58 95-99,101,108-110,112-113,115,123-124,126-127
+  s_5b0458546b11e2::t_3398ca020c3663 102,117
+windows/AgentTimeline/MainWindow.xaml.cs
+  s_5b0458546b11e2::t_ff9985096bbac9 262-264
+  s_5b0458546b11e2::t_4f38c5b6857ab1 125-126,130-133,135,137
+  s_5b0458546b11e2::t_e1f50a452e5439 489-509,511-526,528,533,535
+  s_5b0458546b11e2::t_ad892c9d026666 529,536
+  s_5b0458546b11e2::t_f091f08f06240d 124
+  s_5b0458546b11e2::t_595949474f7ba8 422-426
+  s_5b0458546b11e2::t_a0cf74c6d91f77 410
+  s_5b0458546b11e2::t_dc52271fa5768a 750-752
+  s_5b0458546b11e2::t_1b21c30b1f78f9 188
+  s_5b0458546b11e2::t_1ac6d6e1c37731 510
+  s_5b0458546b11e2::t_0c3731179be080 753-754
+  s_5b0458546b11e2::t_cd24b6634c6c4f 83-86
+windows/AgentTimeline/App.xaml.cs
+  s_5b0458546b11e2::t_c5778e51d2e1ae 82-86,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "9d20b06c7cd4f2d0640ef2b5df803ff9f7855e6b",
+  "prompts": {},
+  "sessions": {
+    "s_5b0458546b11e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}

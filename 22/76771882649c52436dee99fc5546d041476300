@@ -1,0 +1,19 @@
+windows/scripts/seed-fixture-session.ps1
+  s_5b0458546b11e2::t_6f839fe8678a18 45-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "2276771882649c52436dee99fc5546d041476300",
+  "prompts": {},
+  "sessions": {
+    "s_5b0458546b11e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
