@@ -530,10 +530,10 @@ public sealed partial class MainWindow : Window
 
     private void ProjectFilterFlyout_Opening(object sender, object e)
     {
-        if (sender is not MenuFlyout menu) return;
-        menu.Items.Clear();
+        if (sender is not Flyout flyout) return;
 
-        // 来源标注（实机反馈）：每个项目挂主导 agent 色圆点 icon；项目可能混多个
+        // 来源标注（实机反馈）：每个项目挂主导 agent 的双字母色块徽标——与时间线
+        // 条目的徽标同一视觉（16px 圆角块 + AgentKind.Monogram）；项目可能混多个
         // agent，tooltip 给完整分布（如 "Codex 4341 · zcode 36"）。每次打开现查
         // （单条 GROUP BY，毫秒级），免得维护缓存失效。
         var breakdown = new Dictionary<string, List<(AgentKind Agent, int Count)>>();
@@ -546,28 +546,90 @@ public sealed partial class MainWindow : Window
             list.Add((agent, count));
         }
 
+        var panel = new StackPanel { Spacing = 2, MinWidth = 200 };
         foreach (var option in ViewModel.ProjectOptions)
         {
-            var item = new RadioMenuFlyoutItem
+            breakdown.TryGetValue(option, out var agents);
+
+            var row = new Grid { ColumnSpacing = 8 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            if (agents is { Count: > 0 })
+            {
+                var badge = new Border
+                {
+                    Width = 16,
+                    Height = 16,
+                    CornerRadius = new CornerRadius(4),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Background = new SolidColorBrush(App.Tokens.AgentColor(agents[0].Agent)),
+                    Child = new TextBlock
+                    {
+                        Text = agents[0].Agent.Monogram(),
+                        FontSize = 7,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                    },
+                };
+                row.Children.Add(badge);
+            }
+
+            var label = new TextBlock
             {
                 Text = option,
-                GroupName = "projectFilter",
-                IsChecked = option == _currentProjectOption,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
             };
-            if (breakdown.TryGetValue(option, out var agents) && agents.Count > 0)
+            Grid.SetColumn(label, 1);
+            row.Children.Add(label);
+
+            if (option == _currentProjectOption)
             {
-                item.Icon = new FontIcon
+                var check = new FontIcon
                 {
-                    Glyph = "\uE91F", // StatusCircleInner 实心圆点
+                    Glyph = "", // Accept ✓
                     FontSize = 12,
-                    Foreground = new SolidColorBrush(App.Tokens.AgentColor(agents[0].Agent)),
+                    Foreground = new SolidColorBrush(App.Tokens.DualColor("accent")),
+                    VerticalAlignment = VerticalAlignment.Center,
                 };
+                Grid.SetColumn(check, 2);
+                row.Children.Add(check);
+            }
+
+            var item = new Button
+            {
+                Content = row,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(8, 6, 8, 6),
+                CornerRadius = new CornerRadius(4),
+            };
+            if (agents is { Count: > 0 })
+            {
                 ToolTipService.SetToolTip(item,
                     string.Join(" · ", agents.Select(a => $"{a.Agent.DisplayName()} {a.Count}")));
             }
-            item.Click += (_, _) => ApplyProjectFilter(option);
-            menu.Items.Add(item);
+            var captured = option;
+            item.Click += (_, _) =>
+            {
+                flyout.Hide();
+                ApplyProjectFilter(captured);
+            };
+            panel.Children.Add(item);
         }
+
+        flyout.Content = new ScrollViewer
+        {
+            Content = panel,
+            MaxHeight = 400,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+        };
     }
 
     private void KindFilterFlyout_Opening(object sender, object e)

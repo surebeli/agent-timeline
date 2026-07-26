@@ -113,14 +113,7 @@ public sealed class NodeViewModel : ObservableObject
         Timestamp = node.Command.Timestamp;
         Project = node.Command.Project;
         AgentName = node.Command.Agent.DisplayName();
-        AgentMonogram = node.Command.Agent switch
-        {
-            AgentKind.Claude => "CL",
-            AgentKind.Codex => "CO",
-            AgentKind.Kimi => "KI",
-            AgentKind.Zcode => "ZC",
-            _ => "?",
-        };
+        AgentMonogram = node.Command.Agent.Monogram();
         AgentBrush = BrushFor(node.Command.Agent, tokens);
         PromptText = node.Command.Text;
         SessionId = node.Command.SessionId;

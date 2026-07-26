@@ -108,7 +108,16 @@
                         Text="全部 ▾"
                         TextTrimming="CharacterEllipsis" />
                     <Button.Flyout>
-                        <MenuFlyout Opening="ProjectFilterFlyout_Opening" />
+                        <!-- 自定义内容 Flyout（非 MenuFlyout）：菜单 Icon 槽只支持单色字形，
+                             放不下与时间线一致的双字母色块徽标；行内容在 Opening 时代码构建 -->
+                        <Flyout Opening="ProjectFilterFlyout_Opening">
+                            <Flyout.FlyoutPresenterStyle>
+                                <Style TargetType="FlyoutPresenter">
+                                    <Setter Property="Padding" Value="4" />
+                                    <Setter Property="MinWidth" Value="200" />
+                                </Style>
+                            </Flyout.FlyoutPresenterStyle>
+                        </Flyout>
                     </Button.Flyout>
                 </Button>
                 <!-- Node kind filter (PRD §3.3b 阶段锚点): 阶段(全部) / 需求 / 任务 / … -->

@@ -33,6 +33,16 @@ public static class AgentKindExtensions
         _ => "?",
     };
 
+    /// <summary>来源徽标双字母缩写（时间线条目与项目下拉共用同一视觉）。</summary>
+    public static string Monogram(this AgentKind kind) => kind switch
+    {
+        AgentKind.Claude => "CL",
+        AgentKind.Codex => "CO",
+        AgentKind.Kimi => "KI",
+        AgentKind.Zcode => "ZC",
+        _ => "?",
+    };
+
     public static AgentKind FromKey(string key) => key switch
     {
         "claude" => AgentKind.Claude,
