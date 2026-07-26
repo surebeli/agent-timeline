@@ -42,6 +42,11 @@ if ($Append) {
     exit 0
 }
 
+# 无参重跑时删除重建：原地截断重写不改变 NTFS fileId 且新旧内容长度相同，
+# watcher 的两个重扫条件（fileId 变化 / offset > length）都不会触发，重写对
+# watcher 完全不可见（M3 实机审计发现）。删除重建 → 新 fileId → 归零重扫。
+if (Test-Path $file) { Remove-Item $file -Force }
+
 $t = (Get-Date).AddHours(-3)
 $lines = @(
     (New-Line "user" "帮我规划登录模块改造，把需求整理编号" $t),
