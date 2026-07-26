@@ -337,6 +337,11 @@ internal static class Program
             CheckEqual(store.GetRecentNodes(10, kind: "任务").Count, 1, "kind: filter 任务 → 1 node");
             CheckEqual(store.GetRecentNodes(10, kind: "需求").Count, 0, "kind: filter 需求 → 0 nodes");
 
+            var pac = store.GetProjectAgentCounts();
+            Check(pac.Count == 1 && pac[0].Project == "proj" &&
+                  pac[0].Agent == AgentKind.Claude && pac[0].Count == 2,
+                "kind: 项目-agent 分布统计（下拉来源标注）");
+
             // COALESCE guard: a later summary without kind must not erase the stored one.
             store.UpdateSummary(id1, new Summary("t2", Array.Empty<string>(),
                 Array.Empty<CodenameDefinition>(), null, SummarySource.Cli, Kind: null), pending: false);

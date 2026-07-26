@@ -270,6 +270,29 @@ public sealed class Store : IDisposable
         }
     }
 
+    /// <summary>
+    /// 每个项目按 agent 的节点数（项目下拉的来源标注用）；组内按数量降序，
+    /// 首个即该项目的主导 agent。
+    /// </summary>
+    public List<(string Project, AgentKind Agent, int Count)> GetProjectAgentCounts()
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT project, agent, COUNT(*) FROM nodes GROUP BY project, agent ORDER BY project, COUNT(*) DESC;";
+            var result = new List<(string, AgentKind, int)>();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                result.Add((reader.GetString(0),
+                    AgentKindExtensions.FromKey(reader.GetString(1)),
+                    reader.GetInt32(2)));
+            }
+            return result;
+        }
+    }
+
     public List<string> GetProjects()
     {
         lock (_gate)

@@ -532,6 +532,20 @@ public sealed partial class MainWindow : Window
     {
         if (sender is not MenuFlyout menu) return;
         menu.Items.Clear();
+
+        // 来源标注（实机反馈）：每个项目挂主导 agent 色圆点 icon；项目可能混多个
+        // agent，tooltip 给完整分布（如 "Codex 4341 · zcode 36"）。每次打开现查
+        // （单条 GROUP BY，毫秒级），免得维护缓存失效。
+        var breakdown = new Dictionary<string, List<(AgentKind Agent, int Count)>>();
+        foreach (var (project, agent, count) in App.Store.GetProjectAgentCounts())
+        {
+            if (!breakdown.TryGetValue(project, out var list))
+            {
+                breakdown[project] = list = new List<(AgentKind, int)>();
+            }
+            list.Add((agent, count));
+        }
+
         foreach (var option in ViewModel.ProjectOptions)
         {
             var item = new RadioMenuFlyoutItem
@@ -540,6 +554,17 @@ public sealed partial class MainWindow : Window
                 GroupName = "projectFilter",
                 IsChecked = option == _currentProjectOption,
             };
+            if (breakdown.TryGetValue(option, out var agents) && agents.Count > 0)
+            {
+                item.Icon = new FontIcon
+                {
+                    Glyph = "\uE91F", // StatusCircleInner 实心圆点
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(App.Tokens.AgentColor(agents[0].Agent)),
+                };
+                ToolTipService.SetToolTip(item,
+                    string.Join(" · ", agents.Select(a => $"{a.Agent.DisplayName()} {a.Count}")));
+            }
             item.Click += (_, _) => ApplyProjectFilter(option);
             menu.Items.Add(item);
         }
