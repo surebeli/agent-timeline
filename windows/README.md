@@ -6,6 +6,7 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 > ⚠️ **重要：本工程在 macOS 上编写，尚未在 Windows 上编译运行过。**
 > 代码按可编译标准编写，但请预期少量琐碎修正（NuGet 版本号、个别 API 签名等）。
 > 详见下方「已知未验证事项」。
+> 实机调试请从 **[DEBUG-PLAYBOOK.md](DEBUG-PLAYBOOK.md)** 开始（含种子数据脚本与分层验证清单）。
 >
 > ✅ 已验证部分：`Core/`（解析器/Store/词典/摘要引擎/协调器）与 `Interop/` **不依赖 WinUI**，
 > 已在 macOS 用 .NET SDK 实际编译通过（0 警告 0 错误），并对三个解析器的过滤规则、
