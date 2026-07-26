@@ -113,6 +113,14 @@ public sealed class NodeViewModel : ObservableObject
         Timestamp = node.Command.Timestamp;
         Project = node.Command.Project;
         AgentName = node.Command.Agent.DisplayName();
+        AgentMonogram = node.Command.Agent switch
+        {
+            AgentKind.Claude => "CL",
+            AgentKind.Codex => "CO",
+            AgentKind.Kimi => "KI",
+            AgentKind.Zcode => "ZC",
+            _ => "?",
+        };
         AgentBrush = BrushFor(node.Command.Agent, tokens);
         PromptText = node.Command.Text;
         SessionId = node.Command.SessionId;
@@ -124,6 +132,8 @@ public sealed class NodeViewModel : ObservableObject
     public DateTimeOffset Timestamp { get; }
     public string Project { get; }
     public string AgentName { get; }
+    /// <summary>来源 icon 的双字母缩写（CL/CO/KI/ZC，配 agent 色块）。</summary>
+    public string AgentMonogram { get; }
     public SolidColorBrush AgentBrush { get; }
     public string PromptText { get; }
     public string SessionId { get; }

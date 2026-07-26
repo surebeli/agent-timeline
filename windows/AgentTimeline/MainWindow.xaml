@@ -311,13 +311,35 @@
                                     Foreground="{ThemeResource TextSecondaryBrush}"
                                     Text="{x:Bind Project}"
                                     TextTrimming="CharacterEllipsis" />
-                                <TextBlock
+                                <!-- 来源标注：agent 色圆角块 + 双字母缩写 icon + 名称
+                                     （实机反馈：多 agent 混排时需一眼分辨来源） -->
+                                <StackPanel
                                     Grid.Column="2"
-                                    VerticalAlignment="Center"
-                                    FontSize="{StaticResource FontSizeChip}"
-                                    FontWeight="Medium"
-                                    Foreground="{x:Bind AgentBrush}"
-                                    Text="{x:Bind AgentName}" />
+                                    Orientation="Horizontal"
+                                    Spacing="4"
+                                    VerticalAlignment="Center">
+                                    <Border
+                                        Width="16"
+                                        Height="16"
+                                        VerticalAlignment="Center"
+                                        Background="{x:Bind AgentBrush}"
+                                        CornerRadius="4"
+                                        ToolTipService.ToolTip="{x:Bind AgentName}">
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            FontSize="7"
+                                            FontWeight="Bold"
+                                            Foreground="White"
+                                            Text="{x:Bind AgentMonogram}" />
+                                    </Border>
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontSize="{StaticResource FontSizeChip}"
+                                        FontWeight="Medium"
+                                        Foreground="{x:Bind AgentBrush}"
+                                        Text="{x:Bind AgentName}" />
+                                </StackPanel>
                                 <!-- node kind tag (PRD §3.3b), colors from color.kind tokens -->
                                 <Border
                                     Grid.Column="3"
