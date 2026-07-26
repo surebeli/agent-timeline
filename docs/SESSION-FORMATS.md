@@ -35,11 +35,23 @@
   - 过滤：以 `/` 开头且长度短（如 `/model`）的斜杠命令可标记为 meta 节点（可选展示）。
 - **任务完成**：`message.type=="TurnEnd"`（若存在）或下一次 TurnBegin 之前的最后 assistant 输出。
 
-## 4. zcode（预留）
+## 4. zcode（Z Code CLI）
 
-- 本机（2026-07-25）未安装，无样例。适配器占位：
-  - 设置中可配 session 根目录 + 格式（jsonl 假设）；
-  - 拿到样例后按上述模式补 `ZcodeParser`，协议不变。
+已在真实数据上验证（2026-07-27，Windows，ZCode 3.5.2）。
+
+- **路径**：`~/.zcode/cli/agents/sess_<uuid>/agent_<uuid>/transcript.jsonl`
+  - 每次任务派发一个 `agent_<uuid>` 目录；同目录 `metadata.json` 为 sidecar：
+    `cwd`（项目名取末段）、`description`、`status`、`prompt`、`createdAt`；
+  - 根目录可在设置中覆盖（默认即上述路径）。
+- **格式**：每行 `{id, sessionId, turnId, type, timestamp(ISO8601), sequenceNumber, payload}`。
+- **任务命令提取**：`type=="turn_started"` → `payload.input`（string）；空白跳过。
+- **任务完成**：`type=="turn_complete"` → `payload.response`，首行作 resultLine，
+  全文参与代号挖掘。
+- 过程事件（`model_streaming` / `model_request` / `tool_call_scheduled` /
+  `streaming_tool_ledger_updated` 等）全部忽略。
+- **语义注**：agents 目录记录的是任务派发（含子 agent），非主会话人机对话——
+  时间线粒度为「一次任务 = 一个节点」；主会话仅在派发 agent 时产生节点。
+- 状态：Windows `ZcodeParser` 已实现（2026-07-27）；mac 端解析器待按本节同步实现。
 
 ## 归一化事件（两端一致）
 
