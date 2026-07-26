@@ -2,11 +2,29 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/) 与语义化版本。
 
+## [0.2.2] - 2026-07-27
+
+### 新增
+- **zcode 通道点亮**（Windows）：解析 `~\.zcode\cli\agents\sess_*\agent_*\transcript.jsonl`
+  （turn_started → 任务命令节点，turn_complete → 结果行+代号挖掘，metadata.json cwd → 项目名），
+  默认根自动监听、设置可覆盖；实机回填 36 任务节点验证。CoreSmokeTest 90→110 断言。
+  待办：SESSION-FORMATS §4 规范补写与 mac 端解析器同步（双端共享层，按约定报请确认）。
+
+### 修复（实机人值守反馈）
+- **面板内弹层触发降透明**：chip 详情/词典/右键菜单/过滤菜单打开即夺走激活 → 主窗降到
+  0.25，浮层悬在近透明面板上无法阅读——弹层打开期间钉在 hover 不透明度，关闭后按指针
+  状态回落。
+- 时间线重建合并（回填/批量每节点一次整表重建 O(N²) → 一泵一建）；跳转旧节点的分页循环
+  同步收敛。
+- 摘要 JSON 提取对 codex stdout 杂讯花括号免疫（平衡候选后向优先）；截断代理对安全；
+  设置文件并发写加锁+原子替换；面板尺寸按窗口 DPI 缩放；kind 过滤下 LLM 改判即时
+  增删节点。
+
 ## [0.2.1] - 2026-07-26
 
 ### M3 Windows 实机验证完成
 
-Windows 端从「CI 编译通过」推进到「实机运行验证完毕」（Win11 Enterprise 26200 @150%）：
+Windows 端从「CI 编译通过」推进到「实机运行验证完毕」（Win11 Enterprise 26200，1706x960 @100%）：
 分层验证清单 §2a–§2e 全项完成注记（`windows/DEBUG-PLAYBOOK.md` 留档），
 CoreSmokeTest 85→90 断言全绿。
 

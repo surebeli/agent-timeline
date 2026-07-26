@@ -17,7 +17,27 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 
 ## 更新记录
 
-- **2026-07-26 (f) M3 实机验证完成（Win11 Enterprise 26200 @150%，全链路首次实机运行）**
+- **2026-07-27 (g) 实机人值守反馈修复 + zcode 通道点亮**
+  - **P1（实机反馈）**：面板内弹层（chip 详情 / 词典 / 右键菜单 / 过滤菜单）是独立窗口化
+    popup，打开即夺走激活或触发 PointerExited，主窗被降到 idle 0.25——浮层悬在近透明
+    面板上无法阅读。六处弹层统一登记 Opened/Closed，打开期间钉在 hover 不透明度，
+    全部关闭且指针不在面板内才回落（实测 242 钉住 / 64 回落）；
+  - **P2**：OnNodeAdded 逐条整表重建 O(N²) → 调度队列合并一泵一建；EnsureLoaded
+    50 页循环从每页重建收敛为命中后一次；
+  - **P3**：摘要 JSON 改平衡候选枚举后向优先（codex stdout 杂讯花括号免疫）；
+    标题/关键点/定义截断代理对安全（emoji 不再截出 U+FFFD）；AppSettings.Save
+    加锁+原子替换；面板尺寸按 GetDpiForWindow 缩放（已知事项 #6 收敛）；kind 过滤下
+    LLM 改判即时增删节点成员资格；
+  - **zcode 通道**：用户确认会话在 `~\.zcode\cli\agents`（`sess_*\agent_*\` 每任务一目录）。
+    ZcodeParser 按实机样例实现：transcript.jsonl 的 `turn_started.payload.input` → 任务
+    命令节点、`turn_complete.payload.response` → 结果行 + 代号挖掘；sidecar metadata.json
+    的 cwd → 项目名。默认根随 EnableZcode（默认开）自动监听，设置可覆盖。实机回填
+    36 任务节点（hawk-watcher）验证。CoreSmokeTest 90→110 断言。
+    ⚠️ `docs/SESSION-FORMATS.md` §4（双端共享）待按报告方案补规范并同步 mac 端解析器；
+  - 勘误：(f) 条目所记验证机为 1706x960 @100% 缩放（远程显示），非 150%——DPI 修复
+    在本机为恒等变换，高分屏机器生效。
+
+- **2026-07-26 (f) M3 实机验证完成（Win11 Enterprise 26200，全链路首次实机运行）**
   - **实机修复 11 处**（详见当日 fix commits）：种子脚本 UTF-8 BOM（PS 5.1 GBK 误读）；
     分页游标 id-only → (ts,id) 复合（多 agent 回填必丢行，CoreSmokeTest 85→90 断言）；
     watcher 内置 root 预创建 + Error 补扫 + 偏移落库时序；CLI 摘要 prompt 改 stdin
