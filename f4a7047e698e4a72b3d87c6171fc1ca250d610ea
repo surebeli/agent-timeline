@@ -1,0 +1,35 @@
+windows/AgentTimeline/Core/Parsers/IAgentSessionParser.cs
+  s_5b0458546b11e2::t_cf1640c7862ad8 26-36
+windows/AgentTimeline/Core/AppPaths.cs
+  s_5b0458546b11e2::t_7bfc6b1d7a39f0 29-31
+windows/AgentTimeline/Core/Parsers/ZcodeParser.cs
+  s_5b0458546b11e2::t_60d8445c7ec906 92-93,104-104,107-107,115-115
+  s_5b0458546b11e2::t_e66c1b175d6242 1-2,6-6,8-13,15-17,19-20,24-25,29-34,36-48,50-89,95-98,100-103,105-106,108-114,116-124,126-128
+windows/CoreSmokeTest/Program.cs
+  s_5b0458546b11e2::t_2a841b63271e73 351-429
+  s_5b0458546b11e2::t_e28a564326795a 7-7
+  s_5b0458546b11e2::t_599ff300ee0c4d 35-37,349-350
+windows/AgentTimeline/SettingsWindow.xaml
+  s_5b0458546b11e2::t_013d32aad46f91 61-61,65-66
+windows/AgentTimeline/Core/AppSettings.cs
+  s_5b0458546b11e2::t_d54a41d2dcb0f6 46-46,48-51
+  s_5b0458546b11e2::t_1ddbe8a5c5f2f0 90-93,99-104
+windows/AgentTimeline/Interop/WindowInterop.cs
+  s_5b0458546b11e2::t_6fd3500c0b5144 45-57
+windows/AgentTimeline/Core/SessionWatcher.cs
+  s_5b0458546b11e2::t_6c4ff0093d41aa 96-96,98-101,105-105,109-110
+windows/AgentTimeline/Core/TimelineCoordinator.cs
+  s_5b0458546b11e2::t_b38d18d4a2895e 51-51
+windows/AgentTimeline/Core/Summarize/ISummarizer.cs
+  s_5b0458546b11e2::t_3edc2a437f1968 40-44,49-96,98-99,102-102,108-108,118-118,134-134
+  s_5b0458546b11e2::t_16d30cb7ceb3ca 2-2
+windows/AgentTimeline/Core/Summarize/RuleSummarizer.cs
+  s_5b0458546b11e2::t_20cf6c3050327e 24-24,32-32
+  s_5b0458546b11e2::t_7232ef7b54258d 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f4a7047e698e4a72b3d87c6171fc1ca250d610ea",
+  "prompts": {}
+}
