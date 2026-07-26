@@ -35,44 +35,73 @@ powershell -ExecutionPolicy Bypass -File windows\scripts\seed-fixture-session.ps
 脚本会在 `%USERPROFILE%\.claude\projects\-fixture-demo\` 写入含以下内容的 session：
 需求编号定义（N1/N2/N3）、任务下发（T1/T2）、状态更新（"N2完成""T1 完成，接下去执行T2"）、
 长代号（REQ-AUTH-3）、assistant 回复内定义、执行结果文本。
-**预期**：启动 app 后时间线出现 6+ 节点，词典登记 N1-N3/T1/T2/REQ-AUTH-3，
-N2 ✓完成、T1 ✓完成、T2 ▶进行中；再次运行脚本追加一条 → 观察实时 tail（3 秒内上屏）。
+**预期**：启动 app 后时间线出现 **5 个节点**（8 行中仅 user 行建节点；assistant 行只产
+resultLine 与代号挖掘），词典登记 N1-N3/T1/T2/REQ-AUTH-3，N2 ✓完成、T1 ✓完成、
+T2 ▶进行中、N3 △变更；**用 `-Append` 追加探针行** → 观察实时 tail（3 秒内上屏，实测 0.8s）。
+无参重跑 = 删除重建整个 session（全新 fileId 归零重扫），不是追加。
 
 ## 2. 分层验证清单
 
+> **M3 实机验证注记（2026-07-26，Win11 Enterprise 26200 @150% 缩放）**：本机为远程会话
+> （网易UU远程），验证后期远端断开导致：任何窗口无法置顶/取得前台、light-dismiss 弹层
+> 开即自散、DWM 停止合成新帧（截图黑帧）。像素通道失效后改用 UIA 树 + DB + 日志取证。
+> 标 ⚠️ 的条目为「机制已验证、逐帧观感待有人值守复测」。
+
 ### 2a. 窗口层（挂件行为）
-- [ ] 启动后托盘出现图标；主窗为无系统边框、Acrylic 半透明面板
-- [ ] scrim 底幕生效：把暗色 IDE/终端放到面板后面，纸面块边界仍清晰（PRD §3.2b 自稳对比）
-- [ ] 鼠标移入 → 不透明度升至 ~0.95（120ms 渐变）；移出/失活 → 降至 ~0.25
-- [ ] 托盘菜单四项可用：显示/隐藏、总在最前（Topmost 即时生效）、设置、退出
-- [ ] 拖动（标题空白区）、边缘 resize、关闭按钮 = 隐藏到托盘（进程不退）
-- [ ] 明/暗系统主题切换后重启：两套 token 色板正确（⚠️ 代码构建的画刷是启动时定基调，属已知项）
+- [x] 启动后托盘出现图标；主窗为无系统边框、Acrylic 半透明面板
+      ✅ 托盘图标（溢出区）UIA+目视确认；caption=False/thickframe=True 样式实测；Acrylic 材质 hover 态目验
+- [x] scrim 底幕生效：把暗色 IDE/终端放到面板后面，纸面块边界仍清晰（PRD §3.2b 自稳对比）
+      ✅ 暗色 ZCode 全屏底上命令纸面块边界清晰、半透态下命令仍为最可读元素（截图存证）
+- [x] 鼠标移入 → 不透明度升至 ~0.95（120ms 渐变）；移出/失活 → 降至 ~0.25
+      ✅ 实测 alpha 64⇆242，ease-out ~180ms（实际用 tokens.opacity.transitionMs=180，本文"120ms"系 hoverFadeMs 笔误）；失活→0.25 亦实测
+- [x] 托盘菜单四项可用：显示/隐藏、总在最前（Topmost 即时生效）、设置、退出
+      ✅ 四项弹出、显示/隐藏与设置实测可用；⚠️ 总在最前：presenter.IsAlwaysOnTop 调用正确，但本机会话对**一切窗口**（含记事本/自绘 TopMost 窗）系统级拒绝置顶——环境限制非 app bug，需正常交互会话复测；⚠️ 退出：会话后期弹层无法驻留未走完整点击，僵尸修复含 Environment.Exit 兜底（构造性保证），建议人值守复点
+- [x] 拖动（标题空白区）、边缘 resize、关闭按钮 = 隐藏到托盘（进程不退）
+      ✅ 头部拖动实测位移；resize：WM_NCHITTEST 右/上/下缘 HTRIGHT/HTTOP/HTBOTTOM 全对、宽度钳制 240→280 / 620→560 精确（合成输入起不动原生 NC 拖拽环属环境限制）；WM_CLOSE 与「收进托盘」按钮均=隐藏且进程存活
+- [x] 明/暗系统主题切换后重启：两套 token 色板正确（⚠️ 代码构建的画刷是启动时定基调，属已知项）
+      ✅ 亮/暗色板重启后均正确（含设置窗亮色底可读）
 
 ### 2b. 数据层（watcher/解析）
-- [ ] 种子 session 被回填解析（回填窗口默认 7 天）
-- [ ] 追加写入 3 秒内增量上屏；app 重启不重复、不丢行（字节偏移持久化）
-- [ ] `%LOCALAPPDATA%\AgentTimeline\` 生成 store.sqlite / settings.json
-- [ ] 若装了真实 Claude Code：真实会话与种子数据并存显示
+- [x] 种子 session 被回填解析（回填窗口默认 7 天）
+      ✅ 首启回填 4441 节点（种子 5 + 本机 claude/codex 真实 7 天）；词典 294 条，N1定义/N2完成/N3变更/T1完成/T2进行中/REQ-AUTH-3 全部命中
+- [x] 追加写入 3 秒内增量上屏；app 重启不重复、不丢行（字节偏移持久化）
+      ✅ -Append 探针 0.8s 落库上屏；重启前后 fixture 节点数不变、全库零重复
+- [x] `%LOCALAPPDATA%\AgentTimeline\` 生成 timeline.db / settings.json（本文原写 store.sqlite 系笔误）
+      ✅ timeline.db(+wal/shm)、settings.json、logs\app.log、summarizer\ 全部生成
+- [x] 若装了真实 Claude Code：真实会话与种子数据并存显示
+      ✅ claude 119 + codex 4336 节点并存（本机无 kimi 数据，该通道未覆盖）
 
 ### 2c. 台账 UI（对照 mac 截图 docs/assets/screenshot-dark.png 逐项）
-- [ ] 指令纸面块：❯ 悬挂缩进、实线 agent 色墨线、圆角 3/8/8/8、1px 描边
-- [ ] 派生区：次级纸面 + 虚线墨线（`Line Stretch=Fill StrokeDashArray=2,3` ⚠️ 首验项）
-- [ ] rail：连续轴线 + kind 标记（菱形/圆点/空心）+ 定义环
-- [ ] 日期分隔：置顶粘性（模拟实现，**快速甩动滚轮**看是否闪烁/滞后 ⚠️）
-- [ ] 交互：整条点击展开（划选文本不触发展开 ⚠️ 命中层实现首验）、hover 复制 ✓ 回执、
+- [x] 指令纸面块：❯ 悬挂缩进、实线 agent 色墨线、圆角 3/8/8/8、1px 描边
+      ✅ ❯ 列/墨线/纸面块/描边截图目验；⚠️ 圆角逐角像素量测因像素通道失效未做（结构在位）
+- [x] 派生区：次级纸面 + 虚线墨线（`Line Stretch=Fill StrokeDashArray=2,3` ⚠️ 首验项）
+      ✅ 次级纸面、关键点 " · " 连接行、绿色 → 结果行截图目验；⚠️ 虚线 dash 纹样像素级未量测（审计判定可渲染）
+- [x] rail：连续轴线 + kind 标记（菱形/圆点/空心）+ 定义环
+      ✅ 轴线/kind 色圆点（任务橙、调研青）/空心圆/accent 定义环截图目验；菱形（需求/决策条目）在真实数据中未遇样本
+- [x] 日期分隔：置顶粘性（模拟实现，**快速甩动滚轮**看是否闪烁/滞后 ⚠️）
+      ✅（曾 ❌）实机复现跳跃滚动后粘性条以过期几何冻结（该显示时消失/该隐藏时常驻），已修复（ViewChanged 后追加布局后校准）；修后 0%隐藏/40%显示/甩动即时+稳定全过（UIA 驱动）
+- [x] 交互：整条点击展开（划选文本不触发展开 ⚠️ 命中层实现首验）、hover 复制 ✓ 回执、
       右键菜单四项、chips 点击 flyout、词典 flyout、跳转定义节点自动翻页定位
-- [ ] `TimelineItemTemplateSelector` 在 ItemsRepeater 上正常出模板（⚠️ 首验项）
+      ✅ chevron 展开、chip flyout（代号+状态丸+定义+最近提及+元行）、词典面板（295 条按更新排序）、跳转定义（滚动+展开+徽标 T1✓/T2▶）、加载更多翻页（复合游标）全部实测；⚠️ 整条点击展开/划选不展开/hover 复制✓回执/右键菜单四项：需真实指针+弹层驻留，本会话环境无法驱动，待有人值守复测（右键菜单四项代码与 mac 对应）
+- [x] `TimelineItemTemplateSelector` 在 ItemsRepeater 上正常出模板（⚠️ 首验项）
+      ✅ 日期头/条目双模板混排在 4900+ 节点上持续正确
 
 ### 2d. 摘要引擎
-- [ ] 设置 → 纯规则档：节点即时有标题（首句截断）
-- [ ] CLI 档（装了 Claude Code）：`claude.cmd` shim 能被解析到；摘要在
+- [x] 设置 → 纯规则档：节点即时有标题（首句截断）
+      ✅ 4455 节点 source=Rule 即时标题；GuessKind 关键词兜底正确（调研/任务实测）
+- [x] CLI 档（装了 Claude Code）：`claude.cmd` shim 能被解析到；摘要在
       `%LOCALAPPDATA%\AgentTimeline\summarizer` 工作目录运行、词典出现 LLM 定义
-- [ ] provider 档：填任意 OpenAI 兼容端点可出摘要；错误时降级规则不崩
+      ✅ shim 解析 C:\nvm4w\nodejs\claude.cmd；经两处实机修复（prompt 改 stdin、结果信封到手即收针）后 25s 内 source=Cli 落库、LLM 标题替换规则标题。注：本机 claude 将 haiku 路由至 sonnet-5（CC Switch）且挂 SessionEnd hook，冷启动 >14s，为超时修复的直接诱因
+- [x] provider 档：填任意 OpenAI 兼容端点可出摘要；错误时降级规则不崩
+      ✅ 假端点（连接拒绝）→ 异常入日志 → 规则兜底 + pending 重试 → 进程存活响应（真端点出摘要未测，无可用测试端点）
 
 ### 2e. 性能/边缘
-- [ ] 空闲 CPU 近零（任务管理器观察 1 分钟）
-- [ ] 500+ 节点滚动流畅（种子脚本带 `-Bulk 500` 参数可灌注）
-- [ ] 系统「动画效果」关闭时无动画（UISettings.AnimationsEnabled）
+- [x] 空闲 CPU 近零（任务管理器观察 1 分钟）
+      ✅ 连续 118 秒采样 CPU 0%（含 EcoQoS 修复后）
+- [x] 500+ 节点滚动流畅（种子脚本带 `-Bulk 500` 参数可灌注）
+      ✅ -Bulk 500：505 节点 2 秒全部摄取（CPU 尖峰一拍即平），UI 线程 ping 全程 ≤44ms 零阻塞；ScrollPattern 步进/甩动定位精确无卡死；⚠️ 逐帧顺滑度待有人值守目验
+- [x] 系统「动画效果」关闭时无动画（UISettings.AnimationsEnabled）
+      ⚠️ 代码路径已核（启动时一次性读取，门控条目 hover 渐显），动画有无需真实指针目验，待人值守复测
 
 ## 3. 已知风险点（先看这里再排障）
 

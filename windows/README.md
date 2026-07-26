@@ -17,6 +17,34 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 
 ## 更新记录
 
+- **2026-07-26 (f) M3 实机验证完成（Win11 Enterprise 26200 @150%，全链路首次实机运行）**
+  - **实机修复 11 处**（详见当日 fix commits）：种子脚本 UTF-8 BOM（PS 5.1 GBK 误读）；
+    分页游标 id-only → (ts,id) 复合（多 agent 回填必丢行，CoreSmokeTest 85→90 断言）；
+    watcher 内置 root 预创建 + Error 补扫 + 偏移落库时序；CLI 摘要 prompt 改 stdin
+    （.cmd shim 经 cmd.exe 的转义/注入问题，Windows 上 CLI 档原本永远静默降级）+
+    超时杀整棵进程树 + 结果信封到手即收针（用户侧 SessionEnd hook 拖住进程不退出）+
+    PATH 引号容错；粘性日期头布局后校准（跳跃滚动冻结）；失焦不再改写
+    IsInputActive（Acrylic 失焦塌成实心）；托盘 ForceCreate 关 EcoQoS 效率模式；
+    托盘退出防僵尸（#5931，Close+Environment.Exit 兜底）；窗口记忆坐标越界回退；
+    头部过滤器改紧凑 Button+MenuFlyout（340px 装不下双 ComboBox）+ 标题列可省略。
+  - **平台 deviation 终版**：
+    1. 粘性日期头为 ViewChanged+布局后校准的模拟实现（mac 原生粘性 section header），
+       跳跃滚动下有一拍校准延迟，实测不可感知；
+    2. 窗口 hover/idle 渐变实际使用 `opacity.transitionMs`(180ms)，tokens 的
+       `hoverFadeMs`(120ms) 仅用于条目内 hover 渐显——与 mac 同源同义；
+    3. 头部过滤器为「全部 ▾ / 阶段 ▾」紧凑按钮 + 单选菜单（mac 为 popup 按钮）；
+       空间不足时标题省略号让位，长项目名按钮内截断（WinUI 控件 chrome 宽于 mac）；
+    4. 「总在最前」在验证机上被系统级拒绝（该会话对一切窗口禁止 topmost，含记事本），
+       代码路径正确，需正常交互会话复测——非 app 缺陷；
+    5. WinUI Border 描边内缩 9/7px vs mac 8/6px（既有已知项，故意未补偿）；
+    6. CLI 摘要 30s 超时对「haiku 被路由到大模型 + 挂 hooks」的重型 claude 配置偏紧，
+       靠结果信封提前收针化解；纯 haiku 配置无此问题。
+  - 已知未验证收敛：NuGet 版本原样可用；Acrylic 与分层 alpha 在本机 26200 共存正常
+    （无需 UseLayeredWindowAlpha 逃生口）；无边框拖动/边缘 resize 命中区实测正确；
+    ItemsRepeater DataContext / TemplateSelector 实测正常；托盘图标/菜单实测正常。
+    仍未覆盖：Kimi 通道（本机无数据）、provider 真端点、真实鼠标的划选/hover 回执/
+    右键菜单（会话环境限制）、单实例保护（已知不做）。
+
 - **2026-07-26 (e) 任意底色自稳对比（对齐 mac 端 PRD §3.2b 末条）**
   - 新增 `color.panelScrim`（浅 #F5F6F7B8 / 深 #14161C8C）：RootGrid 背景改为 scrim 底幕，
     垫在 DesktopAcrylic 材质与全部内容之间——压缩透入底色方差（暗色 IDE/terminal 常态）
