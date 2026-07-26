@@ -92,16 +92,35 @@ public sealed class CliSummarizer : ISummarizer
             await process.StandardInput.WriteAsync(prompt.AsMemory(), timeoutCts.Token).ConfigureAwait(false);
             process.StandardInput.Close();
 
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
             var stderrTask = process.StandardError.ReadToEndAsync(timeoutCts.Token);
-            await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
-            var stdout = await stdoutTask.ConfigureAwait(false);
-            _ = await stderrTask.ConfigureAwait(false);
 
-            if (process.ExitCode != 0)
+            // 按行读而非等进程退出：用户的 claude 可能挂 SessionEnd 等 hook，结果信封早已
+            // 打到 stdout 而进程被 hook 拖住不退出——等 WaitForExit 会把到手的结果随超时
+            // 一起丢掉（实机 M3：手动 14s 出结果、in-app 恒 30s 超时）。claude 单行 JSON
+            // 信封（"type":"result"）一到即收针，finally 里杀树顺带收掉挂着的 hook。
+            var sb = new StringBuilder();
+            var gotClaudeResult = false;
+            while (await process.StandardOutput.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false)
+                   is { } line)
             {
-                Log.Warn($"CliSummarizer: {_resolvedKind} exited {process.ExitCode}");
-                return null;
+                sb.AppendLine(line);
+                if (_resolvedKind == "claude" && line.Contains("\"type\":\"result\""))
+                {
+                    gotClaudeResult = true;
+                    break;
+                }
+            }
+            var stdout = sb.ToString();
+
+            if (!gotClaudeResult)
+            {
+                await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+                _ = await stderrTask.ConfigureAwait(false);
+                if (process.ExitCode != 0)
+                {
+                    Log.Warn($"CliSummarizer: {_resolvedKind} exited {process.ExitCode}");
+                    return null;
+                }
             }
             return ParseCliOutput(stdout);
         }
