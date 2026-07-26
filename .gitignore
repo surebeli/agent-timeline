@@ -5,3 +5,6 @@ macos/.swiftpm/
 windows/**/bin/
 windows/**/obj/
 windows/**/.vs/
+
+# 本地/CI 运行期生成的 .NET SDK 钉扎(见 ci/release workflow Pin 步骤)
+global.json

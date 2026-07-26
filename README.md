@@ -38,6 +38,16 @@
 
 ## 快速开始
 
+### 下载安装包
+
+[**Releases**](https://github.com/surebeli/agent-timeline/releases) 提供双端产物（推 `v*` tag 由 CI 自动构建）：
+
+- `AgentTimeline-macos-vX.Y.Z.zip` — 解压得 `.app`，拖入 `/Applications`；
+- `AgentTimeline-windows-x64-vX.Y.Z.zip` — 解压到任意目录运行 `AgentTimeline.exe`
+  （自包含 Windows App SDK，需 .NET 8 桌面运行时）。
+
+版本单一事实源为根目录 [`VERSION`](VERSION)，发布流程见 [CHANGELOG.md](CHANGELOG.md) 顶部说明。
+
 ### macOS（Swift + SwiftUI + AppKit，零第三方依赖）
 
 ```bash
@@ -50,7 +60,10 @@ swift test                                # 21 项单测
 
 ### Windows（WinUI 3 / .NET 8）
 
-完整源码在 [`windows/`](windows/)，Core 解析层已跨平台编译验证（85 断言冒烟）；WinUI 层已通过 CI 的 VS msbuild 编译门禁；实机用 Visual Studio 2022 打开 `windows/AgentTimeline.sln` 构建运行，实机调试手册：[windows/DEBUG-PLAYBOOK.md](windows/DEBUG-PLAYBOOK.md)（环境/种子数据/分层清单/修复回路），详见 [windows/README.md](windows/README.md)。
+完整源码在 [`windows/`](windows/)，**已完成实机运行验证（M3，2026-07-26）**：Core 解析层跨平台
+冒烟 112 断言，WinUI 层过 CI 的 VS msbuild 硬门禁，分层验证清单全项注记见
+[windows/DEBUG-PLAYBOOK.md](windows/DEBUG-PLAYBOOK.md)。开发构建用 Visual Studio 2022 打开
+`windows/AgentTimeline.sln`，详见 [windows/README.md](windows/README.md)。
 
 ## 工作原理
 
@@ -71,12 +84,13 @@ flowchart LR
 
 ## 设置
 
-菜单栏图标 → 设置：摘要引擎（CLI 模型 / 自定义 provider）、透明度两档、置顶、回填天数、agent 开关（zcode 需配置 session 路径并按 [SESSION-FORMATS §4](docs/SESSION-FORMATS.md) 补齐解析器）。
+菜单栏图标 → 设置：摘要引擎（CLI 模型 / 自定义 provider）、透明度两档、置顶、回填天数、agent 开关（zcode 默认监听 `~/.zcode/cli/agents`，可自定义路径；格式规范见 [SESSION-FORMATS §4](docs/SESSION-FORMATS.md)，Windows 解析器已实现、mac 待同步）。
 
 ## Roadmap
 
 - **M2**：代号按项目命名空间（跨项目同名短码隔离）、搜索、词典管理界面
-- **M3**：Windows 端实机调试与双端视觉对齐验收（源码已就绪，**WinUI 层已过 CI 编译硬门禁**，待实机运行验证）
+- ~~**M3**：Windows 端实机调试与双端视觉对齐验收~~ ✅ 完成（2026-07-26，11 处实机修复 + 全清单注记留档）
+- **M4**：mac 端 zcode 解析器同步、真实鼠标交互项人值守复测收尾
 
 ## License
 

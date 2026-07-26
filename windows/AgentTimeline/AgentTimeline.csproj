@@ -30,6 +30,11 @@
     -->
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+
+    <!-- 版本单一事实源：仓库根 VERSION（mac Info.plist 由 build-app.sh 同源注入；
+         release CI 校验 tag ↔ VERSION ↔ CHANGELOG 三方一致）。 -->
+    <VersionFileContent>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\..\..\VERSION'))</VersionFileContent>
+    <Version>$(VersionFileContent.Trim())</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,0 +1,103 @@
+name: Release
+
+# 发布流程：改 VERSION + CHANGELOG → commit 推 main（常规 CI 全绿）→
+#   git tag vX.Y.Z && git push origin vX.Y.Z
+# tag 推送触发本工作流：一致性硬门禁 → 双端测试+构建+打包 → GitHub Release 挂产物。
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    name: tag ↔ VERSION ↔ CHANGELOG 一致性硬门禁
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify version consistency
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          FILE="$(tr -d '[:space:]' < VERSION)"
+          if [ "$TAG" != "$FILE" ]; then
+            echo "::error::tag v$TAG 与 VERSION 文件($FILE)不一致"; exit 1
+          fi
+          if ! grep -q "^## \[$TAG\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md 缺少 [$TAG] 条目"; exit 1
+          fi
+          echo "version $TAG consistent"
+
+  macos:
+    name: macOS · swift test + app bundle
+    needs: verify
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift tests
+        working-directory: macos
+        run: swift test
+      - name: Build AgentTimeline.app（版本注入自 VERSION）
+        working-directory: macos
+        run: scripts/build-app.sh release
+      - name: Package
+        run: ditto -c -k --keepParent macos/dist/AgentTimeline.app "AgentTimeline-macos-${GITHUB_REF_NAME}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: AgentTimeline-macos-*.zip
+
+  windows:
+    name: Windows · smoke + msbuild + package
+    needs: verify
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Pin .NET SDK 8
+        shell: pwsh
+        run: '''{"sdk":{"version":"8.0.100","rollForward":"latestFeature"}}'' | Out-File global.json -Encoding utf8'
+      - name: Core smoke test
+        run: dotnet run --project windows/CoreSmokeTest -c Release
+      - name: Add VS msbuild to PATH
+        uses: microsoft/setup-msbuild@v2
+      - name: Build WinUI app (x64, VS msbuild，版本注入自 VERSION)
+        shell: pwsh
+        run: msbuild windows\AgentTimeline\AgentTimeline.csproj /restore /p:Configuration=Release /p:Platform=x64 /m /v:minimal
+      - name: Package (self-contained unpackaged 目录 → zip)
+        shell: pwsh
+        run: Compress-Archive -Path windows\AgentTimeline\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\* -DestinationPath "AgentTimeline-windows-x64-$env:GITHUB_REF_NAME.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: AgentTimeline-windows-x64-*.zip
+
+  release:
+    name: GitHub Release
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Extract release notes from CHANGELOG
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VER" '
+            $0 ~ "^## \\[" ver "\\]" { f = 1; next }
+            /^## \[/ { f = 0 }
+            f' CHANGELOG.md > notes.md
+          echo "--- release notes ---"; cat notes.md
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            AgentTimeline-macos-*.zip \
+            AgentTimeline-windows-x64-*.zip \
+            --title "Agent Timeline $GITHUB_REF_NAME" \
+            --notes-file notes.md

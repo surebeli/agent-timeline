@@ -23,6 +23,10 @@ public sealed partial class SettingsWindow : Window
             presenter.IsMaximizable = false;
         }
 
+        // 版本来自仓库根 VERSION（csproj 构建期注入 AssemblyVersion）。
+        var v = typeof(App).Assembly.GetName().Version;
+        VersionText.Text = $"Agent Timeline v{v?.ToString(3) ?? "?"}";
+
         LoadFromSettings();
     }
 

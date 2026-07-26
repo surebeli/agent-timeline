@@ -2,6 +2,22 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/) 与语义化版本。
 
+> **发布流程**：改根目录 `VERSION` + 本文件新增条目 → commit 推 main（常规 CI 全绿）→
+> `git tag vX.Y.Z && git push origin vX.Y.Z` → Release 工作流自动校验
+> tag↔VERSION↔CHANGELOG 一致性、跑双端测试、出 macOS `.app` zip 与 Windows x64 zip
+> 并挂到 GitHub Release。
+
+## [0.3.0] - 2026-07-27
+
+### 新增
+- **版本体系与 Release 流水线**：仓库根 `VERSION` 为双端唯一版本源（Windows csproj
+  构建期注入 assembly 版本、mac `build-app.sh` 注入 Info.plist），推送 `v*` tag 自动产出
+  双端 release 包（tag↔VERSION↔CHANGELOG 三方一致性硬门禁 + 双端测试前置）；
+  Windows 设置界面显示版本号。
+- **来源 agent 徽标**：时间线条目元信息行与项目下拉共用同一视觉的双字母色块徽标
+  （CL/CO/KI/ZC + agent 色，`AgentKind.Monogram()` 单一来源）；项目下拉徽标跟随
+  **最近活跃**的 agent（多 agent 项目 tooltip 给按最近活跃排序的完整分布）。
+
 ## [0.2.2] - 2026-07-27
 
 ### 新增
