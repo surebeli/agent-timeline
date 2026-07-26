@@ -1,0 +1,30 @@
+windows/AgentTimeline/Core/AppSettings.cs
+  s_5b0458546b11e2::t_1ddbe8a5c5f2f0 90-93,99-104
+  s_5b0458546b11e2::t_d54a41d2dcb0f6 46,48-51
+windows/AgentTimeline/Interop/WindowInterop.cs
+  s_5b0458546b11e2::t_6fd3500c0b5144 45-57
+windows/AgentTimeline/Core/Summarize/ISummarizer.cs
+  s_5b0458546b11e2::t_16d30cb7ceb3ca 2
+  s_5b0458546b11e2::t_3edc2a437f1968 40-44,49-55,57-99,102,108,118,134
+windows/AgentTimeline/Core/Parsers/IAgentSessionParser.cs
+  s_5b0458546b11e2::t_cf1640c7862ad8 26-36
+windows/AgentTimeline/Core/Summarize/RuleSummarizer.cs
+  s_5b0458546b11e2::t_7232ef7b54258d 1-2
+  s_5b0458546b11e2::t_20cf6c3050327e 24,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f4a7047e698e4a72b3d87c6171fc1ca250d610ea",
+  "prompts": {},
+  "sessions": {
+    "s_5b0458546b11e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
