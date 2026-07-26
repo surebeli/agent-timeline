@@ -1,5 +1,7 @@
 # Windows 实机调试手册（M3）
 
+> 开工 prompt 已备好：[M3-KICKOFF-PROMPT.md](M3-KICKOFF-PROMPT.md)，在 Windows 的 agent 会话中整段粘贴即可。
+
 > 目标：在 Windows 机器上把「CI 已过编译门禁」推进到「实机运行验证完毕」。
 > 按本手册从上到下走，每层验证独立，出问题就地修——CI 会替你守住不回归。
 
