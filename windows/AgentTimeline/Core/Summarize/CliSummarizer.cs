@@ -39,7 +39,11 @@ public sealed class CliSummarizer : ISummarizer
             WorkingDirectory = AppPaths.SummarizerWorkDir,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = false,
+            // prompt 经 stdin 传递而非命令行参数：.cmd shim 要过 cmd.exe，而 cmd 不认
+            // C 运行时的反斜杠引号转义——prompt 里 JSON 模板的引号会翻转 cmd 引号状态、
+            // 换行会被当命令分隔符（BatBadBut 同类），命令行路径在 shim 下必坏且有注入面。
+            // claude -p 无位置参数时从 stdin 读；codex exec 用 "-" 显式读 stdin。
+            RedirectStandardInput = true,
             UseShellExecute = false,
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
@@ -47,7 +51,7 @@ public sealed class CliSummarizer : ISummarizer
         };
 
         // npm-installed CLIs are .cmd shims on Windows; those must be run through cmd.exe
-        // (CreateProcess cannot execute .cmd files directly).
+        // (CreateProcess cannot execute .cmd files directly). 保留的参数全部为固定 ASCII。
         var isCmdShim = _resolvedCli!.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) ||
                         _resolvedCli.EndsWith(".bat", StringComparison.OrdinalIgnoreCase);
         if (isCmdShim)
@@ -65,7 +69,6 @@ public sealed class CliSummarizer : ISummarizer
         if (_resolvedKind == "claude")
         {
             psi.ArgumentList.Add("-p");
-            psi.ArgumentList.Add(prompt);
             psi.ArgumentList.Add("--output-format");
             psi.ArgumentList.Add("json");
             psi.ArgumentList.Add("--model");
@@ -74,16 +77,20 @@ public sealed class CliSummarizer : ISummarizer
         else // codex
         {
             psi.ArgumentList.Add("exec");
-            psi.ArgumentList.Add(prompt);
+            psi.ArgumentList.Add("-");
         }
 
+        Process? process = null;
         try
         {
-            using var process = Process.Start(psi);
+            process = Process.Start(psi);
             if (process is null) return null;
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(TimeoutMs);
+
+            await process.StandardInput.WriteAsync(prompt.AsMemory(), timeoutCts.Token).ConfigureAwait(false);
+            process.StandardInput.Close();
 
             var stdoutTask = process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
             var stderrTask = process.StandardError.ReadToEndAsync(timeoutCts.Token);
@@ -107,6 +114,21 @@ public sealed class CliSummarizer : ISummarizer
         {
             Log.Error("CliSummarizer failed", ex);
             return null;
+        }
+        finally
+        {
+            // 超时/取消路径必须杀整棵进程树：Dispose 不终止进程，且 shim 场景下真正干活的
+            // node.exe 是孙进程，普通 Kill 只杀 cmd.exe——不杀树会积累僵尸并持续烧配额。
+            try
+            {
+                if (process is { HasExited: false })
+                {
+                    process.Kill(entireProcessTree: true);
+                    process.WaitForExit(2_000);
+                }
+            }
+            catch { /* already gone */ }
+            process?.Dispose();
         }
     }
 
@@ -176,7 +198,9 @@ public sealed class CliSummarizer : ISummarizer
             {
                 try
                 {
-                    var candidate = Path.Combine(dir.Trim(), name + ext);
+                    // Windows PATH 条目可合法带包裹引号（"C:\Program Files\nodejs\"），
+                    // 不去引号 Path.Combine 后 File.Exists 恒 false，shim 静默漏检。
+                    var candidate = Path.Combine(dir.Trim().Trim('"'), name + ext);
                     if (File.Exists(candidate)) return candidate;
                 }
                 catch
