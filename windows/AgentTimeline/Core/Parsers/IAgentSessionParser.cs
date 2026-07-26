@@ -23,6 +23,17 @@ public interface IAgentSessionParser
 
 internal static class ParserUtil
 {
+    /// <summary>
+    /// 按 UTF-16 code unit 截断但不劈开代理对（emoji 等增补平面字符）：孤立代理在 UI
+    /// 显示替换符、经 System.Text.Json 序列化变 U+FFFD 乱码。超长时截断并补省略号。
+    /// </summary>
+    public static string Clip(string s, int max)
+    {
+        if (s.Length <= max) return s;
+        var cut = char.IsHighSurrogate(s[max - 1]) ? max - 1 : max;
+        return s[..cut] + "…";
+    }
+
     /// <summary>Lenient ISO-8601 → DateTimeOffset; falls back to now (UTC) so events never get dropped over a timestamp.</summary>
     public static DateTimeOffset ParseIsoTimestamp(string? iso)
     {

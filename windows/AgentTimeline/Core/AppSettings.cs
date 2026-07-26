@@ -43,9 +43,12 @@ public sealed class AppSettings
     public bool EnableClaude { get; set; } = true;
     public bool EnableCodex { get; set; } = true;
     public bool EnableKimi { get; set; } = true;
-    public bool EnableZcode { get; set; } = false;
+    public bool EnableZcode { get; set; } = true;
 
-    /// <summary>zcode session root — the format is reserved; path is user-provided (PRD 3.1).</summary>
+    /// <summary>
+    /// zcode session root；空 = 默认 %USERPROFILE%\.zcode\cli\agents（实机确认，
+    /// AppPaths.ZcodeAgentsRootDefault），填写则覆盖。
+    /// </summary>
     public string ZcodeSessionRoot { get; set; } = "";
 
     // --- Codename lifecycle (F3) ---
@@ -84,12 +87,21 @@ public sealed class AppSettings
         return new AppSettings();
     }
 
+    // UI 线程与重放/watcher 后台线程都会 Save；无锁并发写会互相覆盖或截断
+    // （最坏丢重放标记/窗口位置）。锁内序列化 + 临时文件原子替换。
+    private static readonly object SaveGate = new();
+
     public void Save()
     {
         try
         {
             AppPaths.EnsureDataDirs();
-            File.WriteAllText(AppPaths.SettingsFile, JsonSerializer.Serialize(this, JsonOptions));
+            lock (SaveGate)
+            {
+                var tmp = AppPaths.SettingsFile + ".tmp";
+                File.WriteAllText(tmp, JsonSerializer.Serialize(this, JsonOptions));
+                File.Move(tmp, AppPaths.SettingsFile, overwrite: true);
+            }
         }
         catch (Exception ex)
         {

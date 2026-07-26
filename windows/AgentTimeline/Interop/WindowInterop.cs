@@ -42,6 +42,19 @@ public static partial class WindowInterop
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hWnd);
+
+    /// <summary>
+    /// 窗口所在显示器的缩放系数（96dpi=1.0）。design tokens 的面板尺寸是逻辑像素，
+    /// AppWindow API 吃物理像素——高 DPI 下不乘系数面板会整体偏小（150% 下 340→视觉 227）。
+    /// </summary>
+    public static double GetWindowScale(IntPtr hwnd)
+    {
+        var dpi = GetDpiForWindow(hwnd);
+        return dpi == 0 ? 1.0 : dpi / 96.0;
+    }
+
     /// <summary>Sets whole-window opacity (0.0–1.0) via the layered-window alpha channel.</summary>
     public static void SetWindowOpacity(IntPtr hwnd, double opacity)
     {

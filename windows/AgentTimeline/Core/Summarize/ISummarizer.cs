@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentTimeline.Core.Parsers;
 
 namespace AgentTimeline.Core.Summarize;
 
@@ -36,25 +37,75 @@ public static class SummaryJson
         """;
 
     /// <summary>
-    /// Parses model output into a Summary. Tolerates surrounding prose / ```json fences by
-    /// extracting the outermost {...} block. Returns null when no valid object is found.
+    /// Parses model output into a Summary. Tolerates surrounding prose / ```json fences:
+    /// 逐个枚举平衡的 {...} 候选块（引号/转义感知），**从后往前**尝试解析——codex exec
+    /// 的 stdout 混有 workdir/统计等前导杂讯，正文闲聊里出现花括号会把「最外层
+    /// 首 { 到末 }」的旧提取法带进无关文本（M3 审计发现）；摘要 JSON 通常在输出
+    /// 末尾，后向优先命中率最高。Returns null when no candidate parses.
     /// </summary>
     public static Summary? Parse(string raw, SummarySource source)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
-        var start = raw.IndexOf('{');
-        var end = raw.LastIndexOf('}');
-        if (start < 0 || end <= start) return null;
+        foreach (var candidate in JsonObjectCandidates(raw))
+        {
+            var summary = ParseObject(candidate, source);
+            if (summary is not null) return summary;
+        }
+        return null;
+    }
 
+    /// <summary>顶层平衡 {...} 子串，后出现的先返回；字符串内的花括号不参与配平。</summary>
+    private static IEnumerable<string> JsonObjectCandidates(string raw)
+    {
+        var candidates = new List<string>();
+        var depth = 0;
+        var start = -1;
+        var inString = false;
+        var escaped = false;
+        for (var i = 0; i < raw.Length; i++)
+        {
+            var c = raw[i];
+            if (inString)
+            {
+                if (escaped) escaped = false;
+                else if (c == '\\') escaped = true;
+                else if (c == '"') inString = false;
+                continue;
+            }
+            switch (c)
+            {
+                case '"' when depth > 0:
+                    inString = true;
+                    break;
+                case '{':
+                    if (depth == 0) start = i;
+                    depth++;
+                    break;
+                case '}':
+                    if (depth > 0 && --depth == 0 && start >= 0)
+                    {
+                        candidates.Add(raw[start..(i + 1)]);
+                        start = -1;
+                        if (candidates.Count >= 16) i = raw.Length; // 防病态输入
+                    }
+                    break;
+            }
+        }
+        candidates.Reverse();
+        return candidates;
+    }
+
+    private static Summary? ParseObject(string json, SummarySource source)
+    {
         try
         {
-            using var doc = JsonDocument.Parse(raw[start..(end + 1)]);
+            using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return null;
 
             var title = GetString(root, "title") ?? "";
             if (title.Length == 0) return null;
-            if (title.Length > 40) title = title[..40] + "…";
+            if (title.Length > 40) title = ParserUtil.Clip(title, 40);
 
             var keyPoints = new List<string>();
             if (root.TryGetProperty("keyPoints", out var kp) && kp.ValueKind == JsonValueKind.Array)
@@ -64,7 +115,7 @@ public static class SummaryJson
                     if (item.ValueKind != JsonValueKind.String) continue;
                     var point = (item.GetString() ?? "").Trim();
                     if (point.Length == 0) continue;
-                    keyPoints.Add(point.Length > 60 ? point[..60] + "…" : point);
+                    keyPoints.Add(ParserUtil.Clip(point, 60));
                     if (keyPoints.Count >= 5) break;
                 }
             }
@@ -80,7 +131,7 @@ public static class SummaryJson
                     // punctuation, or tech vocabulary (S3/Q1) as "codenames".
                     if (!CodenameDetector.IsPlausibleName(name)) continue;
                     var definition = GetString(item, "definition");
-                    if (definition is { Length: > 60 }) definition = definition[..60] + "…";
+                    if (definition is not null) definition = ParserUtil.Clip(definition, 60);
                     // Status label passes through raw; CodenameRegistry validates on use.
                     codenames.Add(new CodenameDefinition(name, definition, GetString(item, "status")));
                 }

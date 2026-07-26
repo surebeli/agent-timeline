@@ -1,3 +1,5 @@
+using AgentTimeline.Core.Parsers;
+
 namespace AgentTimeline.Core.Summarize;
 
 /// <summary>
@@ -19,8 +21,7 @@ public sealed class RuleSummarizer : ISummarizer
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         var title = lines.Length > 0 ? lines[0] : command.Text.Trim();
-        title = StripMarkdownNoise(title);
-        if (title.Length > 20) title = title[..20] + "…";
+        title = ParserUtil.Clip(StripMarkdownNoise(title), 20); // 代理对安全截断
         if (title.Length == 0) title = "(空命令)";
 
         var keyPoints = new List<string>();
@@ -28,7 +29,7 @@ public sealed class RuleSummarizer : ISummarizer
         {
             var point = StripMarkdownNoise(line);
             if (point.Length == 0) continue;
-            keyPoints.Add(point.Length > 30 ? point[..30] + "…" : point);
+            keyPoints.Add(ParserUtil.Clip(point, 30));
             if (keyPoints.Count >= 3) break;
         }
 
