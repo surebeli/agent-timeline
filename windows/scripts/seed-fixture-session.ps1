@@ -1,4 +1,4 @@
-# Seed a fixture Claude Code session so the full pipeline (watcher → parser →
+﻿# Seed a fixture Claude Code session so the full pipeline (watcher → parser →
 # store → codename lifecycle → ledger UI) can be debugged on a Windows machine
 # with no agent CLI installed. Format follows docs/SESSION-FORMATS.md §1.
 #
