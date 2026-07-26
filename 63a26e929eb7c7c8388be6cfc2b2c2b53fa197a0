@@ -1,0 +1,12 @@
+windows/AgentTimeline/UI/TimelineViewModel.cs
+  s_5b0458546b11e2::t_64e4df4de7c76f 116-123
+  s_5b0458546b11e2::t_748694dbda696e 135-136
+windows/AgentTimeline/MainWindow.xaml
+  s_5b0458546b11e2::t_58628299322d52 314-316,318-342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "63a26e929eb7c7c8388be6cfc2b2c2b53fa197a0",
+  "prompts": {}
+}
