@@ -93,16 +93,21 @@ public sealed class SessionWatcher : IDisposable
         if (_settings.EnableClaude) yield return AppPaths.ClaudeProjectsRoot;
         if (_settings.EnableCodex) yield return AppPaths.CodexSessionsRoot;
         if (_settings.EnableKimi) yield return AppPaths.KimiSessionsRoot;
-        if (_settings.EnableZcode && !string.IsNullOrWhiteSpace(_settings.ZcodeSessionRoot))
+        if (_settings.EnableZcode)
         {
-            yield return _settings.ZcodeSessionRoot;
+            // 空 = 用实机确认的默认根 ~\.zcode\cli\agents；填了则用自定义路径。
+            yield return string.IsNullOrWhiteSpace(_settings.ZcodeSessionRoot)
+                ? AppPaths.ZcodeAgentsRootDefault
+                : _settings.ZcodeSessionRoot;
         }
     }
 
+    // 自定义 zcode 路径不算内置（用户可能填错盘符，不代建目录）。
     private static bool IsBuiltinRoot(string root) =>
         root == AppPaths.ClaudeProjectsRoot ||
         root == AppPaths.CodexSessionsRoot ||
-        root == AppPaths.KimiSessionsRoot;
+        root == AppPaths.KimiSessionsRoot ||
+        root == AppPaths.ZcodeAgentsRootDefault;
 
     private void Backfill()
     {

@@ -58,12 +58,12 @@
                 <CheckBox x:Name="EnableClaudeCheck" Content="Claude Code（~\.claude\projects）" />
                 <CheckBox x:Name="EnableCodexCheck" Content="Codex（~\.codex\sessions）" />
                 <CheckBox x:Name="EnableKimiCheck" Content="Kimi（~\.kimi\sessions）" />
-                <CheckBox x:Name="EnableZcodeCheck" Content="zcode（预留适配器，需指定 session 目录）" />
+                <CheckBox x:Name="EnableZcodeCheck" Content="zcode（~\.zcode\cli\agents）" />
             </StackPanel>
             <TextBox
                 x:Name="ZcodeRootBox"
-                Header="zcode session 根目录"
-                PlaceholderText="C:\Users\me\.zcode\sessions" />
+                Header="zcode session 根目录（留空 = 默认 ~\.zcode\cli\agents）"
+                PlaceholderText="C:\Users\me\.zcode\cli\agents" />
 
             <TextBlock Opacity="0.6" TextWrapping="Wrap">
                 提示：摘要引擎与外观改动即时生效；Agent 目录开关在重启应用后生效。

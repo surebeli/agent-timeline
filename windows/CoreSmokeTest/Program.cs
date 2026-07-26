@@ -4,6 +4,7 @@
 // 契约) plus store migration/replay checks. Exit code 0 = all assertions passed.
 
 using AgentTimeline.Core;
+using AgentTimeline.Core.Parsers;
 using AgentTimeline.Core.Summarize;
 
 internal static class Program
@@ -31,6 +32,9 @@ internal static class Program
         StoreCompoundCursorPaging();
         StoreLatestNodeId();
         ReplayRebuildsFromHistory();
+        ZcodeParserBasics();
+        SummaryJsonExtractionRobustness();
+        ClipSurrogateSafety();
 
         Console.WriteLine();
         Console.WriteLine($"passed: {_passed}, failed: {Failures.Count}");
@@ -342,6 +346,87 @@ internal static class Program
         {
             CleanupDb(dbPath);
         }
+    }
+
+    /// <summary>zcode transcript.jsonl 解析（实机样例逆向，2026-07-27）。</summary>
+    private static void ZcodeParserBasics()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "at-zcode-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Combine(root, "sess_abc12345-0000", "agent_test1");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "metadata.json"),
+                """{"agentId":"agent_test1","cwd":"F:\\work\\hawk-watcher","createdAt":"2026-07-24T05:59:28.543Z","status":"completed"}""");
+            var transcript = Path.Combine(dir, "transcript.jsonl");
+            var parser = new ZcodeParser();
+            Check(parser.CanHandle(transcript), "zcode: CanHandle transcript.jsonl");
+            Check(!parser.CanHandle(Path.Combine(dir, "wire.jsonl")), "zcode: 其他文件名不接手");
+
+            var lines = new List<RawLine>
+            {
+                new(0, """{"type":"turn_started","sessionId":"s","timestamp":"2026-07-24T05:59:28.599Z","payload":{"turnNumber":0,"input":"排查 T-PLUGIN-00 的构建失败"}}"""),
+                new(100, """{"type":"model_streaming","timestamp":"2026-07-24T05:59:29.000Z","payload":{"chunk":"..."}}"""),
+                new(200, """{"type":"turn_complete","sessionId":"s","timestamp":"2026-07-24T06:00:11.664Z","payload":{"response":"已定位：缺 dll。T-PLUGIN-00 可收口。\n详情见下。"}}"""),
+                new(300, "not json at all"),
+                new(400, """{"type":"turn_started","timestamp":"2026-07-24T06:01:00.000Z","payload":{"input":"   "}}"""),
+            };
+            var events = parser.ParseLines(transcript, lines);
+            CheckEqual(events.Count, 2, "zcode: 过程事件/空输入/坏行全部跳过");
+
+            var cmd = events.OfType<UserCommand>().FirstOrDefault();
+            Check(cmd is not null, "zcode: turn_started → UserCommand");
+            CheckEqual(cmd!.Project, "hawk-watcher", "zcode: 项目名取 sidecar cwd 末段");
+            CheckEqual(cmd.SessionId, "agent_test1", "zcode: session = agent 目录名");
+            Check(cmd.Text.Contains("T-PLUGIN-00"), "zcode: 任务原文原样保留");
+            CheckEqual(cmd.Timestamp.UtcDateTime.Hour, 5, "zcode: ISO 时间戳解析");
+
+            var done = events.OfType<TaskComplete>().FirstOrDefault();
+            Check(done is not null, "zcode: turn_complete → TaskComplete");
+            Check(done!.ResultLine.StartsWith("已定位"), "zcode: response 首行作 resultLine");
+            Check(done.FullText!.Contains("详情见下"), "zcode: 全文保留供代号挖掘");
+
+            // 无 sidecar 的 agent 目录 → 回退 sess 目录名前缀
+            var dir2 = Path.Combine(root, "sess_abc12345-0000", "agent_test2");
+            Directory.CreateDirectory(dir2);
+            var events2 = new ZcodeParser().ParseLines(Path.Combine(dir2, "transcript.jsonl"),
+                new List<RawLine> { new(0, """{"type":"turn_started","timestamp":"2026-07-24T07:00:00.000Z","payload":{"input":"hi"}}""") });
+            CheckEqual(((UserCommand)events2[0]).Project, "sess_abc12345", "zcode: 缺 sidecar 回退 sess 前缀");
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { /* best effort */ }
+        }
+    }
+
+    /// <summary>
+    /// codex exec 的 stdout 混有元信息与正文闲聊里的花括号——提取必须跳过杂讯候选、
+    /// 后向优先命中末尾的摘要 JSON（M3 审计发现，旧「首 { 到末 }」提取法必坏）。
+    /// </summary>
+    private static void SummaryJsonExtractionRobustness()
+    {
+        var noisy = "workdir: C:\\x {stats: 3 files}\n闲聊提到 interface{} 这种写法\n" +
+            """{"title":"修复构建脚本","kind":"修复","keyPoints":["补 dll 引用"],"codenames":[],"resultLine":null}""" +
+            "\ntokens used: 123";
+        var s = SummaryJson.Parse(noisy, SummarySource.Cli);
+        Check(s is not null, "json: 杂讯包围下仍解析成功");
+        CheckEqual(s!.Title, "修复构建脚本", "json: 命中末尾摘要对象而非杂讯花括号");
+        CheckEqual(s.Kind, "修复", "json: kind 随行解析");
+
+        var braceInString = """前导 {"title":"含}括号的标题","kind":"任务","keyPoints":[],"codenames":[],"resultLine":null} 尾注""";
+        var s2 = SummaryJson.Parse(braceInString, SummarySource.Cli);
+        Check(s2 is not null && s2.Title.Contains('}'), "json: 字符串内花括号不干扰配平");
+
+        Check(SummaryJson.Parse("全是散文没有对象", SummarySource.Cli) is null, "json: 无候选返回 null");
+    }
+
+    /// <summary>UTF-16 截断不劈开代理对（emoji 尾部不出替换符乱码）。</summary>
+    private static void ClipSurrogateSafety()
+    {
+        var atBoundary = new string('a', 19) + "😀";   // 21 code units，😀 跨在截断点上
+        CheckEqual(ParserUtil.Clip(atBoundary, 20), new string('a', 19) + "…", "clip: 高代理回退一位");
+        CheckEqual(ParserUtil.Clip(new string('b', 25), 20), new string('b', 20) + "…", "clip: 普通截断加省略号");
+        CheckEqual(ParserUtil.Clip("short", 20), "short", "clip: 不超长原样返回");
     }
 
     /// <summary>

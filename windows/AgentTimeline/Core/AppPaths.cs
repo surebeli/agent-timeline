@@ -26,6 +26,9 @@ public static class AppPaths
     public static string CodexSessionsRoot => Path.Combine(UserProfile, ".codex", "sessions");
     public static string KimiSessionsRoot => Path.Combine(UserProfile, ".kimi", "sessions");
 
+    /// <summary>zcode agent 任务会话默认根（实机确认 2026-07-27）；settings 可覆盖。</summary>
+    public static string ZcodeAgentsRootDefault => Path.Combine(UserProfile, ".zcode", "cli", "agents");
+
     public static void EnsureDataDirs()
     {
         Directory.CreateDirectory(DataDir);

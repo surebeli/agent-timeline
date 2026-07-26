@@ -48,7 +48,7 @@ public sealed class TimelineCoordinator : IDisposable
             new ClaudeParser(),
             new CodexParser(),
             new KimiParser(),
-            new ZcodeParser(settings), // reserved adapter, returns no events until implemented
+            new ZcodeParser(), // ~\.zcode\cli\agents\**\transcript.jsonl（实机样例逆向实现）
         };
         _watcher = new SessionWatcher(store, settings, parsers);
         _watcher.EventsParsed += OnEventsParsed;
