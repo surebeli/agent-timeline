@@ -1,0 +1,51 @@
+windows/M3-KICKOFF-PROMPT.md
+  s_b85ad4e83942fb::t_15458d9ee86d3a 1-32
+windows/DEBUG-PLAYBOOK.md
+  0000019f9e637aba 1-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "540dd07073216813ae6b2394acd9d91f88243505",
+  "prompts": {
+    "s_b85ad4e83942fb::t_15458d9ee86d3a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 32,
+      "total_deletions": 0,
+      "accepted_lines": 32,
+      "overriden_lines": 0
+    },
+    "s_e438de4a0e15d8::t_cc8d3fa353e0d9": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785068747087492000",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019f9e637aba": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-fable-5",
+        "id": "ai-thread-claude-claude-fable-5-1785068747450"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 93,
+      "total_deletions": 0,
+      "accepted_lines": 93,
+      "overriden_lines": 0
+    }
+  }
+}
