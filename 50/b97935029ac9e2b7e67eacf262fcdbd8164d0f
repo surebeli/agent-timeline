@@ -1,0 +1,27 @@
+windows/AgentTimeline/Core/Models.cs
+  s_5b0458546b11e2::t_f62370a919e7d8 36-45
+windows/AgentTimeline/MainWindow.xaml.cs
+  s_5b0458546b11e2::t_dbf778524d9bbb 533,535-536,549,552-560
+  s_5b0458546b11e2::t_6322e3257b861c 561-563
+  s_5b0458546b11e2::t_f17339096b54f1 564-581,584-585,587-590,592,594,596-597,599-614,618-624,626-632
+windows/AgentTimeline/UI/TimelineViewModel.cs
+  s_5b0458546b11e2::t_b9560d4d0616b8 116
+windows/AgentTimeline/MainWindow.xaml
+  s_5b0458546b11e2::t_36ad9a125814c1 111-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "50b97935029ac9e2b7e67eacf262fcdbd8164d0f",
+  "prompts": {},
+  "sessions": {
+    "s_5b0458546b11e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
