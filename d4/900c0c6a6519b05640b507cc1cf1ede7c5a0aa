@@ -1,0 +1,30 @@
+windows/AgentTimeline/MainWindow.xaml.cs
+  s_5b0458546b11e2::t_aa2473295632be 209-213
+  s_5b0458546b11e2::t_f4bf541fd5e906 294,304
+  s_5b0458546b11e2::t_efdde3fdb1419e 89-120
+  s_5b0458546b11e2::t_bdc4448789e989 613-615
+  s_5b0458546b11e2::t_9e6b188b86027a 635
+  s_5b0458546b11e2::t_8f4c5511120f70 151-155
+  s_5b0458546b11e2::t_d9fd95efa4c9b1 661
+  s_5b0458546b11e2::t_f7ecc5abc4b2ef 431
+windows/AgentTimeline/UI/TimelineViewModel.cs
+  s_5b0458546b11e2::t_74461c4c9baa4e 544-545,547,550-556
+  s_5b0458546b11e2::t_5c5ad9fb0728f7 463-470,595-596
+  s_5b0458546b11e2::t_51904951f2ab4d 594,597-620,625-645
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "d4900c0c6a6519b05640b507cc1cf1ede7c5a0aa",
+  "prompts": {},
+  "sessions": {
+    "s_5b0458546b11e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
