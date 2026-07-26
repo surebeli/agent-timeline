@@ -126,6 +126,8 @@ public sealed partial class MainWindow : Window
     {
         var appWindow = AppWindow;
         appWindow.IsShownInSwitchers = false; // widget mode: tray is the entry point
+        // unpackaged 下窗口图标不会自动取 exe 图标（Alt-Tab 关闭但个别系统面板仍会展示）。
+        appWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "TrayIcon.ico"));
 
         if (appWindow.Presenter is OverlappedPresenter presenter)
         {

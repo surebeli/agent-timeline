@@ -17,6 +17,8 @@ public sealed partial class SettingsWindow : Window
     {
         InitializeComponent();
         Title = "Agent Timeline 设置";
+        // unpackaged 下窗口图标不会自动取 exe 图标，需显式指定（标题栏/任务栏用）。
+        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "TrayIcon.ico"));
         AppWindow.Resize(new SizeInt32(600, 760));
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
