@@ -59,27 +59,32 @@
             ColumnSpacing="8"
             PointerPressed="HeaderBar_PointerPressed">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
+                <!-- 标题列 *（可省略）+ 过滤/按钮列 Auto：340px 宽装不下全量标题与
+                     过滤器，空间紧张时标题省略号让位（M3 实机布局修正） -->
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel
-                Grid.Column="0"
-                Orientation="Horizontal"
-                Spacing="6"
-                VerticalAlignment="Center">
+            <Grid Grid.Column="0" ColumnSpacing="6" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
                 <Ellipse
+                    Grid.Column="0"
                     Width="8"
                     Height="8"
                     VerticalAlignment="Center"
                     Fill="{ThemeResource AccentBrush}" />
                 <TextBlock
+                    Grid.Column="1"
                     FontSize="{StaticResource FontSizeTitle}"
                     FontWeight="SemiBold"
                     Foreground="{ThemeResource TextPrimaryBrush}"
-                    Text="Agent Timeline" />
-            </StackPanel>
+                    Text="Agent Timeline"
+                    TextTrimming="CharacterEllipsis" />
+            </Grid>
 
             <StackPanel
                 Grid.Column="1"
@@ -87,21 +92,39 @@
                 Orientation="Horizontal"
                 Spacing="4"
                 VerticalAlignment="Center">
-                <ComboBox
-                    x:Name="ProjectFilter"
-                    MinWidth="90"
+                <!-- 过滤器用紧凑 Button + MenuFlyout（菜单项在 Opening 时从 VM 选项重建）：
+                     标准 ComboBox 受主题最小宽(64px)约束、DropDownButton 的内建 chevron
+                     区太宽，两者都塞不进 340px 头部（溢出压到标题，M3 实机发现）；
+                     文字"▾"后缀的紧凑按钮即 mac 参照物的过滤器形态。 -->
+                <Button
+                    x:Name="ProjectFilterButton"
+                    MaxWidth="110"
+                    Padding="5,3,5,4"
                     VerticalAlignment="Center"
-                    FontSize="{StaticResource FontSizeBody}"
-                    ItemsSource="{x:Bind ViewModel.ProjectOptions, Mode=OneWay}"
-                    SelectionChanged="ProjectFilter_SelectionChanged" />
-                <!-- Node kind filter (PRD §3.3b 阶段锚点): 全部阶段 / 需求 / 任务 / … -->
-                <ComboBox
-                    x:Name="KindFilter"
-                    MinWidth="86"
+                    ToolTipService.ToolTip="项目过滤">
+                    <TextBlock
+                        x:Name="ProjectFilterLabel"
+                        FontSize="{StaticResource FontSizeBody}"
+                        Text="全部 ▾"
+                        TextTrimming="CharacterEllipsis" />
+                    <Button.Flyout>
+                        <MenuFlyout Opening="ProjectFilterFlyout_Opening" />
+                    </Button.Flyout>
+                </Button>
+                <!-- Node kind filter (PRD §3.3b 阶段锚点): 阶段(全部) / 需求 / 任务 / … -->
+                <Button
+                    x:Name="KindFilterButton"
+                    Padding="5,3,5,4"
                     VerticalAlignment="Center"
-                    FontSize="{StaticResource FontSizeBody}"
-                    ItemsSource="{x:Bind ViewModel.KindOptions, Mode=OneWay}"
-                    SelectionChanged="KindFilter_SelectionChanged" />
+                    ToolTipService.ToolTip="阶段过滤">
+                    <TextBlock
+                        x:Name="KindFilterLabel"
+                        FontSize="{StaticResource FontSizeBody}"
+                        Text="阶段 ▾" />
+                    <Button.Flyout>
+                        <MenuFlyout Opening="KindFilterFlyout_Opening" />
+                    </Button.Flyout>
+                </Button>
             </StackPanel>
 
             <StackPanel

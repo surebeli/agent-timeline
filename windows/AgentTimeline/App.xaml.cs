@@ -79,6 +79,12 @@ public partial class App : Application
         {
             Log.Error("Error during shutdown", ex);
         }
+        // WinUI 3 已知缺陷（microsoft-ui-xaml #5931）：无「打开且激活」窗口时 Exit() 不生效，
+        // 而托盘退出的典型场景恰是主窗已隐藏——先显式 Close 主窗（_allowClose 已置位），
+        // 再 Exit；托盘图标已 Dispose，若仍残留进程用户将无任何入口，Environment.Exit 兜底。
+        try { MainWindowInstance?.Close(); }
+        catch (Exception ex) { Log.Error("Error closing main window on exit", ex); }
         Current.Exit();
+        Environment.Exit(0);
     }
 }

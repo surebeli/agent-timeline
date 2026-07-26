@@ -41,7 +41,6 @@ public sealed partial class MainWindow : Window
     private bool _pointerOver;
     private bool _allowClose;
     private bool _clampingSize;
-    private bool _filterReady;
 
     // Acrylic backdrop plumbing (kept alive for the window's lifetime).
     private WindowsSystemDispatcherQueueHelper? _wsdqHelper;
@@ -69,9 +68,6 @@ public sealed partial class MainWindow : Window
         // Timeline data: initial page from the store, then live coordinator events
         // (raised on background threads → marshalled onto this window's DispatcherQueue).
         ViewModel.LoadInitial();
-        ProjectFilter.SelectedIndex = 0;
-        KindFilter.SelectedIndex = 0;
-        _filterReady = true;
 
         App.Coordinator.NodeAdded += node =>
             DispatcherQueue.TryEnqueue(() => ViewModel.OnNodeAdded(node));
@@ -84,7 +80,10 @@ public sealed partial class MainWindow : Window
             DispatcherQueue.TryEnqueue(() => ViewModel.RefreshCodenameStatuses());
 
         // Tray icon must be explicitly created for unpackaged WinUI apps.
-        TrayIcon.ForceCreate();
+        // enablesEfficiencyMode 默认 true 会把整个进程打入 Win11 效率模式（EcoQoS 降频
+        // 调度），且本工程显隐走 AppWindow.Show/Hide、永远不会解除——监听/摘要/动画全程
+        // 被降速，必须显式关掉。
+        TrayIcon.ForceCreate(enablesEfficiencyMode: false);
         TrayIcon.LeftClickCommand = new RelayCommand(TogglePanelVisible);
         TrayAlwaysOnTopItem.IsChecked = App.Settings.AlwaysOnTop;
     }
@@ -122,15 +121,20 @@ public sealed partial class MainWindow : Window
         var width = s.WindowWidth > 0 ? s.WindowWidth : t.PanelDefaultWidth;
         var height = s.WindowHeight > 0 ? s.WindowHeight : t.PanelDefaultHeight;
 
-        int x, y;
-        if (s.WindowX != int.MinValue && s.WindowY != int.MinValue)
+        int x = 0, y = 0;
+        var restored = s.WindowX != int.MinValue && s.WindowY != int.MinValue;
+        if (restored)
         {
             x = s.WindowX;
             y = s.WindowY;
+            // 记忆坐标可能已随显示器拔除/分辨率变化落在所有工作区之外；挂件又没有
+            // Alt-Tab/任务栏入口可救援 → 校验矩形与任一显示区相交，否则回退首启位。
+            var probe = new RectInt32(x, y, width, height);
+            if (DisplayArea.GetFromRect(probe, DisplayAreaFallback.None) is null) restored = false;
         }
-        else
+        if (!restored)
         {
-            // First run: top-right corner of the primary work area.
+            // First run (or stale bounds): top-right corner of the primary work area.
             var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
             x = area.X + area.Width - width - 24;
             y = area.Y + 24;
@@ -181,6 +185,7 @@ public sealed partial class MainWindow : Window
     {
         _allowClose = true;
         SaveWindowBounds();
+        try { _settingsWindow?.Close(); } catch { /* already closed */ }
         TrayIcon.Dispose();
     }
 
@@ -254,8 +259,10 @@ public sealed partial class MainWindow : Window
 
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
     {
+        // 不跟随激活态改写 _backdropConfig.IsInputActive：挂件常态就是失焦，置 false 会让
+        // DesktopAcrylic 塌成不透明的 inactive fallback 纯色，透光观感（PRD F5）整个丢失
+        // ——构造时的 IsInputActive=true 即为设计意图（TrySetAcrylicBackdrop 注释）。
         var active = args.WindowActivationState != WindowActivationState.Deactivated;
-        if (_backdropConfig is not null) _backdropConfig.IsInputActive = active;
         if (!active && !_pointerOver)
         {
             _opacityAnimator?.AnimateTo(App.Settings.IdleOpacity);
@@ -400,14 +407,7 @@ public sealed partial class MainWindow : Window
         }
 
         var filterProject = new MenuFlyoutItem { Text = "只看此项目" };
-        filterProject.Click += (_, _) =>
-        {
-            // Route through the ComboBox so its display stays in sync with the filter.
-            if (ProjectFilter.Items.Contains(vm.Project))
-            {
-                ProjectFilter.SelectedItem = vm.Project;
-            }
-        };
+        filterProject.Click += (_, _) => ApplyProjectFilter(vm.Project);
         menu.Items.Add(filterProject);
 
         menu.ShowAt(root, e.GetPosition(root));
@@ -419,6 +419,11 @@ public sealed partial class MainWindow : Window
     private void TimelineScroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
     {
         UpdateStickyDayHeader();
+        // 跳跃式滚动（快速甩动/程序化跳转）时 ItemsRepeater 的再实现化发生在随后的布局拍，
+        // 本拍读到的是过期几何，粘性条会以错误状态冻结（实机 M3 复现：跳转后常驻或消失）。
+        // 布局队列排空后再校准一次。
+        DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, UpdateStickyDayHeader);
     }
 
     /// <summary>
@@ -481,15 +486,54 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void ProjectFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private string _currentProjectOption = TimelineViewModel.AllProjects;
+    private string _currentKindOption = TimelineViewModel.AllKinds;
+
+    private void ProjectFilterFlyout_Opening(object sender, object e)
     {
-        if (!_filterReady || ProjectFilter.SelectedItem is not string option) return;
+        if (sender is not MenuFlyout menu) return;
+        menu.Items.Clear();
+        foreach (var option in ViewModel.ProjectOptions)
+        {
+            var item = new RadioMenuFlyoutItem
+            {
+                Text = option,
+                GroupName = "projectFilter",
+                IsChecked = option == _currentProjectOption,
+            };
+            item.Click += (_, _) => ApplyProjectFilter(option);
+            menu.Items.Add(item);
+        }
+    }
+
+    private void KindFilterFlyout_Opening(object sender, object e)
+    {
+        if (sender is not MenuFlyout menu) return;
+        menu.Items.Clear();
+        foreach (var option in ViewModel.KindOptions)
+        {
+            var item = new RadioMenuFlyoutItem
+            {
+                Text = option,
+                GroupName = "kindFilter",
+                IsChecked = option == _currentKindOption,
+            };
+            item.Click += (_, _) => ApplyKindFilter(option);
+            menu.Items.Add(item);
+        }
+    }
+
+    private void ApplyProjectFilter(string option)
+    {
+        _currentProjectOption = option;
+        ProjectFilterLabel.Text = option + " ▾"; // 超出 MaxWidth 由 TextTrimming 省略
         ViewModel.SetProjectFilter(option);
     }
 
-    private void KindFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void ApplyKindFilter(string option)
     {
-        if (!_filterReady || KindFilter.SelectedItem is not string option) return;
+        _currentKindOption = option;
+        KindFilterLabel.Text = option + " ▾";
         ViewModel.SetKindFilter(option);
     }
 
@@ -703,10 +747,11 @@ public sealed partial class MainWindow : Window
     {
         if (ViewModel.FindById(nodeId) is null && ViewModel.HasActiveFilters)
         {
-            _filterReady = false;
-            ProjectFilter.SelectedIndex = 0;
-            KindFilter.SelectedIndex = 0;
-            _filterReady = true;
+            // 复位过滤按钮标签（VM 侧一次 ClearFilters 完成重载，不走 Apply* 以免双重加载）。
+            _currentProjectOption = TimelineViewModel.AllProjects;
+            _currentKindOption = TimelineViewModel.AllKinds;
+            ProjectFilterLabel.Text = TimelineViewModel.AllProjects + " ▾";
+            KindFilterLabel.Text = TimelineViewModel.AllKinds + " ▾";
             ViewModel.ClearFilters();
         }
         if (ViewModel.FindById(nodeId) is null && !ViewModel.EnsureLoaded(nodeId)) return;
