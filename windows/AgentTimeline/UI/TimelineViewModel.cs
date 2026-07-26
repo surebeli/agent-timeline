@@ -461,14 +461,20 @@ public sealed class TimelineViewModel : ObservableObject
 
     public void LoadMore()
     {
+        FetchMore();
+        RebuildItems();
+        RefreshDefinitionNodes();
+    }
+
+    /// <summary>取下一页并追加，不重建列表——EnsureLoaded 的多页循环共用（P2 优化）。</summary>
+    private void FetchMore()
+    {
         // (ts,id) 复合游标与查询排序键一致（见 Store.GetRecentNodes 注释）。
         var cursorTs = _ordered.Count > 0 ? _ordered[^1].Timestamp.ToUnixTimeMilliseconds() : long.MaxValue;
         var cursorId = _ordered.Count > 0 ? _ordered[^1].Id : long.MaxValue;
         var page = _store.GetRecentNodes(PageSize, cursorTs, cursorId, _projectFilter, _kindFilter);
         foreach (var node in page) Append(node);
         HasMore = page.Count == PageSize;
-        RebuildItems();
-        RefreshDefinitionNodes();
     }
 
     /// <summary>
@@ -535,10 +541,19 @@ public sealed class TimelineViewModel : ObservableObject
     /// </summary>
     public bool EnsureLoaded(long nodeId)
     {
+        // 逐页只取数不重建；命中（或放弃）后重建一次——原实现每页整表重建，
+        // 跳转旧定义节点最坏在一次回调里做 50 次 O(N) 重建（P2 优化）。
         var guard = 0;
+        var fetched = false;
         while (!_byId.ContainsKey(nodeId) && HasMore && guard++ < 50)
         {
-            LoadMore();
+            FetchMore();
+            fetched = true;
+        }
+        if (fetched)
+        {
+            RebuildItems();
+            RefreshDefinitionNodes();
         }
         return _byId.ContainsKey(nodeId);
     }
@@ -576,15 +591,58 @@ public sealed class TimelineViewModel : ObservableObject
         while (index < _ordered.Count && _ordered[index].Timestamp > vm.Timestamp) index++;
         _ordered.Insert(index, vm);
         _byId[node.Id] = vm;
-        RebuildItems();
-        RefreshDefinitionNodes();
+        ScheduleRebuild();
+    }
+
+    // 回填/批量灌注时每个节点一条 NodeAdded 回调，逐条整表重建是 O(N²)；
+    // 合并到调度队列排空后重建一次（一泵一次），实时单条到达行为不变（P2 优化）。
+    private readonly Microsoft.UI.Dispatching.DispatcherQueue? _dispatcher =
+        Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+    private bool _rebuildQueued;
+
+    private void ScheduleRebuild()
+    {
+        if (_rebuildQueued) return;
+        _rebuildQueued = true;
+        var enqueued = _dispatcher is not null && _dispatcher.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            () =>
+            {
+                _rebuildQueued = false;
+                RebuildItems();
+                RefreshDefinitionNodes();
+            });
+        if (!enqueued)
+        {
+            _rebuildQueued = false;
+            RebuildItems();
+            RefreshDefinitionNodes();
+        }
     }
 
     public void OnSummaryUpdated(long nodeId, Summary summary)
     {
-        if (!_byId.TryGetValue(nodeId, out var vm)) return;
-        vm.ApplySummary(summary);
-        vm.SummaryPending = false;
+        if (_byId.TryGetValue(nodeId, out var vm))
+        {
+            vm.ApplySummary(summary);
+            vm.SummaryPending = false;
+            // kind 过滤生效时 LLM 改判 kind 会让可见节点失去成员资格（P3 优化）。
+            if (_kindFilter is not null && vm.Kind != _kindFilter)
+            {
+                _ordered.Remove(vm);
+                _byId.Remove(nodeId);
+                _knownIds.Remove(nodeId);
+                ScheduleRebuild();
+            }
+            return;
+        }
+        // 反向：插入时因规则 kind 不匹配被滤掉的节点，LLM 摘要后匹配了 → 补进列表。
+        if (_kindFilter is not null &&
+            NodeKinds.Normalize(summary.Kind) == _kindFilter &&
+            _store.GetNode(nodeId) is { } node)
+        {
+            OnNodeAdded(node);
+        }
     }
 
     public void OnResultLineUpdated(long nodeId, string resultLine)

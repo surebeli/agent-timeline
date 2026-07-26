@@ -86,6 +86,38 @@ public sealed partial class MainWindow : Window
         TrayIcon.ForceCreate(enablesEfficiencyMode: false);
         TrayIcon.LeftClickCommand = new RelayCommand(TogglePanelVisible);
         TrayAlwaysOnTopItem.IsChecked = App.Settings.AlwaysOnTop;
+
+        // 头部过滤菜单也是面板内弹层，参与 hover 抑制（见 RegisterPanelFlyout）。
+        if (ProjectFilterButton.Flyout is { } pf) RegisterPanelFlyout(pf);
+        if (KindFilterButton.Flyout is { } kf) RegisterPanelFlyout(kf);
+    }
+
+    // ─────────────────────────── 面板内弹层与透明度的协奏（P1 实机反馈修复）
+
+    /// <summary>打开中的面板内弹层数：>0 时抑制 idle 降透明。</summary>
+    private int _openPanelFlyouts;
+
+    /// <summary>
+    /// 面板内弹层（chip 详情、词典、右键菜单、过滤菜单）是独立窗口化 popup：打开即夺走
+    /// 激活、指针移入即触发 PointerExited——两条路径都会把主窗降到 idle 0.25，用户面对
+    /// 的是浮层悬在一块近透明面板上（实机反馈）。弹层打开期间钉在 hover 不透明度，
+    /// 关闭且指针不在面板内时再回落。
+    /// </summary>
+    private void RegisterPanelFlyout(FlyoutBase flyout)
+    {
+        flyout.Opened += (_, _) =>
+        {
+            _openPanelFlyouts++;
+            _opacityAnimator?.AnimateTo(App.Settings.HoverOpacity);
+        };
+        flyout.Closed += (_, _) =>
+        {
+            _openPanelFlyouts = Math.Max(0, _openPanelFlyouts - 1);
+            if (_openPanelFlyouts == 0 && !_pointerOver)
+            {
+                _opacityAnimator?.AnimateTo(App.Settings.IdleOpacity);
+            }
+        };
     }
 
     // ═══════════════════════════════════════════════════ window chrome
@@ -116,10 +148,11 @@ public sealed partial class MainWindow : Window
     {
         var s = App.Settings;
         var t = App.Tokens;
-        // Token sizes are logical px; treated as physical px here (scaffold simplification —
-        // multiply by the window's rasterization scale if exact DPI fidelity matters).
-        var width = s.WindowWidth > 0 ? s.WindowWidth : t.PanelDefaultWidth;
-        var height = s.WindowHeight > 0 ? s.WindowHeight : t.PanelDefaultHeight;
+        // Token sizes are logical px；AppWindow 吃物理像素 → 默认尺寸乘 DPI 缩放
+        // （用户保存的尺寸已是物理像素，原样恢复）。
+        var scale = WindowInterop.GetWindowScale(_hwnd);
+        var width = s.WindowWidth > 0 ? s.WindowWidth : (int)Math.Round(t.PanelDefaultWidth * scale);
+        var height = s.WindowHeight > 0 ? s.WindowHeight : (int)Math.Round(t.PanelDefaultHeight * scale);
 
         int x = 0, y = 0;
         var restored = s.WindowX != int.MinValue && s.WindowY != int.MinValue;
@@ -173,7 +206,11 @@ public sealed partial class MainWindow : Window
         if (!args.DidSizeChange || _clampingSize) return;
         var t = App.Tokens;
         var size = sender.Size;
-        var clamped = Math.Clamp(size.Width, t.PanelMinWidth, t.PanelMaxWidth);
+        // min/max tokens 同为逻辑像素 → 按当前 DPI 换算成物理像素再钳制。
+        var scale = WindowInterop.GetWindowScale(_hwnd);
+        var clamped = Math.Clamp(size.Width,
+            (int)Math.Round(t.PanelMinWidth * scale),
+            (int)Math.Round(t.PanelMaxWidth * scale));
         if (clamped == size.Width) return;
         _clampingSize = true;
         try { sender.Resize(new SizeInt32(clamped, size.Height)); }
@@ -254,6 +291,7 @@ public sealed partial class MainWindow : Window
     private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         _pointerOver = false;
+        if (_openPanelFlyouts > 0) return; // 指针移入自家弹层不算离开（P1 实机反馈）
         _opacityAnimator?.AnimateTo(App.Settings.IdleOpacity);
     }
 
@@ -263,7 +301,7 @@ public sealed partial class MainWindow : Window
         // DesktopAcrylic 塌成不透明的 inactive fallback 纯色，透光观感（PRD F5）整个丢失
         // ——构造时的 IsInputActive=true 即为设计意图（TrySetAcrylicBackdrop 注释）。
         var active = args.WindowActivationState != WindowActivationState.Deactivated;
-        if (!active && !_pointerOver)
+        if (!active && !_pointerOver && _openPanelFlyouts == 0) // 弹层夺走激活不算失焦（P1）
         {
             _opacityAnimator?.AnimateTo(App.Settings.IdleOpacity);
         }
@@ -390,6 +428,7 @@ public sealed partial class MainWindow : Window
         if (sender is not FrameworkElement root || root.DataContext is not NodeViewModel vm) return;
 
         var menu = new MenuFlyout();
+        RegisterPanelFlyout(menu);
 
         var copyRaw = new MenuFlyoutItem { Text = "复制原话" };
         copyRaw.Click += (_, _) => CopyToClipboard(vm.PromptText);
@@ -571,7 +610,9 @@ public sealed partial class MainWindow : Window
         if (entry is null)
         {
             panel.Children.Add(SecondaryText("尚未登记"));
-            new Flyout { Content = panel }.ShowAt(chip);
+            var quick = new Flyout { Content = panel };
+            RegisterPanelFlyout(quick);
+            quick.ShowAt(chip);
             return;
         }
 
@@ -591,6 +632,7 @@ public sealed partial class MainWindow : Window
         panel.Children.Add(SecondaryText(MetaLine(entry)));
 
         var flyout = new Flyout { Content = panel };
+        RegisterPanelFlyout(flyout);
         var jump = new Button { Content = "跳转到定义节点", Margin = new Thickness(0, 4, 0, 0) };
         jump.Click += (_, _) =>
         {
@@ -616,6 +658,7 @@ public sealed partial class MainWindow : Window
         });
 
         var flyout = new Flyout { Content = root, Placement = FlyoutPlacementMode.Bottom };
+        RegisterPanelFlyout(flyout);
         if (entries.Count == 0)
         {
             root.Children.Add(SecondaryText(
