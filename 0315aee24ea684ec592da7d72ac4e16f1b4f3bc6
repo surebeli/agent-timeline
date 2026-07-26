@@ -1,0 +1,36 @@
+windows/scripts/seed-fixture-session.ps1
+  0000019f9e6b13d9 1-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0315aee24ea684ec592da7d72ac4e16f1b4f3bc6",
+  "prompts": {
+    "s_c708a02f4ff2dd::t_5f646b2f359ee6": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785069244359273200",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019f9e6b13d9": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-fable-5",
+        "id": "ai-thread-claude-claude-fable-5-1785069245401"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 66,
+      "total_deletions": 0,
+      "accepted_lines": 66,
+      "overriden_lines": 0
+    }
+  }
+}
