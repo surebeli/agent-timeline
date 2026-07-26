@@ -342,6 +342,17 @@ internal static class Program
                   pac[0].Agent == AgentKind.Claude && pac[0].Count == 2,
                 "kind: 项目-agent 分布统计（下拉来源标注）");
 
+            // 最近活跃优先：同项目后来的 codex 节点虽只 1 条，也应排在 claude(2条) 前
+            //（徽标 = 最近干活的 agent，实机反馈）。
+            var late = new UserCommand(AgentKind.Codex, "proj", "s2",
+                DateTimeOffset.FromUnixTimeSeconds(1_700_000_500), "codex 接手", "/tmp/x.jsonl", 0);
+            store.InsertNode(late, rule.Summarize(late), SummaryEngine.ComputeHash(late), false);
+            var pac2 = store.GetProjectAgentCounts();
+            Check(pac2.Count == 2 && pac2[0].Agent == AgentKind.Codex && pac2[0].Count == 1 &&
+                  pac2[1].Agent == AgentKind.Claude && pac2[1].Count == 2 &&
+                  pac2[0].LastTs > pac2[1].LastTs,
+                "kind: 分布按最近活跃排序（后来者居上）");
+
             // COALESCE guard: a later summary without kind must not erase the stored one.
             store.UpdateSummary(id1, new Summary("t2", Array.Empty<string>(),
                 Array.Empty<CodenameDefinition>(), null, SummarySource.Cli, Kind: null), pending: false);

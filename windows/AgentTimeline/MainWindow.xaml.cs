@@ -532,12 +532,13 @@ public sealed partial class MainWindow : Window
     {
         if (sender is not Flyout flyout) return;
 
-        // 来源标注（实机反馈）：每个项目挂主导 agent 的双字母色块徽标——与时间线
-        // 条目的徽标同一视觉（16px 圆角块 + AgentKind.Monogram）；项目可能混多个
-        // agent，tooltip 给完整分布（如 "Codex 4341 · zcode 36"）。每次打开现查
-        // （单条 GROUP BY，毫秒级），免得维护缓存失效。
+        // 来源标注（实机反馈）：每个项目挂「最近活跃」agent 的双字母色块徽标——
+        // 与时间线条目的徽标同一视觉（16px 圆角块 + AgentKind.Monogram）；项目
+        // 前前后后换多个 agent 时徽标跟随最近干活的那个（Store 查询已按最近活跃
+        // 降序，首个即是）；tooltip 给完整分布（同序，如 "Codex 4341 · zcode 36"）。
+        // 每次打开现查（单条 GROUP BY，毫秒级），免得维护缓存失效。
         var breakdown = new Dictionary<string, List<(AgentKind Agent, int Count)>>();
-        foreach (var (project, agent, count) in App.Store.GetProjectAgentCounts())
+        foreach (var (project, agent, count, _) in App.Store.GetProjectAgentCounts())
         {
             if (!breakdown.TryGetValue(project, out var list))
             {

@@ -271,23 +271,25 @@ public sealed class Store : IDisposable
     }
 
     /// <summary>
-    /// 每个项目按 agent 的节点数（项目下拉的来源标注用）；组内按数量降序，
-    /// 首个即该项目的主导 agent。
+    /// 每个项目按 agent 的节点数与最近活跃时间（项目下拉的来源标注用）；组内按
+    /// 最近活跃降序——一个项目前前后后换多个 agent 时，首个即最近干活的那个
+    /// （实机反馈：徽标显示最近活跃者，而非累计节点最多者）。
     /// </summary>
-    public List<(string Project, AgentKind Agent, int Count)> GetProjectAgentCounts()
+    public List<(string Project, AgentKind Agent, int Count, long LastTs)> GetProjectAgentCounts()
     {
         lock (_gate)
         {
             using var cmd = _conn.CreateCommand();
             cmd.CommandText =
-                "SELECT project, agent, COUNT(*) FROM nodes GROUP BY project, agent ORDER BY project, COUNT(*) DESC;";
-            var result = new List<(string, AgentKind, int)>();
+                "SELECT project, agent, COUNT(*), MAX(ts) FROM nodes GROUP BY project, agent ORDER BY project, MAX(ts) DESC;";
+            var result = new List<(string, AgentKind, int, long)>();
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
                 result.Add((reader.GetString(0),
                     AgentKindExtensions.FromKey(reader.GetString(1)),
-                    reader.GetInt32(2)));
+                    reader.GetInt32(2),
+                    reader.GetInt64(3)));
             }
             return result;
         }
