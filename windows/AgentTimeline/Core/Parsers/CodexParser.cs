@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace AgentTimeline.Core.Parsers;
 
@@ -20,6 +21,11 @@ namespace AgentTimeline.Core.Parsers;
 public sealed class CodexParser : IAgentSessionParser
 {
     public AgentKind Agent => AgentKind.Codex;
+
+    /// <summary>[$plugin:skill](…SKILL.md) 技能调用回显 → 只留 $plugin:skill 徽标文字。</summary>
+    private static readonly Regex SkillEchoRegex = new(
+        @"^\[(\$[^\]\n]+)\]\([^)\n]*SKILL\.md\)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     private sealed class FileContext
     {
@@ -86,6 +92,10 @@ public sealed class CodexParser : IAgentSessionParser
                             // Environment injections, not typed by the user.
                             if (text.StartsWith("<user_instructions>", StringComparison.Ordinal)) break;
                             if (text.StartsWith("<environment_context>", StringComparison.Ordinal)) break;
+                            // 插件技能调用回显 [$plugin:skill](本地 SKILL.md 绝对路径) 开头
+                            // (语料 17/70 条):保留命令徽标文字,剥掉本机路径(跨机无效
+                            // 且泄漏用户名)。见 docs/TEXT-NORMALIZATION.md。
+                            text = SkillEchoRegex.Replace(text, "$1", 1).Trim();
 
                             events.Add(new UserCommand(
                                 Agent: AgentKind.Codex,

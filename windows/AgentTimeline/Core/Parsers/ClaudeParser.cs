@@ -32,6 +32,25 @@ public sealed partial class ClaudeParser : IAgentSessionParser
         @"<command-name>\s*(/[^<\s]+)\s*</command-name>",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private static readonly Regex CommandArgsRegex = new(
+        @"<command-args>\s*(.*?)\s*</command-args>",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline);
+
+    // 非人类输入块整条跳过。实机语料普查(2026-07-27,docs/TEXT-NORMALIZATION.md):
+    // <task-notification> 793 次、<local-command-stdout> 96 次(含 ANSI)、Caveat:/
+    // [Request interrupted/续传 blob 等此前会以「用户命令」身份泄漏进时间线;
+    // 清单对齐 mac 端 AgentSessionParser.ignoredPrefixes 既有语义。
+    private static readonly string[] IgnoredPrefixes =
+    {
+        "<local-command-caveat>",
+        "<system-reminder>",
+        "<local-command-stdout>",
+        "<task-notification>",
+        "Caveat:",
+        "[Request interrupted",
+        "This session is being continued from",
+    };
+
     public bool CanHandle(string path) =>
         path.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase) &&
         path.Contains(Path.Combine(".claude", "projects"), StringComparison.OrdinalIgnoreCase);
@@ -78,15 +97,22 @@ public sealed partial class ClaudeParser : IAgentSessionParser
         if (string.IsNullOrWhiteSpace(text)) return null;
         text = text.Trim();
 
-        // Local command echoes are not user prompts.
-        if (text.StartsWith("<local-command-caveat>", StringComparison.Ordinal)) return null;
-        if (text.StartsWith("<system-reminder>", StringComparison.Ordinal)) return null;
-        if (text.StartsWith("<command-name>", StringComparison.Ordinal))
+        // Local command echoes / harness 注入块 are not user prompts.
+        foreach (var prefix in IgnoredPrefixes)
         {
-            // Optional rule: surface "/xxx" as a slash-command node.
+            if (text.StartsWith(prefix, StringComparison.Ordinal)) return null;
+        }
+        // slash 命令回显块有两种字段顺序(<command-name> 先 / <command-message> 先,
+        // 语料 60/171 为后者)——只做 command-name 前缀匹配会整批漏网。统一按命令块
+        // 转换:取 "/name",非空 <command-args> 是用户真实输入,拼回正文。
+        if (text.StartsWith("<command-name>", StringComparison.Ordinal) ||
+            text.StartsWith("<command-message>", StringComparison.Ordinal))
+        {
             var m = CommandNameRegex.Match(text);
             if (!m.Success) return null;
-            text = m.Groups[1].Value;
+            var argsMatch = CommandArgsRegex.Match(text);
+            var args = argsMatch.Success ? argsMatch.Groups[1].Value.Trim() : "";
+            text = args.Length > 0 ? $"{m.Groups[1].Value} {args}" : m.Groups[1].Value;
         }
 
         var sessionId = GetString(root, "sessionId") ?? Path.GetFileNameWithoutExtension(path);

@@ -48,6 +48,9 @@ public sealed class CliSummarizer : ISummarizer
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
+            // 不显式指定时 stdin 用系统控制台代码页(中文系统=GBK),claude 按 UTF-8 读
+            // → 中文 prompt 变乱码(实机语料普查发现 summarizer 会话里全是 U+FFFD)。
+            StandardInputEncoding = Encoding.UTF8,
         };
 
         // npm-installed CLIs are .cmd shims on Windows; those must be run through cmd.exe
