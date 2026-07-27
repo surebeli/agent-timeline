@@ -1,0 +1,25 @@
+docs/DEMO-DATASET.md
+  s_5b0458546b11e2::t_1b15ffc9236795 1-44
+windows/scripts/demo-seed.py
+  s_5b0458546b11e2::t_ba0380e25694bd 1-8
+  s_5b0458546b11e2::t_700352b06bf53a 9-11
+  s_5b0458546b11e2::t_d22dedfa85bed3 12-105
+macos/SCREENSHOT-PLAYBOOK.md
+  s_5b0458546b11e2::t_e968b2ebc631b6 1-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "a4cbabff841409955a1a964490816c294572a0e6",
+  "prompts": {},
+  "sessions": {
+    "s_5b0458546b11e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
