@@ -17,6 +17,30 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 
 ## 更新记录
 
+- **2026-07-28 (h) Phase C' 双端拉平（W0–W6，mac 侧审计清单全部落地）**
+  - **W0 排队命令补录（丢用户命令）**：一轮跑动中键入、被 mid-turn 消费的 prompt
+    只剩 `attachment.queued_command` 一份记录，win 此前整类丢弃 attachment 行。
+    ⚠ 必须复用同一套 L1 忽略前缀——本机语料 **217 条 queued_command 里 200 条是
+    `<task-notification>` 等注入块**，不过滤等于把刚堵掉的 793 次泄漏原路引回；
+    净新增真实用户排队命令 17 条。实机重扫验证 claude 节点 81→86；
+  - **W1 摘要重试与 attempts 上限**：`nodes.summary_attempts` 幂等 ALTER；失败退避
+    1s 会话内重试（此前超时一次就得重启 App），达 3 次停手（此前永久失败节点每次
+    启动无上限重跑烧配额）；设置保存清零。引擎不碰 Store，判定经钩子注入；
+  - **W2 队列改最新优先**：FIFO Channel → 按 `-ts` 的 PriorityQueue，Channel 退化为
+    唤醒信号；回填数百节点时顶部最新节点不再最后才拿到 LLM 标题；
+  - **W3 `SetResultLine` 时间戳护栏**：SQL 加 `ts<=$ts`，节点乱序入库时不再把旧回复
+    挂到更新的命令上（同文件 `LatestNodeId` 早已如此，此前自相矛盾）；
+  - **W4 prompt 注入 agent/project 上下文**：正文骨架与 mac 逐字一致，避免同一命令
+    两端得到不同 title/kind；输入上限改走 `DisplayLimits.PromptInput`；
+  - **W5 Provider 对齐**：temperature 0.2→0（摘要要可复现）、base URL 自动补 `/v1`
+    （不补直接 404）、超时 30s→60s；
+  - **W6 `Clip` 改 grapheme 簇口径**：只防代理对不够——ZWJ 家庭、变体选择符、组合字
+    都会被从中间劈开；现与 mac `String.count` 同口径；
+  - **实机验证附带发现**：`!cmd` 直通 shell 记录以两条节点泄漏进时间线（语料 20 条）
+    ——`<bash-stdout>`/`<bash-stderr>` 归入 L1 忽略前缀，`<bash-input>` 转 `$ cmd` 保留；
+  - CoreSmokeTest 225→253 断言全绿；`docs/TEXT-NORMALIZATION.md` §4.1 现有 12 条已拉平，
+    §4.2 仅剩 mac 侧 zcode 解析器与两条双端待定项。
+
 - **2026-07-27 (g) 实机人值守反馈修复 + zcode 通道点亮**
   - **P1（实机反馈）**：面板内弹层（chip 详情 / 词典 / 右键菜单 / 过滤菜单）是独立窗口化
     popup，打开即夺走激活或触发 PointerExited，主窗被降到 idle 0.25——浮层悬在近透明
