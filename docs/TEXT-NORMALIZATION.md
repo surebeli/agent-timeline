@@ -120,9 +120,39 @@
 
 ## 5. 实施计划
 
-- **Phase A（已完成，Windows）**：L1 堵漏——Claude 七前缀 + 命令块双字段序 convert、
-  Codex 技能回显 convert、CLI 摘要 stdin UTF-8 修复；CoreSmokeTest 覆盖（116→123 断言）；
-- **Phase B（待确认后做）**：共享 `TextNormalizer`（Core 层纯函数 + 冒烟基准样例），
-  接入 resultLine 与 RuleSummarizer；§3 规则表即验收标准；
-- **Phase C**：mac 同步（L1 增量项 + TextNormalizer 移植 + §4 分叉拉平），swift test 对齐断言；
-- **Phase D（远期可选）**：结果详情富文本渲染（代码块/表格/可点链接），届时 L2 输出双形态。
+- **Phase A ✅ 已完成（Windows，2026-07-27）**：L1 堵漏——Claude 七前缀 + 命令块双字段序
+  convert、Codex 技能回显 convert、CLI 摘要 stdin UTF-8 修复；库内 56 条历史泄漏节点已清除；
+- **Phase A' ✅ 已完成**：§4 分叉两处——win 补 Kimi ContentPart 结果通道（TurnEnd payload
+  实测 40/40 为空）、摘要 prompt 输入按 4000 截断；
+- **Phase B ✅ 已完成（Windows）**：`Core/Text/TextNormalizer.cs` 三档纯函数（逐行状态机、
+  32KB 预算），接入结果行派生 / RuleSummarizer / 词典 lastContext 三处作用点；删除
+  `StripMarkdownNoise`；`Store.SetResultLine` 空串兜底；golden 基准
+  `docs/normalize-cases.tsv`（48 例）+ 幂等断言，CoreSmokeTest 225 全绿；
+- **Phase C（下一步，mac）**：按本文 §3 v2 移植 `TextNormalizer`、接同样三个作用点、
+  读同一份 `docs/normalize-cases.tsv` 断言；同时拉平 §4 分叉（优先级见下）；
+- **Phase D（远期可选）**：结果详情富文本渲染（代码块/表格/可点链接）。
+  ⚠ 前置约束：L2 是不可逆有损变换、`FullText` 不落库、`TaskComplete` 无 source_offset，
+  历史节点无源可依 —— Phase D 要么只对新数据生效，要么先加 `nodes.full_text` 列。
+
+### 5.1 mac 移植清单（Phase C，按产品损害排序）
+
+| 优先级 | 项 | 说明 |
+|---|---|---|
+| **P0** | slash 命令 strip → convert | mac 现把 `<command-name>` 整条丢弃，**171 次用户命令根本不产生节点**——README 承诺「你提交过的每条命令」，丢节点比文本不整洁严重一个量级 |
+| **P1** | resultLine 语义对齐 | mac 现为「全文拍平截 160」，应改为「规整 → 首段 → ≤500」，与 win 一致 |
+| **P2** | TextNormalizer 移植 | 逐条按 §3 v2；块级判定用逐行状态机（Swift 端约 30 行）；`NSRegularExpression`(ICU) 不支持可变长 lookbehind，本文所用正则均在共同子集内；`\x1b` 在 Swift 写 `\u{1B}` |
+| **P3** | L1 增量项 | mac 已有 10 个 ignoredPrefixes，需补 `<task-notification>`；`<system-reminder>` 防御性成对剥除 |
+| **P4** | 常量统一 | 标题 win20/mac40、要点 win30×3/mac60×5 等（§4-5）；连同长度计量口径（win UTF-16 / mac grapheme）在 golden 里锁死 |
+| **P5** | 互抄单端优势 | mac→win：`attachment.queued_command` 补录；win→mac：codex JSON 候选提取、时间戳容错回退 |
+
+### 5.2 已知未决（诚实记录）
+
+1. **重放路径挖的是规整后的 resultLine**：`TaskComplete.FullText` 不落库，
+   `ReplayCodenames` 只能读库里已规整的结果行。实测影响很小（定义式正则本就容忍
+   `**N1**:`、dash 正则的 `\b` 在反引号旁仍成立），唯一损失是「定义句写在围栏/表格里」
+   的重放场景。接受此差异；若将来要消除，加 `nodes.full_text` 列；
+2. **旧数据不迁移**：已存库的旧 resultLine 保持原样，新数据走新规则。UI 无副作用
+   （展示层不解析 markdown）；`CodenameReplayVersion` **不要**为此 bump——重放读的是
+   库里已存文本，bump 只会在混合数据上空跑一遍；
+3. **agent 结果侧的注入块**：L1 前缀过滤只作用于命令通道，若结果文本混入
+   `<system-reminder>` 类标签目前无拦截。本机语料 0 命中，暂不处理。
