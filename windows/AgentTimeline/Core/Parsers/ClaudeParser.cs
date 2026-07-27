@@ -46,10 +46,19 @@ public sealed partial class ClaudeParser : IAgentSessionParser
         "<system-reminder>",
         "<local-command-stdout>",
         "<task-notification>",
+        // `!cmd` 直通 shell 的**输出**（实机 W0 验证时发现的新泄漏，本机语料 10 条）：
+        // 输入侧是用户真实操作、由下面 BashInputRegex 转换保留，输出侧不是人说的话。
+        "<bash-stdout>",
+        "<bash-stderr>",
         "Caveat:",
         "[Request interrupted",
         "This session is being continued from",
     };
+
+    /// <summary>`!git pull` 直通 shell：命令本身是用户真实操作，转成 "$ cmd" 保留。</summary>
+    private static readonly Regex BashInputRegex = new(
+        @"^<bash-input>(.*?)</bash-input>",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline);
 
     public bool CanHandle(string path) =>
         path.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase) &&
@@ -107,6 +116,14 @@ public sealed partial class ClaudeParser : IAgentSessionParser
         {
             if (text.StartsWith(prefix, StringComparison.Ordinal)) return null;
         }
+        // `!cmd` 直通 shell 的输入：保留为 "$ cmd"（输出侧已在 IgnoredPrefixes 剥掉）。
+        if (text.StartsWith("<bash-input>", StringComparison.Ordinal))
+        {
+            var bash = BashInputRegex.Match(text);
+            if (!bash.Success) return null;
+            var cmdText = bash.Groups[1].Value.Trim();
+            return cmdText.Length == 0 ? null : BuildCommand(path, root, offset, $"$ {cmdText}");
+        }
         // slash 命令回显块有两种字段顺序(<command-name> 先 / <command-message> 先,
         // 语料 60/171 为后者)——只做 command-name 前缀匹配会整批漏网。统一按命令块
         // 转换:取 "/name",非空 <command-args> 是用户真实输入,拼回正文。
@@ -120,20 +137,20 @@ public sealed partial class ClaudeParser : IAgentSessionParser
             text = args.Length > 0 ? $"{m.Groups[1].Value} {args}" : m.Groups[1].Value;
         }
 
-        var sessionId = GetString(root, "sessionId") ?? Path.GetFileNameWithoutExtension(path);
-        var project = ParserUtil.ProjectNameFromCwd(
-            GetString(root, "cwd"),
-            fallback: Path.GetFileName(Path.GetDirectoryName(path)) ?? "claude");
+        return BuildCommand(path, root, offset, text);
+    }
 
-        return new UserCommand(
-            Agent: AgentKind.Claude,
-            Project: project,
-            SessionId: sessionId,
+    /// <summary>会话/项目/时间戳的取法在各入口一致，集中一处。</summary>
+    private static UserCommand BuildCommand(string path, JsonElement root, long offset, string text) =>
+        new(Agent: AgentKind.Claude,
+            Project: ParserUtil.ProjectNameFromCwd(
+                GetString(root, "cwd"),
+                fallback: Path.GetFileName(Path.GetDirectoryName(path)) ?? "claude"),
+            SessionId: GetString(root, "sessionId") ?? Path.GetFileNameWithoutExtension(path),
             Timestamp: ParserUtil.ParseIsoTimestamp(GetString(root, "timestamp")),
             Text: text,
             SourceFile: path,
             SourceOffset: offset);
-    }
 
     /// <summary>
     /// 排队命令补录（W0，对齐 mac ClaudeParser.swift 的 attachment 分支）。
@@ -166,16 +183,7 @@ public sealed partial class ClaudeParser : IAgentSessionParser
             if (text.StartsWith(prefix, StringComparison.Ordinal)) return null;
         }
 
-        return new UserCommand(
-            Agent: AgentKind.Claude,
-            Project: ParserUtil.ProjectNameFromCwd(
-                GetString(root, "cwd"),
-                fallback: Path.GetFileName(Path.GetDirectoryName(path)) ?? "claude"),
-            SessionId: GetString(root, "sessionId") ?? Path.GetFileNameWithoutExtension(path),
-            Timestamp: ParserUtil.ParseIsoTimestamp(GetString(root, "timestamp")),
-            Text: text,
-            SourceFile: path,
-            SourceOffset: offset);
+        return BuildCommand(path, root, offset, text);
     }
 
     private static TaskComplete? ParseAssistantLine(string path, JsonElement root)

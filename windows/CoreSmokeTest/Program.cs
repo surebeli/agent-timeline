@@ -447,13 +447,18 @@ internal static class Program
             new(4, Line("This session is being continued from a previous conversation that ran out of context.")),
             new(5, Line("<command-message>hopper:continue</command-message>\n<command-name>/hopper:continue</command-name>\n<command-args>继续推进 T2</command-args>")),
             new(6, Line("<command-name>/model</command-name>\n<command-message>model</command-message>\n<command-args></command-args>")),
-            new(7, Line("正常的用户命令原文")),
+            // `!cmd` 直通 shell：输入是用户真实操作（转 "$ cmd"），输出不是
+            new(7, Line("<bash-input>git pull</bash-input>")),
+            new(8, Line("<bash-stdout>From https://github.com/x/y\n   a..b  main</bash-stdout>")),
+            new(9, Line("<bash-stderr>fatal: not a git repo</bash-stderr>")),
+            new(10, Line("正常的用户命令原文")),
         };
         var events = parser.ParseLines(path, lines).OfType<UserCommand>().ToList();
-        CheckEqual(events.Count, 3, "claude filter: 五类注入块全部跳过");
+        CheckEqual(events.Count, 4, "claude filter: 注入块与 bash 输出全部跳过");
         CheckEqual(events[0].Text, "/hopper:continue 继续推进 T2", "claude filter: command-message 先行块转换并保留 args");
         CheckEqual(events[1].Text, "/model", "claude filter: 空 args 只留命令名");
-        CheckEqual(events[2].Text, "正常的用户命令原文", "claude filter: 正常命令不受影响");
+        CheckEqual(events[2].Text, "$ git pull", "claude filter: bash-input 转 \"$ cmd\" 保留");
+        CheckEqual(events[3].Text, "正常的用户命令原文", "claude filter: 正常命令不受影响");
     }
 
     /// <summary>
