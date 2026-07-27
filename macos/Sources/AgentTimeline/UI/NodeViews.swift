@@ -248,11 +248,15 @@ struct NodeCardView: View {
                             Text(tokens.glyph.derived)
                                 .font(.system(size: tokens.typography.size.chip))
                                 .foregroundStyle(tokens.color.textTertiary.color)
+                            // 折叠一行、展开全展开；hover tooltip 再兜一层，
+                            // 让"看全"不必先展开（存储侧已放宽到护栏水位，
+                            // 这里拿到的就是完整文本）。
                             Text(title)
                                 .font(.system(size: tokens.typography.size.derivedTitle))
                                 .foregroundStyle(tokens.color.textSecondary.color)
-                                .lineLimit(1)
+                                .lineLimit(isExpanded ? nil : 1)
                                 .textSelection(.enabled)
+                                .help(title)
                         }
                     }
                     keypointsView
@@ -263,6 +267,7 @@ struct NodeCardView: View {
                             .foregroundStyle(tokens.color.resultLine.color)
                             .textSelection(.enabled)
                             .lineLimit(isExpanded ? nil : 1)
+                            .help(result)
                     }
         }
     }
@@ -312,6 +317,8 @@ struct NodeCardView: View {
                             .foregroundStyle(tokens.color.accent.color)
                     }
                 }
+                // 折叠摘要行 hover 即见全部要点，逐条一行。
+                .help(points.map { "· " + $0 }.joined(separator: "\n"))
             }
         }
     }

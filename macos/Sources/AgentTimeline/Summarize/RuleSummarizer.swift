@@ -14,11 +14,11 @@ struct RuleSummarizer: Sendable {
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
 
-        let title = ParserSupport.truncate(lines.first ?? "（空命令）", to: DisplayLimits.Rule.title)
+        let title = ParserSupport.truncate(lines.first ?? "（空命令）", to: DisplayLimits.summaryTitle)
 
         let keyPoints = lines.dropFirst()
-            .prefix(DisplayLimits.Rule.keyPointCount)
-            .map { ParserSupport.truncate($0, to: DisplayLimits.Rule.keyPoint) }
+            .prefix(DisplayLimits.keyPointCount)
+            .map { ParserSupport.truncate($0, to: DisplayLimits.keyPoint) }
 
         var codenames = CodenameDetector.detectDefinitions(in: cmd.text)
             .map { CodenameDef(name: $0.name, definition: $0.definition, status: CodenameStatus.defined.rawValue) }

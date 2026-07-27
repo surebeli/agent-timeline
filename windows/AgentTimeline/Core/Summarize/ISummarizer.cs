@@ -111,7 +111,7 @@ public static class SummaryJson
 
             var title = GetString(root, "title") ?? "";
             if (title.Length == 0) return null;
-            if (title.Length > 40) title = ParserUtil.Clip(title, 40);
+            if (title.Length > DisplayLimits.SummaryTitle) title = ParserUtil.Clip(title, DisplayLimits.SummaryTitle);
 
             var keyPoints = new List<string>();
             if (root.TryGetProperty("keyPoints", out var kp) && kp.ValueKind == JsonValueKind.Array)
@@ -121,8 +121,8 @@ public static class SummaryJson
                     if (item.ValueKind != JsonValueKind.String) continue;
                     var point = (item.GetString() ?? "").Trim();
                     if (point.Length == 0) continue;
-                    keyPoints.Add(ParserUtil.Clip(point, 60));
-                    if (keyPoints.Count >= 5) break;
+                    keyPoints.Add(ParserUtil.Clip(point, DisplayLimits.KeyPoint));
+                    if (keyPoints.Count >= DisplayLimits.KeyPointCount) break;
                 }
             }
 
@@ -137,7 +137,7 @@ public static class SummaryJson
                     // punctuation, or tech vocabulary (S3/Q1) as "codenames".
                     if (!CodenameDetector.IsPlausibleName(name)) continue;
                     var definition = GetString(item, "definition");
-                    if (definition is not null) definition = ParserUtil.Clip(definition, 60);
+                    if (definition is not null) definition = ParserUtil.Clip(definition, DisplayLimits.CodenameDefinition);
                     // Status label passes through raw; CodenameRegistry validates on use.
                     codenames.Add(new CodenameDefinition(name, definition, GetString(item, "status")));
                 }

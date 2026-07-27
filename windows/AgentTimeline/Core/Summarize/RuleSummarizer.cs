@@ -25,15 +25,15 @@ public sealed class RuleSummarizer : ISummarizer
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         var title = lines.Length > 0 ? lines[0] : display.Trim();
-        title = ParserUtil.Clip(title, 20); // 代理对安全截断
+        title = ParserUtil.Clip(title, DisplayLimits.SummaryTitle); // 代理对安全截断
         if (title.Length == 0) title = "(空命令)";
 
         var keyPoints = new List<string>();
         foreach (var line in lines.Skip(1))
         {
             if (line.Length == 0) continue;
-            keyPoints.Add(ParserUtil.Clip(line, 30));
-            if (keyPoints.Count >= 3) break;
+            keyPoints.Add(ParserUtil.Clip(line, DisplayLimits.KeyPoint));
+            if (keyPoints.Count >= DisplayLimits.KeyPointCount) break;
         }
 
         // Definition-pattern hits carry their definition + a 定义 status; dash-style

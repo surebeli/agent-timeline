@@ -85,6 +85,29 @@ final class NormalizeGoldenTests: XCTestCase {
         XCTAssertTrue(clipped.hasSuffix("…"))
     }
 
+    /// P4：存储只留护栏——正常长度的摘要必须原样落库，不再被排版尺寸截断。
+    func testStorageLimitsAreGuardRailsNotLayout() {
+        // 实测 p90=25、max=41，护栏 120：这个长度的标题必须完整存下来
+        let realistic = String(repeating: "标题字", count: 15)  // 45 字
+        XCTAssertEqual(ParserSupport.truncate(realistic, to: DisplayLimits.summaryTitle), realistic)
+
+        // 规则摘要：长命令的首行与要点不再被 40/60 咬掉
+        let cmd = UserCommand(
+            agent: .claude, project: "p", cwd: nil, sessionId: "s",
+            timestamp: Date(timeIntervalSince1970: 1_700_000_000),
+            text: realistic + "\n" + String(repeating: "要点字", count: 40),
+            sourceFile: "/f")
+        let summary = RuleSummarizer().summarize(cmd)
+        XCTAssertFalse(summary.title.hasSuffix("…"), "护栏不该在正常长度上触发：\(summary.title)")
+        XCTAssertFalse(summary.keyPoints.first?.hasSuffix("…") ?? false)
+
+        // 护栏本身仍在：畸形超长输入照样被拦
+        let absurd = String(repeating: "长", count: 5000)
+        XCTAssertEqual(
+            ParserSupport.truncate(absurd, to: DisplayLimits.summaryTitle).count,
+            DisplayLimits.summaryTitle + 1)
+    }
+
     /// 截断按 grapheme 计量，代理对 / ZWJ 组合序列不得被劈开（§3.4-4）。
     func testTruncateIsGraphemeSafe() {
         let family = "👨‍👩‍👧"  // 单个 grapheme，内部含代理对与 ZWJ
