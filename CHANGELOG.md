@@ -7,6 +7,52 @@
 > tag↔VERSION↔CHANGELOG 一致性、跑双端测试、出 macOS `.app` zip 与 Windows x64 zip
 > 并挂到 GitHub Release。
 
+## [0.4.0] - 2026-07-28
+
+> 主线：**时间线文本治理**双端收口——把混进时间线的 harness 注入块、markdown 标记
+> 清理干净，同时堵住两端各自的丢命令缺陷。
+
+### 修复（数据缺陷，优先看这两条）
+
+- **macOS：slash 命令此前根本不产生节点**——`<command-name>` 回显块被整条丢弃，
+  而它是该命令的唯一记录。本机语料实测 79 条 slash 命令 0 产出，修复后 79/79 全部
+  复原（两种字段序皆覆盖，非空 `<command-args>` 是用户真实输入，拼回正文）。
+  ⚠ 仅对新数据生效：文件偏移已持久化，历史上已被丢弃的命令不会回溯补录。
+- **Windows：`<task-notification>` 等注入块以「用户命令」身份泄漏进时间线**（实机语料
+  793 次，最大漏源）；L1 七类前缀过滤 + 命令块双字段序 convert 落地，库内 56 条历史
+  泄漏节点已清除。
+
+### 新增
+
+- **L2 文本规整层（双端）**：`TextNormalizer` 三档纯函数（Excerpt / Summary / Mining），
+  逐行状态机做块级判定（围栏闭合才 skip、表格行首尾锚定、水平线、ATX 标题需尾随
+  空格），行内保护后再变换（链接需验 target 形态、强调禁跨行、回填 verbatim）。
+  规则表经三方独立审查定稿，双端共读 `docs/normalize-cases.tsv` 48 条 golden 基准
+  + 幂等断言。结果行/规则摘要/词典摘录三处作用点，命令原文永不改写。
+- **结果行语义对齐**：两端统一为「规整 → 首个非空段落 → ≤500」（mac 原为全文拍平
+  截 160），空串双保险兜底。
+- **展示完整性分层（§3.5）**：存储只留防御护栏（双端同表 `DisplayLimits`：标题 120 /
+  要点 200×6 / 结果行 500），完整内容交给三级渐进披露——折叠态钳制不变、展开态解除
+  全部钳制、hover tooltip 兜全文。折叠态观感逐像素不变。
+- **来源 agent 徽标（mac 补齐）**：条目元信息行与项目下拉共用双字母色块（CL/CO/KI/ZC），
+  项目下拉徽标跟随最近活跃 agent，与 Windows 视觉对等。
+- README 补 macOS 实机一览四图（与 Windows 同规格、同演示数据集拍摄）。
+
+### 修复（其他）
+
+- macOS：增量审查确认的 6 处 ICU/.NET 分叉——哨兵回填须 ordinal（否则组合字符旁的
+  私用区字符会写进结果行并永久留库）、行尾 TrimEnd 须覆盖全角空格（否则中文语料的
+  首段边界整体错位）、正则须开 `useUnixLineSeparators`、assistant 分支补 `isSidechain`
+  守卫（子 agent 输出被当成父会话结果行）、回显块判定须先 trim。
+- Windows：Kimi 结果通道改走 ContentPart（TurnEnd payload 实测 40/40 为空）、摘要
+  prompt 输入按 4000 截断、气泡内容可看全（文本点击展开）、unpackaged 下窗口图标补齐。
+
+### 已知欠账
+
+- Windows 侧 7 项待同步（`docs/TEXT-NORMALIZATION.md` §5.3 W0–W6），其中 **W0
+  `attachment.queued_command` 补录缺失**属同类丢命令缺陷（本机语料 4 条实证）；
+- macOS 侧 zcode 解析器仍为惰性桩（README Roadmap M4）。
+
 ## [0.3.0] - 2026-07-27
 
 ### 新增
