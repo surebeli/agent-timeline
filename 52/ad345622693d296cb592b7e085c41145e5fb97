@@ -1,0 +1,32 @@
+windows/AgentTimeline/Core/Parsers/CodexParser.cs
+  s_5b0458546b11e2::t_5df7a411f5b162 25-29
+  s_5b0458546b11e2::t_0d173628aea60b 2
+  s_5b0458546b11e2::t_03e9f0e22fc4ac 95-98
+windows/AgentTimeline/Core/Parsers/ClaudeParser.cs
+  s_5b0458546b11e2::t_22f5724ede82fb 35-53,102
+  s_5b0458546b11e2::t_59f9f46cf68273 100-101,103-109,113-115
+windows/AgentTimeline/Core/Summarize/CliSummarizer.cs
+  s_5b0458546b11e2::t_6750632e5a80ce 51-53
+windows/CoreSmokeTest/Program.cs
+  s_5b0458546b11e2::t_12200d97e21891 37-38,422
+  s_5b0458546b11e2::t_4e8249e95b042b 6
+  s_5b0458546b11e2::t_6d1d198792d9ce 423-468
+docs/TEXT-NORMALIZATION.md
+  s_5b0458546b11e2::t_04577969c158d6 1-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "52ad345622693d296cb592b7e085c41145e5fb97",
+  "prompts": {},
+  "sessions": {
+    "s_5b0458546b11e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
