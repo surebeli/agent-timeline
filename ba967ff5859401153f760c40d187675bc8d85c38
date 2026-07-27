@@ -1,0 +1,90 @@
+macos/Sources/AgentTimeline/Core/DisplayLimits.swift
+  s_b85ad4e83942fb::t_b292890e810225 1-49
+macos/Sources/AgentTimeline/Parsers/AgentSessionParser.swift
+  s_b85ad4e83942fb::t_4447d6d1856cdc 110-110
+macos/Tests/AgentTimelineTests/CorpusSmokeTests.swift
+  s_b85ad4e83942fb::t_a32db6cb394beb 31-52,56-57,63-76,88-88
+  s_b85ad4e83942fb::t_3c07e54e9756f7 53-55,58-62
+  s_b85ad4e83942fb::t_a5edea986be217 77-87
+macos/Sources/AgentTimeline/Summarize/RuleSummarizer.swift
+  0000019fa2c82e95 1-55
+macos/Sources/AgentTimeline/Summarize/SummaryPrompt.swift
+  0000019fa2c82e95 1-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ba967ff5859401153f760c40d187675bc8d85c38",
+  "prompts": {
+    "s_b85ad4e83942fb::t_b292890e810225": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 49,
+      "total_deletions": 0,
+      "accepted_lines": 49,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_4447d6d1856cdc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_a32db6cb394beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 39,
+      "total_deletions": 0,
+      "accepted_lines": 39,
+      "overriden_lines": 0
+    },
+    "0000019fa2c82e95": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785142455957"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 126,
+      "total_deletions": 0,
+      "accepted_lines": 126,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_3c07e54e9756f7": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 0,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_a5edea986be217": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 0,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    }
+  }
+}
