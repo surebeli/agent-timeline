@@ -115,8 +115,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     registry.processCommand(cmd)
                     newCommands.append(cmd)
                 case .assistantText(let agent, let sessionId, let timestamp, let text):
-                    let line = ParserSupport.truncate(
-                        text.replacingOccurrences(of: "\n", with: " "), to: 160)
+                    // 规整 → 首段 → ≤500（docs/TEXT-NORMALIZATION.md §3.1 Excerpt 档）。
+                    // 代号挖掘吃的仍是未规整全文（下方 processAssistantText）。
+                    let line = ParserSupport.resultExcerpt(text)
                     store.setResultLine(agent: agent, sessionId: sessionId, before: timestamp, line: line)
                     // Definitions often live in the reply ("好的，编号如下：N1: …").
                     if let nodeId = store.latestNodeId(agent: agent, sessionId: sessionId, before: timestamp) {

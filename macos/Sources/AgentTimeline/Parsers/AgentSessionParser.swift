@@ -101,6 +101,30 @@ enum ParserSupport {
         return String(text.prefix(limit)) + "…"
     }
 
+    /// 结果摘录（docs/TEXT-NORMALIZATION.md §3，与 win `ParserUtil.ResultExcerpt`
+    /// 同语义）：规整（Excerpt 档）→ 取首个非空段落（空行分隔）→ 上限 maxLength。
+    /// 折叠态 UI 仍按单行钳制显示；展开态用户可读到完整首段。
+    ///
+    /// 永不返回空串（§3.4-1）：规整后为空（整段是围栏/表格）时回退未规整文本，
+    /// 否则会把已显示的结果行抹掉——审查确认的唯一 UI 可见回归。
+    static func resultExcerpt(_ text: String, maxLength: Int = 500) -> String {
+        let normalized = TextNormalizer.normalize(text, profile: .excerpt)
+        var excerpt = firstParagraph(normalized)
+        if excerpt.isEmpty {
+            excerpt = firstParagraph(
+                text.replacingOccurrences(of: "\r\n", with: "\n")
+                    .replacingOccurrences(of: "\r", with: "\n"))
+        }
+        return truncate(excerpt, to: maxLength)
+    }
+
+    private static func firstParagraph(_ text: String) -> String {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let end = t.range(of: "\n\n") else { return t }
+        return String(t[t.startIndex..<end.lowerBound])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     static func home(_ path: String) -> URL {
         URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
     }

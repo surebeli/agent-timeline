@@ -138,6 +138,9 @@ final class Store: @unchecked Sendable {
     /// output always wins — LLM summaries never author result lines (the prompt
     /// pins resultLine to null), so there is nothing to protect.
     func setResultLine(agent: AgentKind, sessionId: String, before: Date, line: String) {
+        // §3.4-1 兜底：规整链路上任一环节产出空白都不得抹掉已显示的结果行
+        // （Kimi 多 ContentPart × 无条件 UPDATE 会放大成可见回归）。
+        guard !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         queue.sync {
             let sql = """
             UPDATE nodes SET result_line=? WHERE id = (

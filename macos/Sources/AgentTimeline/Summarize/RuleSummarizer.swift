@@ -4,15 +4,19 @@ import Foundation
 /// key points, regex codenames. Always succeeds, runs synchronously.
 struct RuleSummarizer: Sendable {
     func summarize(_ cmd: UserCommand) -> Summary {
-        let lines = cmd.text
+        // 展示态才规整（Summary 档：围栏只保护不删、行首列表/引用前缀全剥）；
+        // 命令原文 cmd.text 永不改写，代号挖掘另走未规整全文。
+        // 旧的 bulletPrefixes 筛选已删除——它剥不掉 "1. " 又会吃掉 "--force"，
+        // 与 §3.3 的列表前缀规则冲突（win 端同步删除了 StripMarkdownNoise）。
+        let display = TextNormalizer.normalize(cmd.text, profile: .summary)
+        let lines = (display.isEmpty ? cmd.text : display)
             .split(separator: "\n", omittingEmptySubsequences: true)
             .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
 
         let title = ParserSupport.truncate(lines.first ?? "（空命令）", to: 40)
 
-        let bulletPrefixes = ["-", "*", "•", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
         let keyPoints = lines.dropFirst()
-            .filter { line in bulletPrefixes.contains(where: { line.hasPrefix($0) }) }
             .prefix(5)
             .map { ParserSupport.truncate($0, to: 60) }
 

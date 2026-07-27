@@ -147,7 +147,10 @@ enum CodenameDetector {
             end = text.index(after: end)
             steps += 1
         }
-        return String(text[start..<end])
+        // 摘录进词典面板 / chip popover 展示 → 过 Mining 档规整（仅行内 unwrap，
+        // 不做块级 skip：窗口仅 ~44 字符，skip 会掏空）。状态推断吃的是本函数
+        // 返回值，unwrap 只去标记不改语义关键词，不影响 inferStatus。
+        return TextNormalizer.normalize(String(text[start..<end]), profile: .mining)
     }
 
     private static let changedKeywords = ["变更", "调整", "改动", "修改", "重新设计", "rework"]
