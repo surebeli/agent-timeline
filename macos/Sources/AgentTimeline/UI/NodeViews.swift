@@ -118,9 +118,8 @@ struct NodeCardView: View {
                 .font(.system(size: tokens.typography.size.caption))
                 .foregroundStyle(tokens.color.textSecondary.color)
                 .lineLimit(1)
-            Text(node.command.agent.displayName)
-                .font(.system(size: tokens.typography.size.chip, weight: .medium))
-                .foregroundStyle(agentColor)
+            AgentBadge(agent: node.command.agent)
+                .help(node.command.agent.displayName)
             if let kind = kindRaw, let color = tokens.color.kindColor(kind) {
                 Text(kind)
                     .font(.system(size: tokens.typography.size.chip, weight: .medium))
@@ -379,6 +378,39 @@ struct NodeCardView: View {
                 viewModel.expanded.insert(node.id)
             }
         }
+    }
+}
+
+/// 16px rounded source badge (CL/CO/KI/ZC on agent color) — shared visual with
+/// the Windows entry meta row and project dropdown.
+struct AgentBadge: View {
+    let agent: AgentKind
+
+    var body: some View {
+        Text(agent.monogram)
+            .font(.system(size: 7.5, weight: .bold).monospaced())
+            .foregroundStyle(.white)
+            .frame(width: 16, height: 16)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(tokens.color.badgeColor(agent)))
+    }
+}
+
+/// Rasterized badge for AppKit menu items (SwiftUI menus flatten custom views;
+/// an explicit NSImage survives).
+@MainActor
+enum AgentBadgeImage {
+    private static var cache: [AgentKind: NSImage] = [:]
+
+    static func image(for agent: AgentKind) -> NSImage {
+        if let cached = cache[agent] { return cached }
+        let renderer = ImageRenderer(content: AgentBadge(agent: agent).padding(1))
+        renderer.scale = 2
+        let image = renderer.nsImage ?? NSImage(size: NSSize(width: 16, height: 16))
+        image.isTemplate = false
+        cache[agent] = image
+        return image
     }
 }
 

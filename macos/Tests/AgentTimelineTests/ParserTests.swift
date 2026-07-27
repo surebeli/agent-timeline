@@ -279,6 +279,34 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(summary?.engine, "cli")
     }
 
+    func testAgentMonogramsMatchWindows() {
+        // 双端锁定：Windows AgentKind.Monogram() 的映射（CL/CO/KI/ZC）。
+        XCTAssertEqual(AgentKind.claude.monogram, "CL")
+        XCTAssertEqual(AgentKind.codex.monogram, "CO")
+        XCTAssertEqual(AgentKind.kimi.monogram, "KI")
+        XCTAssertEqual(AgentKind.zcode.monogram, "ZC")
+        XCTAssertEqual(Set(AgentKind.allCases.map(\.monogram)).count, AgentKind.allCases.count)
+    }
+
+    @MainActor
+    func testRecentAgentByProject() {
+        func node(_ agent: AgentKind, _ project: String, _ ts: TimeInterval) -> TimelineNode {
+            TimelineNode(command: UserCommand(
+                agent: agent, project: project, cwd: nil, sessionId: "s",
+                timestamp: Date(timeIntervalSince1970: ts), text: "x", sourceFile: "/f"))
+        }
+        // 最新在前（与 store 排序一致）：web-console 最近活跃的是 claude，
+        // data-pipeline 是 codex——首见即最近。
+        let nodes = [
+            node(.claude, "web-console", 300),
+            node(.codex, "data-pipeline", 200),
+            node(.kimi, "web-console", 100),
+        ]
+        let recent = TimelineViewModel.recentAgentByProject(nodes)
+        XCTAssertEqual(recent["web-console"], .claude)
+        XCTAssertEqual(recent["data-pipeline"], .codex)
+    }
+
     func testStableIdDeterministic() {
         let ts = Date(timeIntervalSince1970: 1_700_000_000)
         let a = UserCommand(agent: .claude, project: "p", cwd: nil, sessionId: "s",

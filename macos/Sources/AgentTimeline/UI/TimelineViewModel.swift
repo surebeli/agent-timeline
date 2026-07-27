@@ -36,6 +36,21 @@ final class TimelineViewModel {
         }
     }
 
+    /// Most-recently-active agent per project — drives the project dropdown's
+    /// source badge (parity with the Windows project filter).
+    var projectRecentAgents: [String: AgentKind] {
+        Self.recentAgentByProject(nodes)
+    }
+
+    /// Pure helper: `nodes` must be newest-first (as stored); first sighting wins.
+    static func recentAgentByProject(_ nodes: [TimelineNode]) -> [String: AgentKind] {
+        var out: [String: AgentKind] = [:]
+        for node in nodes where out[node.command.project] == nil {
+            out[node.command.project] = node.command.agent
+        }
+        return out
+    }
+
     var visibleNodes: [TimelineNode] {
         nodes.filter { node in
             agentFilter.contains(node.command.agent)

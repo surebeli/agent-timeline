@@ -73,7 +73,16 @@ struct TimelineView: View {
                 Button {
                     viewModel.projectFilter = project
                 } label: {
-                    if viewModel.projectFilter == project {
+                    // Source badge follows the project's most recently active agent
+                    // (win-parity); selection shown as a text check prefix since
+                    // the icon slot carries the badge.
+                    if let agent = viewModel.projectRecentAgents[project] {
+                        Label {
+                            Text((viewModel.projectFilter == project ? "✓ " : "") + project)
+                        } icon: {
+                            Image(nsImage: AgentBadgeImage.image(for: agent))
+                        }
+                    } else if viewModel.projectFilter == project {
                         Label(project, systemImage: "checkmark")
                     } else {
                         Text(project)

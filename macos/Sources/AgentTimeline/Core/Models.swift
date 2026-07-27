@@ -14,6 +14,17 @@ enum AgentKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .zcode: return "zcode"
         }
     }
+
+    /// Two-letter source badge, shared visual language with the Windows side
+    /// (AgentKind.Monogram there — keep the mappings in lockstep).
+    var monogram: String {
+        switch self {
+        case .claude: return "CL"
+        case .codex: return "CO"
+        case .kimi: return "KI"
+        case .zcode: return "ZC"
+        }
+    }
 }
 
 struct UserCommand: Sendable, Equatable {
