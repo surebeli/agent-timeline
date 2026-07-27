@@ -17,7 +17,7 @@ enum SummaryPrompt {
     }
 
     static func build(for cmd: UserCommand) -> String {
-        let text = ParserSupport.truncate(cmd.text, to: 4000)
+        let text = ParserSupport.truncate(cmd.text, to: DisplayLimits.LLM.promptInput)
         return """
         你是一个命令摘要器。下面是用户在 \(cmd.agent.displayName) 中提交的一条命令（项目：\(cmd.project)）。\
         请只输出一个 JSON 对象（不要 markdown 代码块、不要任何解释），字段如下：
@@ -48,13 +48,14 @@ enum SummaryPrompt {
             guard CodenameDetector.isPlausibleName(name) else { return nil }
             return CodenameDef(
                 name: name,
-                definition: ParserSupport.truncate(item.definition ?? "", to: 60),
+                definition: ParserSupport.truncate(item.definition ?? "", to: DisplayLimits.LLM.codenameDefinition),
                 status: item.status)
         }
         let kind = payload.kind.flatMap { NodeKind(rawValue: $0)?.rawValue }
         return Summary(
-            title: ParserSupport.truncate(payload.title, to: 60),
-            keyPoints: (payload.keyPoints ?? []).prefix(6).map { ParserSupport.truncate($0, to: 80) },
+            title: ParserSupport.truncate(payload.title, to: DisplayLimits.LLM.title),
+            keyPoints: (payload.keyPoints ?? []).prefix(DisplayLimits.LLM.keyPointCount)
+                .map { ParserSupport.truncate($0, to: DisplayLimits.LLM.keyPoint) },
             codenames: codenames,
             resultLine: payload.resultLine,
             engine: engine.rawValue,

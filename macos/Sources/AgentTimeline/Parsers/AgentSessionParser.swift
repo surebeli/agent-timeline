@@ -107,7 +107,7 @@ enum ParserSupport {
     ///
     /// 永不返回空串（§3.4-1）：规整后为空（整段是围栏/表格）时回退未规整文本，
     /// 否则会把已显示的结果行抹掉——审查确认的唯一 UI 可见回归。
-    static func resultExcerpt(_ text: String, maxLength: Int = 500) -> String {
+    static func resultExcerpt(_ text: String, maxLength: Int = DisplayLimits.resultLine) -> String {
         let normalized = TextNormalizer.normalize(text, profile: .excerpt)
         var excerpt = firstParagraph(normalized)
         if excerpt.isEmpty {
