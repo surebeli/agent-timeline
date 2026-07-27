@@ -1,0 +1,34 @@
+windows/AgentTimeline/Core/TimelineCoordinator.cs
+  s_5b0458546b11e2::t_d4cad91599d692 58-60
+  s_5b0458546b11e2::t_ef09480d4e6c25 209-213,217
+  s_5b0458546b11e2::t_5191513282c673 223-232
+windows/AgentTimeline/Core/Summarize/SummaryEngine.cs
+  s_5b0458546b11e2::t_9b7e20ae2a290d 177
+  s_5b0458546b11e2::t_16f28b0de17937 19-21,23-31,36-37,41-44,47-53
+  s_5b0458546b11e2::t_0334dafc4228f8 84-104,109,114-115,119,130,140-144,146-156
+windows/CoreSmokeTest/Program.cs
+  s_5b0458546b11e2::t_5778176dc27c6c 40
+  s_5b0458546b11e2::t_93f9fae3f4e5dc 519-532,534-561
+  s_5b0458546b11e2::t_f8aa772f2e9e98 533
+windows/AgentTimeline/Core/Store.cs
+  s_5b0458546b11e2::t_551d21c0c2ed14 47-49
+  s_5b0458546b11e2::t_56373f6cd881a8 306-357
+windows/AgentTimeline/SettingsWindow.xaml.cs
+  s_5b0458546b11e2::t_a4f34341d2a8dc 108-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "4c1d16076b3edee1b8233e7fbd8b7ab9536e0ad5",
+  "prompts": {},
+  "sessions": {
+    "s_5b0458546b11e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
