@@ -1,25 +1,21 @@
 CHANGELOG.md
   s_b85ad4e83942fb::t_6f88947d65872e 10-55
 VERSION
-  s_b85ad4e83942fb::t_6f88947d65872e 1-1
+  s_b85ad4e83942fb::t_6f88947d65872e 1
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.6.16",
   "base_commit_sha": "e178c2b69e59fa1e0b9768e031264df06b119f76",
-  "prompts": {
-    "s_b85ad4e83942fb::t_6f88947d65872e": {
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
       "agent_id": {
         "tool": "claude",
         "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
         "model": "claude-opus-5"
       },
-      "human_author": "litianyi <litianyi@corp.netease.com>",
-      "messages": [],
-      "total_additions": 47,
-      "total_deletions": 0,
-      "accepted_lines": 47,
-      "overriden_lines": 0
+      "human_author": "litianyi <litianyi@corp.netease.com>"
     }
   }
 }
