@@ -1,0 +1,53 @@
+windows/scripts/demo-seed.py
+  s_5b0458546b11e2::t_ba0380e25694bd 1-6,8-8
+docs/DEMO-DATASET.md
+  s_5b0458546b11e2::t_1b15ffc9236795 1-44
+macos/SCREENSHOT-PLAYBOOK.md
+  s_5b0458546b11e2::t_e968b2ebc631b6 1-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "a4cbabff841409955a1a964490816c294572a0e6",
+  "prompts": {
+    "s_5b0458546b11e2::t_ba0380e25694bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 0,
+      "accepted_lines": 7,
+      "overriden_lines": 0
+    },
+    "s_5b0458546b11e2::t_1b15ffc9236795": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 44,
+      "total_deletions": 0,
+      "accepted_lines": 44,
+      "overriden_lines": 0
+    },
+    "s_5b0458546b11e2::t_e968b2ebc631b6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 40,
+      "total_deletions": 0,
+      "accepted_lines": 40,
+      "overriden_lines": 0
+    }
+  }
+}
