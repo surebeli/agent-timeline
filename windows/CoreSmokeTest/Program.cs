@@ -37,6 +37,7 @@ internal static class Program
         ZcodeParserBasics();
         ClaudeParserInjectionFilters();
         ClaudeQueuedCommandRecovery();
+        SummaryAttemptsAndPriority();
         CodexParserSkillEcho();
         KimiContentPartAndPromptLimit();
         SummaryJsonExtractionRobustness();
@@ -513,6 +514,49 @@ internal static class Program
         CheckEqual(events[0].Text, "排队时键入的真实命令", "W0: prompt 原文入库");
         CheckEqual(events[0].Project, "demo", "W0: 项目名取 cwd 末段");
         CheckEqual(events[0].SessionId, "s", "W0: sessionId 取行内字段");
+    }
+
+    /// <summary>
+    /// W1 摘要重试上限 + W2 最新优先：attempts 计数、上限过滤、设置保存后清零；
+    /// 待办查询按 ts 降序（用户盯着的顶部节点先拿到 LLM 标题）。
+    /// </summary>
+    private static void SummaryAttemptsAndPriority()
+    {
+        var dbPath = TempDbPath();
+        try
+        {
+            using var store = new Store(dbPath);
+            var rule = new RuleSummarizer();
+            long Insert(string text, long ts)
+            {
+                var c = Cmd(text, ts);
+                return store.InsertNode(c, rule.Summarize(c), SummaryEngine.ComputeHash(c), summaryPending: true);
+            }
+            var older = Insert("较旧的命令", 1_700_000_000);
+            var newer = Insert("较新的命令", 1_700_000_500);
+
+            var pending = store.GetPendingSummaries();
+            CheckEqual(pending.Count, 2, "W1: 两条 pending 节点都取到");
+            CheckEqual(pending[0].Id, newer, "W2: 最新优先（ts 降序）");
+            CheckEqual(pending[1].Id, older, "W2: 较旧的排后面");
+
+            CheckEqual(store.BumpSummaryAttempts(older), 1, "W1: attempts 首次 bump = 1");
+            CheckEqual(store.BumpSummaryAttempts(older), 2, "W1: 再 bump = 2");
+            CheckEqual(store.BumpSummaryAttempts(older), 3, "W1: 第三次 = 3（达上限）");
+            CheckEqual(store.GetPendingSummaries().Count, 1, "W1: 达上限的节点被排除出重试集");
+
+            store.ResetSummaryAttempts();
+            CheckEqual(store.GetPendingSummaries().Count, 2, "W1: 设置保存清零后重新可试");
+
+            // 摘要落地后不再是 pending，也就不会再被重试拾起
+            var c2 = Cmd("较旧的命令", 1_700_000_000);
+            store.UpdateSummary(older, rule.Summarize(c2), pending: false);
+            CheckEqual(store.GetPendingSummaries().Count, 1, "W1: 摘要成功的节点退出重试集");
+        }
+        finally
+        {
+            CleanupDb(dbPath);
+        }
     }
 
     /// <summary>codex 技能调用回显剥本机 SKILL.md 路径,保留 $plugin:skill 徽标文字。</summary>

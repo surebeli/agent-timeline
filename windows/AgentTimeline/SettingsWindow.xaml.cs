@@ -105,6 +105,8 @@ public sealed partial class SettingsWindow : Window
 
         s.Save();
         App.Engine.ReloadSummarizer();
+        // W1：换了引擎/模型/端点后，之前因旧配置失败到上限的节点应获得新机会。
+        App.Coordinator.ResetSummaryAttemptsAndRetry();
         App.MainWindowInstance?.ApplyWindowSettings();
         // NOTE (scaffold): watcher roots / agent toggles take full effect after app restart.
 

@@ -44,6 +44,9 @@ public sealed class Store : IDisposable
         AddColumnIfMissing("codenames", "last_context", "TEXT NOT NULL DEFAULT ''");
         AddColumnIfMissing("nodes", "kind", "TEXT");
         AddColumnIfMissing("summaries", "kind", "TEXT");
+        // W1 摘要重试上限（对齐 mac Store.swift 的 summary_attempts）：没有它，
+        // 永久失败的节点每次启动都无上限重跑、持续烧配额。
+        AddColumnIfMissing("nodes", "summary_attempts", "INTEGER NOT NULL DEFAULT 0");
     }
 
     private bool ColumnExists(string table, string column)
@@ -296,6 +299,58 @@ public sealed class Store : IDisposable
                     reader.GetInt32(2),
                     reader.GetInt64(3)));
             }
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// 失败计数 +1 并返回新值（W1，对齐 mac `bumpSummaryAttempts`）。
+    /// 调用方据此决定是否还值得重试（上限 <see cref="MaxSummaryAttempts"/>）。
+    /// </summary>
+    public int BumpSummaryAttempts(long nodeId)
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "UPDATE nodes SET summary_attempts = summary_attempts + 1 WHERE id=$id RETURNING summary_attempts;";
+            cmd.Parameters.AddWithValue("$id", nodeId);
+            return cmd.ExecuteScalar() is long n ? (int)n : 0;
+        }
+    }
+
+    /// <summary>设置「保存」后给未完成节点一次新机会（对齐 mac `resetSummaryAttempts`）。</summary>
+    public void ResetSummaryAttempts()
+    {
+        lock (_gate)
+        {
+            Exec("UPDATE nodes SET summary_attempts = 0 WHERE summary_pending = 1;");
+        }
+    }
+
+    /// <summary>重试上限：超过即停手，避免永久失败节点每次启动重跑烧配额。</summary>
+    public const int MaxSummaryAttempts = 3;
+
+    /// <summary>
+    /// 仍待 LLM 摘要且未超重试上限的节点（W1+W2：**最新优先**，用户盯着的顶部
+    /// 节点先拿到 LLM 标题；对齐 mac `pendingSummaries`）。
+    /// </summary>
+    public List<TimelineNode> GetPendingSummaries(int limit = 100)
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = $"""
+                SELECT id, agent, project, session_id, ts, text, source_file, source_offset,
+                       command_hash, title, key_points, codenames, result_line, summary_source, summary_pending, kind
+                FROM nodes
+                WHERE summary_pending = 1 AND summary_attempts < {MaxSummaryAttempts}
+                ORDER BY ts DESC, id DESC LIMIT $limit;
+                """;
+            cmd.Parameters.AddWithValue("$limit", limit);
+            var result = new List<TimelineNode>();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) result.Add(ReadNode(reader));
             return result;
         }
     }

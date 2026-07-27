@@ -55,6 +55,9 @@ public sealed class TimelineCoordinator : IDisposable
 
         _engine.Summarized += OnLlmSummarized;
         _engine.SummaryFailed += OnLlmFailed;
+        // W1：引擎不碰 Store，由这里 bump 计数并裁定是否还值得会话内重试。
+        _engine.ShouldRetryAfterFailure = nodeId =>
+            _store.BumpSummaryAttempts(nodeId) < Store.MaxSummaryAttempts;
     }
 
     public void Start() => _watcher.Start();
@@ -203,14 +206,28 @@ public sealed class TimelineCoordinator : IDisposable
         Log.Warn($"LLM summary failed for node {nodeId}; keeping rule summary (pending retry)");
     }
 
-    /// <summary>Re-enqueues nodes whose LLM summary never landed (called once at startup).</summary>
+    /// <summary>
+    /// Re-enqueues nodes whose LLM summary never landed (called once at startup, and
+    /// again after 设置 保存 via <see cref="ResetSummaryAttemptsAndRetry"/>).
+    /// W1：只取 attempts 未超上限者——否则永久失败的节点每次启动都重跑烧配额。
+    /// </summary>
     public void RetryPendingSummaries()
     {
         if (!_engine.HasLlm) return;
-        foreach (var node in _store.GetRecentNodes(limit: 100).Where(n => n.SummaryPending))
+        foreach (var node in _store.GetPendingSummaries())
         {
             _engine.Enqueue(node.Id, node.Command, node.CommandHash);
         }
+    }
+
+    /// <summary>
+    /// 设置「保存」后调用：清零重试计数再重新入队——换了引擎/模型/端点之后，
+    /// 之前因旧配置失败到上限的节点应该获得一次新机会（对齐 mac `resetSummaryAttempts`）。
+    /// </summary>
+    public void ResetSummaryAttemptsAndRetry()
+    {
+        _store.ResetSummaryAttempts();
+        RetryPendingSummaries();
     }
 
     public void Dispose()
