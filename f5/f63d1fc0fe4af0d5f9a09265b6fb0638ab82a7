@@ -1,0 +1,28 @@
+macos/Sources/AgentTimeline/Parsers/ClaudeParser.swift
+  s_b85ad4e83942fb::t_9108c20efab974 64-67
+  s_b85ad4e83942fb::t_8629d2e61208e2 39-42
+macos/Tests/AgentTimelineTests/ParserTests.swift
+  s_b85ad4e83942fb::t_a51a6938330484 140-145
+  s_b85ad4e83942fb::t_b0c2a5a71312fa 113-139,146-158
+macos/Sources/AgentTimeline/Core/TextNormalizer.swift
+  s_b85ad4e83942fb::t_f7e36878d7840c 42-43
+  s_b85ad4e83942fb::t_807c75f48fb03a 288-291,293-295
+  s_b85ad4e83942fb::t_d55aaa23e8a81c 182-185,187-188
+  s_b85ad4e83942fb::t_b01684ca4c5641 234,237-240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f5f63d1fc0fe4af0d5f9a09265b6fb0638ab82a7",
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
