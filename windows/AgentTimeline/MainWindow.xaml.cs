@@ -354,6 +354,27 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// 可划选文本上的单击也切换展开（实机反馈：气泡大面积是文本，原设计只有背景/元信息行
+    /// /小 chevron 可点，内容被截断时用户「没有交互能看全」）。划选仍然优先：拖选后存在
+    /// 选区则不动；DataContext 沿视觉树上溯（展开态关键点项的 DataContext 是 string）。
+    /// </summary>
+    private void EntryText_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is TextBlock tb && !string.IsNullOrEmpty(tb.SelectedText)) return;
+        var el = sender as DependencyObject;
+        while (el is not null)
+        {
+            if (el is FrameworkElement { DataContext: NodeViewModel vm })
+            {
+                vm.IsExpanded = !vm.IsExpanded;
+                e.Handled = true;
+                return;
+            }
+            el = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(el);
+        }
+    }
+
     /// <summary>Whole-entry click (background / meta row only — selectable text sits above).</summary>
     private void EntryBackground_Tapped(object sender, TappedRoutedEventArgs e)
     {

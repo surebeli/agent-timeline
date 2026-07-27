@@ -105,7 +105,7 @@ public sealed class CodexParser : IAgentSessionParser
                                     Agent: AgentKind.Codex,
                                     SessionId: SessionIdFor(path, ctx),
                                     Timestamp: timestamp,
-                                    ResultLine: ParserUtil.FirstLine(last, 160),
+                                    ResultLine: ParserUtil.ResultExcerpt(last),
                                     FullText: last)); // untruncated — mined for codenames
                             }
                         }

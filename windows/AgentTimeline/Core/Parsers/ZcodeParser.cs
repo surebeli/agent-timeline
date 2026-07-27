@@ -77,7 +77,7 @@ public sealed class ZcodeParser : IAgentSessionParser
                         Agent: AgentKind.Zcode,
                         SessionId: sessionId,
                         Timestamp: timestamp,
-                        ResultLine: ParserUtil.FirstLine(response, 160),
+                        ResultLine: ParserUtil.ResultExcerpt(response),
                         FullText: response)); // untruncated — mined for codenames
                 }
             }

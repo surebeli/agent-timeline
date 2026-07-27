@@ -56,6 +56,19 @@ internal static class ParserUtil
         return string.IsNullOrWhiteSpace(leaf) ? fallback : leaf;
     }
 
+    /// <summary>
+    /// 结果摘录：取首个非空段落（空行分隔）而非首行，上限 maxLength（代理对安全截断）。
+    /// 折叠态 UI 仍按单行钳制显示；展开态用户可读到完整首段（实机反馈：原先解析期
+    /// 就截成 160 字符单行，展开也无内容可看）。mac 端待同步同一语义。
+    /// </summary>
+    public static string ResultExcerpt(string text, int maxLength = 500)
+    {
+        var normalized = text.ReplaceLineEndings("\n").Trim();
+        var end = normalized.IndexOf("\n\n", StringComparison.Ordinal);
+        var paragraph = (end >= 0 ? normalized[..end] : normalized).Trim();
+        return Clip(paragraph, maxLength);
+    }
+
     public static string FirstLine(string text, int maxLength)
     {
         var line = text.ReplaceLineEndings("\n");

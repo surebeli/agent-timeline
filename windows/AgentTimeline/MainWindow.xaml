@@ -409,6 +409,7 @@
                                             Foreground="{ThemeResource CommandTextBrush}"
                                             IsTextSelectionEnabled="True"
                                             MaxLines="{x:Bind CommandMaxLines, Mode=OneWay}"
+                                            Tapped="EntryText_Tapped"
                                             Text="{x:Bind PromptText}"
                                             TextTrimming="CharacterEllipsis"
                                             TextWrapping="Wrap" />
@@ -489,6 +490,7 @@
                                             Foreground="{ThemeResource TextSecondaryBrush}"
                                             IsTextSelectionEnabled="True"
                                             MaxLines="1"
+                                            Tapped="EntryText_Tapped"
                                             Text="{x:Bind DerivedTitle, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis" />
                                     </Grid>
@@ -503,6 +505,7 @@
                                             FontSize="{StaticResource FontSizeCaption}"
                                             Foreground="{ThemeResource TextSecondaryBrush}"
                                             MaxLines="1"
+                                            Tapped="EntryText_Tapped"
                                             Text="{x:Bind KeypointsDigest, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis" />
                                         <TextBlock
@@ -534,6 +537,7 @@
                                                         FontSize="{StaticResource FontSizeCaption}"
                                                         Foreground="{ThemeResource TextSecondaryBrush}"
                                                         IsTextSelectionEnabled="True"
+                                                        Tapped="EntryText_Tapped"
                                                         Text="{x:Bind}"
                                                         TextWrapping="Wrap" />
                                                 </Grid>
@@ -586,6 +590,7 @@
                                         Foreground="{ThemeResource ResultLineBrush}"
                                         IsTextSelectionEnabled="True"
                                         MaxLines="{x:Bind ResultLineMaxLines, Mode=OneWay}"
+                                        Tapped="EntryText_Tapped"
                                         TextTrimming="CharacterEllipsis"
                                         TextWrapping="Wrap"
                                         Visibility="{x:Bind HasResultLine, Mode=OneWay}">

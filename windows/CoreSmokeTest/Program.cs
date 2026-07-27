@@ -34,6 +34,7 @@ internal static class Program
         ReplayRebuildsFromHistory();
         ZcodeParserBasics();
         SummaryJsonExtractionRobustness();
+        ResultExcerptParagraph();
         ClipSurrogateSafety();
 
         Console.WriteLine();
@@ -434,6 +435,19 @@ internal static class Program
         Check(s2 is not null && s2.Title.Contains('}'), "json: 字符串内花括号不干扰配平");
 
         Check(SummaryJson.Parse("全是散文没有对象", SummarySource.Cli) is null, "json: 无候选返回 null");
+    }
+
+    /// <summary>结果摘录取首个非空段落（展开态可读全,折叠态由 UI 单行钳制）。</summary>
+    private static void ResultExcerptParagraph()
+    {
+        CheckEqual(ParserUtil.ResultExcerpt("首段第一行\n首段第二行\n\n次段内容"),
+            "首段第一行\n首段第二行", "excerpt: 空行分隔取首段(保留段内换行)");
+        CheckEqual(ParserUtil.ResultExcerpt("只有一段没有空行\n第二行"),
+            "只有一段没有空行\n第二行", "excerpt: 无空行取全文");
+        Check(ParserUtil.ResultExcerpt(new string('长', 600)).Length == 501,
+            "excerpt: 超长按 500 截断加省略号");
+        CheckEqual(ParserUtil.ResultExcerpt("  \n\n正文段  \n\n尾段"),
+            "正文段", "excerpt: 首尾空白剥离后取段");
     }
 
     /// <summary>UTF-16 截断不劈开代理对（emoji 尾部不出替换符乱码）。</summary>

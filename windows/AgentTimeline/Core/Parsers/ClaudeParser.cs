@@ -134,7 +134,7 @@ public sealed partial class ClaudeParser : IAgentSessionParser
             Agent: AgentKind.Claude,
             SessionId: sessionId,
             Timestamp: ParserUtil.ParseIsoTimestamp(GetString(root, "timestamp")),
-            ResultLine: ParserUtil.FirstLine(firstText, 160),
+            ResultLine: ParserUtil.ResultExcerpt(firstText),
             FullText: firstText); // untruncated — the coordinator mines it for codenames
     }
 
