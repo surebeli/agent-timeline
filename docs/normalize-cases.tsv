@@ -1,0 +1,55 @@
+# 文本规整 golden 基准（docs/TEXT-NORMALIZATION.md §3 的可执行验收标准）
+# 双端各写一个 runner 读同一份文件逐行断言 —— 与 design-tokens.json 同源文化一致。
+# 格式: case-id <TAB> profile(excerpt|summary|mining) <TAB> 输入 <TAB> 期望输出
+# 转义: \n = 换行, \t = 制表符, \\ = 反斜杠, \e = ESC(0x1B)。以 # 开头或空行跳过。
+# 反例样本取自本机四家 agent 真实语料（三方审查实证）。
+inline-code-pair	excerpt	已实现 `server.stopTask` 工具	已实现 server.stopTask 工具
+inline-code-odd-backtick	excerpt	用 `n 换行符分隔输出	用 `n 换行符分隔输出
+inline-code-no-cross-line	excerpt	首行 `code\n第二行 `tail	首行 `code\n第二行 `tail
+# 注：protected-verbatim 的输出是裸 **not bold**（回填 verbatim），再跑一遍自然会 unwrap，
+# 故不参与幂等断言（case-id 带 -noidem 后缀的用例跳过幂等检查）。
+protected-verbatim-noidem	excerpt	保护内容 `**not bold**` 结束	保护内容 **not bold** 结束
+strong-star	excerpt	**Summary**: 全部通过	Summary: 全部通过
+strong-underscore	excerpt	__粗体__结论	粗体结论
+strikethrough	excerpt	~~废弃~~ 方案 A	废弃 方案 A
+italic-single-star-keep	excerpt	这是 *not* 加粗	这是 *not* 加粗
+snake-case-keep	excerpt	函数 some_var_name 未改	函数 some_var_name 未改
+glob-not-strong	excerpt	仅允许 .harnessloop/**/* 协议写入	仅允许 .harnessloop/**/* 协议写入
+heading-atx	excerpt	# Investigation Report\n\n正文	Investigation Report\n\n正文
+heading-needs-space	excerpt	#include <stdio.h> 已引入	#include <stdio.h> 已引入
+heading-shebang-keep	excerpt	#!/usr/bin/env node	#!/usr/bin/env node
+hr-dash	excerpt	---\n真正的标题行	真正的标题行
+hr-star	excerpt	***\n内容	内容
+table-skip	excerpt	| 供应商 | 价格 |\n|---|---|\n| Auth0 | 高 |\n\n结论在此	结论在此
+table-pipe-in-prose-keep	excerpt	取 需求|任务|调研 之一	取 需求|任务|调研 之一
+fence-skip-closed	excerpt	结论如下。\n\n```rust\nfn main() {}\n```	结论如下。
+fence-unclosed-keeps-content	excerpt	说明\n```rust\nfn main() {}	说明\n```rust\nfn main() {}
+fence-prose-info-keeps	excerpt	```text\n任务书正文\n```	任务书正文
+# 全文即围栏 → normalize 输出空串；非空兜底在 ResultExcerpt 层（见 ResultExcerptFallback 断言）
+fence-all-skipped	excerpt	```rust\nfn main() {}\n```
+link-drive-path	excerpt	见 [dispatch.js](C:\\Users\\me\\x\\dispatch.js) 实现	见 dispatch.js 实现
+link-slash-drive	excerpt	见 [单测 stdout](/C:/Users/me/Temp/out.log)	见 单测 stdout
+link-angle-wrapped	excerpt	见 [x.ps1](</F:/workspace/x.ps1#L49>)	见 x.ps1
+link-posix-abs	excerpt	见 [config](/Users/me/.config/app.json)	见 config
+link-http	excerpt	见 [文档](https://example.com/a) 说明	见 文档 说明
+link-log-false-positive-keep	excerpt	行 12: [rtc][init](EnableLocalVideo) 调用	行 12: [rtc][init](EnableLocalVideo) 调用
+link-text-contains-code	excerpt	是的，[这笔执行 `1531226743`](https://hawk.example.com/x) 已完成	是的，这笔执行 1531226743 已完成
+image-consumes-bang	excerpt	![架构图](/tmp/a.png) 如上	架构图 如上
+file-citation-old	excerpt	参见 【F:src/main.rs†L42】 定义	参见 src/main.rs:42 定义
+file-citation-range	excerpt	参见 【F:a.rs†L10-L20】	参见 a.rs:10
+citation-literal-placeholder-keep	excerpt	格式为 【F:path†Lxx】 的引用	格式为 【F:path†Lxx】 的引用
+fullwidth-emphasis-keep	excerpt	【硬约束】只读调研	【硬约束】只读调研
+ansi-strip	excerpt	Set model to \e[1mFable 5\e[22m done	Set model to Fable 5 done
+br-to-newline	excerpt	第一行<br/>第二行	第一行\n第二行
+crlf-normalize	excerpt	首行\r\n次行	首行\n次行
+trailing-space-trim	excerpt	结论已收口   \n下一行	结论已收口\n下一行
+placeholder-tag-keep	excerpt	填入 <port> 与 Option<String>	填入 <port> 与 Option<String>
+list-first-line-stripped	excerpt	- 首项完成\n- 次项进行中	首项完成\n- 次项进行中
+quote-first-line-stripped	excerpt	> 引用首行\n正文	引用首行\n正文
+summary-strips-all-list	summary	- 首项\n- 次项\n- 三项	首项\n次项\n三项
+summary-keeps-fence-content	summary	```text\n贴的 spec 正文\n```	贴的 spec 正文
+summary-strips-numbered	summary	1. 第一步\n2. 第二步	第一步\n第二步
+mining-inline-only	mining	…**N2** 已 `完成`…	…N2 已 完成…
+mining-keeps-table-row	mining	| N1 | 完成 |	| N1 | 完成 |
+idempotent-strong	excerpt	**已完成**	已完成
+empty-input	excerpt

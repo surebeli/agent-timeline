@@ -43,25 +43,67 @@
 | Kimi | `<system-reminder>` 独立消息（kimi-cli 官方语义："authoritative system directives"） | 本机语料 0 命中 | strip（预防；判定逻辑可抄 kimi-cli `is_system_reminder_message`） |
 | Kimi/zcode | XML 注入标签 | **两家语料均零检出**，无需前缀过滤 | — |
 
-## 3. L2 文本规整（提案，待确认）
+## 3. L2 文本规整（v2，已过三方独立审查）
 
-作用点：① 四家 parser 的 resultLine 在 `ResultExcerpt` 前先过 `TextNormalizer.ForExcerpt`；
-② `RuleSummarizer` 标题/要点提取输入。**不作用于 nodes.text**。
+> **审查状态**（2026-07-27）：语料实证 / 产品设计 / 工程实现 三方独立审查，
+> 结论均为 approve-with-amendments。本节为吸收全部 amendment 后的 v2 规则表，
+> 链接规则按语料实证的 reject 意见重写（覆盖率 85.9% → 99.5%）。
 
-| 标记 | 语料密度 | 规则 |
+### 3.1 作用点与档位
+
+规整器是 Core 层纯函数 `TextNormalizer.Normalize(text, profile)`，三档：
+
+| profile | 作用点 | 规则集 |
 |---|---|---|
-| 行内 `` `code` `` | Claude 4875 / Codex 1856（91% 结果行命中）/ zcode+kimi 2317 | **unwrap**：去反引号留内容 |
-| `**加粗**` | 1195 / 58 / 314 | **unwrap**：去星号留内容 |
-| 行首 `#{1,6} ` 标题 | 447 / 105 / 287（zcode 结果行常以 `# 报告标题` 开头，时间线出现裸 `#`） | **unwrap**：剥行首井号+空格（标题文本本身是最好的摘要素材） |
-| ``` 围栏 | 34 / 124 / 117 | **skip**：摘录时跳过整个围栏段取正文行 |
-| 表格行 `\|…\|` | 126 / 337 / 37 | **skip**：摘录时跳过（Codex 结果行 30% 含表格） |
-| `[文字](target)` 链接 | 39 / 265+46 / 2 | **convert**：target 为本机路径 → 只留文字（Codex 新版 file citation `[file.rs:42](C:\abs\path)` 265 处即此类）；target 为 http(s) → 留文字（富文本期可点击）；target 非 URL/路径形态 → **原样保留**（防 Kimi 日志假阳性） |
-| `【F:path†Lxx】` 旧版 Codex 引用 | 本机 0 命中（官方规范存在，旧语料/云端会话可能出现） | **convert** → `path:Lxx` 纯文本 |
-| ANSI `\x1b[…m` | 64（全在 local-command-stdout 内，L1 后自然消失） | **strip**（正则 `\x1b\[[0-9;]*[A-Za-z]`，防御保留） |
-| `- ` / `1. ` 列表前缀、`> ` 引用 | 1312 / 1401 / 若干 | **keep**（纯文本形态可读） |
-| `---` 水平线 | zcode 13 | **strip**（整行无信息量） |
-| 裸 URL、`${var}`、`<占位符>`、全角【…】强调 | 各处 | **keep**（全部是正文，见原则 2/4） |
-| CRLF 混排 | 20+ | **convert**：统一 `\n`（现有 ReplaceLineEndings 已覆盖大部分路径） |
+| **Excerpt** | 结果行派生（win `ParserUtil.ResultExcerpt`；mac `AppDelegate` 的 `.assistantText` 分支） | 全部规则；块级 skip 生效 |
+| **Summary** | 规则摘要的标题/要点**展示文本**（win `RuleSummarizer`；mac 同名） | 同 Excerpt，但**围栏只保护不删除**（命令侧 skip 会整段清空用户贴的 spec）；行首列表/引用前缀剥除 |
+| **Mining** | 代号词典的 `lastContext` 摘录展示 | 仅 inline unwrap（窗口仅 ~44 字符，块级 skip 会掏空） |
+
+**不作用于**：`nodes.text`（命令原文）、`TaskComplete.FullText`（代号挖掘输入）、
+`SummaryJson.BuildPrompt`（LLM 本就吃 markdown）。
+
+### 3.2 管线顺序（顺序即正确性，实现必须照此）
+
+1. 行尾归一：`\r\n` 与孤立 `\r` → `\n`（**仅此两种**，不碰 U+2028/0085 等，双端才对得齐）
+2. ANSI strip（CSI `\x1b\[[0-9;]*[A-Za-z]`）
+3. 逐行状态机：围栏判定 → 表格块 / 水平线 skip → 行首标题 unwrap
+4. 行内保护：把行内 `` `code` `` 替换为占位符
+5. 行内变换：链接/图片/旧版引用 convert → 强调 unwrap
+6. 回填保护内容（**verbatim，不再过任何规则**——`` `**not bold**` `` 必须原样）
+7. 空行折叠（≥3 个 `\n` → 2 个）→ 交给 `ResultExcerpt` 取首段 → `Clip`
+
+### 3.3 规则表
+
+| 标记 | 规则（v2） |
+|---|---|
+| 行内 `` `code` `` | **unwrap**，仅解**同行成对**：正则 `` `([^`\n]+)` ``（禁 Singleline）。落单反引号原样保留（PowerShell `` `n `` 转义 58 处） |
+| 强调 `**…**` `__…__` `~~…~~` | **unwrap**，正则 `\*\*(?=\S)([^\n]+?)(?<=\S)\*\*`（**禁跨行**：语料 29 处跨段误配）；`**` 紧邻 `/` 时不视为标记（glob `src/**/*.ts`） |
+| `*斜体*` `_下划_` | **keep**（`_snake_case_` 在 claude 1863 / codex 4253 条命中，纳入必伤正文） |
+| 行首 `#{1,6} ` 标题 | **unwrap**，**必须有尾随空格**（`#include`/`#!/usr/bin/env`/`#region` 53 处不得误伤，全量零假阳性） |
+| ``` 围栏 | **skip**（Excerpt 档），逐行状态机**禁用正则**（无闭合围栏上 `[\s\S]*?` 是 O(n²)）。四条约束：① 仅 skip **已闭合**围栏，未闭合的开围栏行按普通行；② 闭合识别容差 ≤ 开围栏缩进 +3（列表内围栏缩进 2/3/≥4sp 各 390/238/190 次）；③ info string 为 `text`/`md`/`markdown`/空 时**不 skip**（这类本就是正文）；④ 删除后以 `\n` 拼接，防前后句粘连 |
+| 表格 | **skip**，判据钉死为**行首尾锚定** `^[ \t]*\|.*\|[ \t]*$`（实测 20213 命中 / 孤立命中 0，零假阳性）。宽松「含竖线即跳」会多杀 1599 行正文（JSON 枚举串 `需求\|任务\|…`、JS `a \|\| b`），**禁止**。分隔行 `\|---\|` 由本条覆盖 |
+| `[文字](target)` 链接 | **convert**（v2 重写）：先脱去可选 `<…>` 包裹与 `:line[:col]`/`#Lnnn` 后缀，再按 target 判定——路径谓词 `^(/?[A-Za-z]:[\\/]\|/\|\./\|\.\./\|file:)` 或 http(s) → **只留文字**；否则 **keep**（Kimi 104 条日志假阳性 100% 挡住）。覆盖率 85.9%→99.5%，且 mac 端不再因「盘符」谓词失效而全灭 |
+| 图片 `![alt](target)` | **convert**：整体消费（含前导 `!`）→ 留 alt，防悬空叹号 |
+| `【F:path†Lxx】` | **convert** → `path:line`（与链接规则产出同形；范围 `†L12-L20` 取起始行）。判据收紧到 `†L\d+`，避开 5 条字面占位符 |
+| ANSI `\x1b[…m` | **strip**（L1 后仍有 31 条携带，防御保留；零误伤） |
+| `- ` / `1. ` / `> ` 前缀 | **Excerpt 档 keep**（首行剥除、其余保留：结果行已有 `→ ` 渲染前缀，`→ - 首项` 双前缀观感差）；**Summary 档全剥**（UI 已有 `·` 前缀）。⚠ Phase B **必须删除** `RuleSummarizer.StripMarkdownNoise`——它现在剥 `-`/`>` 却剥不掉 `1. `，与本条冲突且会吃 `--force`/`-> ` |
+| `---` / `***` / `___` 水平线 | **strip**，整行正则 `^\s{0,3}([-*_])(?:\s*\1){2,}\s*$`，**必须排在强调规则之前**（`***` 否则被啃成 `*`）、**围栏保护之后**（front-matter 内的 `---` 不能剥）。收益实测最高：36 条 claude 结果行首段就是光秃秃的 `---` |
+| 行尾双空格 / 行尾空白 | **convert**：逐行 TrimEnd（codex 510 处） |
+| 裸 URL、`${var}`、`<占位符>`、全角【…】强调、`[text][ref]` 引用式链接、HTML 实体 | **keep**（原则 2/4；`<占位符>`/泛型 1459 条是正文） |
+| `<br>` / `<br/>` | **convert** → `\n`（极窄白名单，显式列出即是对原则 2 的遵守） |
+| 行尾归一 | **convert**：仅 `\r\n` 与孤立 `\r` → `\n`（枚举写死，否则 .NET `ReplaceLineEndings` 与 Swift 直觉实现产出不同） |
+
+### 3.4 总则（审查追加，全部为硬性）
+
+1. **永不写空串**：任一 skip 导致输出为空时，回退到未规整的 `ResultExcerpt`；
+   `Store.SetResultLine` 入口再加一道 `IsNullOrWhiteSpace → return`。
+   实测 12 条结果行会被清空，叠加 Kimi 多 ContentPart × 无条件 UPDATE，
+   会把已显示的结果行抹掉——**这是审查确认的唯一 UI 可见回归**；
+2. **扫描预算**：逐行状态机 + 「凑够首段即停」早停；硬上限 32KB
+   （实测 p99 3.8~5.9KB、max 37.8KB，无需为 100KB 设计）；
+3. **幂等**：`normalize(normalize(x)) == normalize(x)` 作为断言；
+4. **长度计量**：规整层只做形态变换，截断留给各端既有函数
+   （win `Clip` 数 UTF-16、mac `truncate` 数 grapheme）；golden 样例的截断边界不落在非 BMP 字符上。
 
 ## 4. 双端一致性与既有差异
 

@@ -179,6 +179,11 @@ public sealed class Store : IDisposable
     /// <summary>Sets the result line on the most recent node of a session; returns that node id, or null.</summary>
     public long? SetResultLine(AgentKind agent, string sessionId, string resultLine)
     {
+        // 永不写空串（docs/TEXT-NORMALIZATION.md §3.4-1 第二道防线）：Kimi 每个
+        // ContentPart 都发一条 TaskComplete，一个「纯代码块」分片若规整成空会把
+        // 上一条好的结果行覆盖掉，UI 上已渲染的绿色结果行当场消失。
+        if (string.IsNullOrWhiteSpace(resultLine)) return null;
+
         lock (_gate)
         {
             using var find = _conn.CreateCommand();

@@ -16,20 +16,23 @@ public sealed class RuleSummarizer : ISummarizer
 
     public Summary Summarize(UserCommand command)
     {
-        var lines = command.Text
-            .ReplaceLineEndings("\n")
+        // 展示文本走 Summary 档规整（docs/TEXT-NORMALIZATION.md §3.1）：markdown 标记
+        // unwrap、行首列表/引用前缀剥除（UI 已有 · 前缀）；围栏只保护不删除——命令侧
+        // 删围栏会把用户贴的 spec 整段清空（语料实测 275 条损失 >50% 字符）。
+        // 代号检测仍吃 command.Text 原文（下方 DetectDefinitions/Detect），不受影响。
+        var display = Text.TextNormalizer.Normalize(command.Text, Text.NormalizeProfile.Summary);
+        var lines = display
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        var title = lines.Length > 0 ? lines[0] : command.Text.Trim();
-        title = ParserUtil.Clip(StripMarkdownNoise(title), 20); // 代理对安全截断
+        var title = lines.Length > 0 ? lines[0] : display.Trim();
+        title = ParserUtil.Clip(title, 20); // 代理对安全截断
         if (title.Length == 0) title = "(空命令)";
 
         var keyPoints = new List<string>();
         foreach (var line in lines.Skip(1))
         {
-            var point = StripMarkdownNoise(line);
-            if (point.Length == 0) continue;
-            keyPoints.Add(ParserUtil.Clip(point, 30));
+            if (line.Length == 0) continue;
+            keyPoints.Add(ParserUtil.Clip(line, 30));
             if (keyPoints.Count >= 3) break;
         }
 
@@ -68,6 +71,6 @@ public sealed class RuleSummarizer : ISummarizer
         return null;
     }
 
-    private static string StripMarkdownNoise(string line) =>
-        line.TrimStart('#', '-', '*', '>', ' ', '\t').Trim();
+    // StripMarkdownNoise 已由 TextNormalizer(Summary 档) 取代并删除：它剥 '-'/'>' 却剥不掉
+    // "1. "，且 TrimStart('-') 会吃掉 "--force"/"-> 下一步"（docs/TEXT-NORMALIZATION.md §3.3）。
 }

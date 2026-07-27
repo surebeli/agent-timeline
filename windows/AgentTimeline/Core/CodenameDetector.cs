@@ -160,7 +160,10 @@ public static class CodenameDetector
             end++;
             steps++;
         }
-        return text[start..end];
+        // 摘录进词典面板/chip popover 展示 → 过 Mining 档规整（仅行内 unwrap，
+        // 不做块级 skip：窗口仅 ~44 字符，skip 会掏空）。状态推断吃的是本函数
+        // 返回值，unwrap 只去标记不改语义关键词，不影响 InferStatus。
+        return Text.TextNormalizer.Normalize(text[start..end], Text.NormalizeProfile.Mining);
     }
 
     private static readonly string[] ChangedKeywords =

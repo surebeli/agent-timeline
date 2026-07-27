@@ -7,6 +7,7 @@ using System.Text.Json;
 using AgentTimeline.Core;
 using AgentTimeline.Core.Parsers;
 using AgentTimeline.Core.Summarize;
+using AgentTimeline.Core.Text;
 
 internal static class Program
 {
@@ -38,6 +39,8 @@ internal static class Program
         CodexParserSkillEcho();
         KimiContentPartAndPromptLimit();
         SummaryJsonExtractionRobustness();
+        TextNormalizerGoldenCases();
+        ResultExcerptFallback();
         ResultExcerptParagraph();
         ClipSurrogateSafety();
 
@@ -517,6 +520,94 @@ internal static class Program
         Check(s2 is not null && s2.Title.Contains('}'), "json: 字符串内花括号不干扰配平");
 
         Check(SummaryJson.Parse("全是散文没有对象", SummarySource.Cli) is null, "json: 无候选返回 null");
+    }
+
+    /// <summary>
+    /// 文本规整 golden 基准（docs/normalize-cases.tsv）——双端共享单一事实源，
+    /// mac 移植时读同一份文件断言同一批期望值（与 design-tokens.json 同源文化一致）。
+    /// 另含幂等断言 normalize(normalize(x)) == normalize(x)（§3.4-3）。
+    /// </summary>
+    private static void TextNormalizerGoldenCases()
+    {
+        var tsv = FindRepoFile(Path.Combine("docs", "normalize-cases.tsv"));
+        if (tsv is null) { Check(false, "normalize: 找不到 docs/normalize-cases.tsv"); return; }
+
+        var cases = 0;
+        foreach (var raw in File.ReadAllLines(tsv))
+        {
+            if (raw.Length == 0 || raw.StartsWith('#')) continue;
+            var cols = raw.Split('\t');
+            if (cols.Length < 3) continue;
+            var id = cols[0];
+            var profile = cols[1] switch
+            {
+                "summary" => NormalizeProfile.Summary,
+                "mining" => NormalizeProfile.Mining,
+                _ => NormalizeProfile.Excerpt,
+            };
+            var input = Unescape(cols[2]);
+            var expected = Unescape(cols.Length > 3 ? cols[3] : "");
+
+            var actual = TextNormalizer.Normalize(input, profile);
+            CheckEqual(actual, expected, $"normalize[{id}]");
+            // -noidem 用例的输出是「回填 verbatim」的裸标记，再跑一遍自然会被 unwrap
+            if (!id.EndsWith("-noidem", StringComparison.Ordinal))
+            {
+                CheckEqual(TextNormalizer.Normalize(actual, profile), actual, $"normalize[{id}] 幂等");
+            }
+            cases++;
+        }
+        Check(cases >= 40, $"normalize: golden 用例数 {cases} ≥ 40");
+
+        static string Unescape(string s) => s
+            .Replace("\\n", "\n").Replace("\\t", "\t")
+            .Replace("\\e", "").Replace("\\r", "\r").Replace("\\\\", "\\");
+    }
+
+    /// <summary>从当前目录向上找仓库内文件（bin 目录深度不定）。</summary>
+    private static string? FindRepoFile(string relative)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        for (var i = 0; i < 8 && dir is not null; i++, dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, relative);
+            if (File.Exists(candidate)) return candidate;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 空串兜底（docs/TEXT-NORMALIZATION.md §3.4-1，审查确认的唯一 UI 可见回归）：
+    /// 整段都是围栏/表格时规整后为空 → 回退未规整文本；Store 入口再挡一道。
+    /// </summary>
+    private static void ResultExcerptFallback()
+    {
+        var allFence = "```rust\nfn main() {}\n```";
+        var excerpt = ParserUtil.ResultExcerpt(allFence);
+        Check(excerpt.Length > 0, "fallback: 全文即围栏时不返回空串");
+        Check(excerpt.Contains("fn main"), "fallback: 回退到未规整文本");
+
+        var allTable = "| 供应商 | 价格 |\n|---|---|\n| Auth0 | 高 |";
+        Check(ParserUtil.ResultExcerpt(allTable).Length > 0, "fallback: 全文即表格时不返回空串");
+
+        var dbPath = TempDbPath();
+        try
+        {
+            using var store = new Store(dbPath);
+            var rule = new RuleSummarizer();
+            var cmd = Cmd("建立缓存层", 1_700_000_000);
+            var id = store.InsertNode(cmd, rule.Summarize(cmd), SummaryEngine.ComputeHash(cmd), false);
+            store.SetResultLine(AgentKind.Claude, "s", "首个结果行");
+            CheckEqual(store.GetNode(id)?.Summary.ResultLine, "首个结果行", "fallback: 正常结果行写入");
+            Check(store.SetResultLine(AgentKind.Claude, "s", "   ") is null,
+                "fallback: 空白结果行被 Store 挡下");
+            CheckEqual(store.GetNode(id)?.Summary.ResultLine, "首个结果行",
+                "fallback: 已有结果行不被空串覆盖");
+        }
+        finally
+        {
+            CleanupDb(dbPath);
+        }
     }
 
     /// <summary>结果摘录取首个非空段落（展开态可读全,折叠态由 UI 单行钳制）。</summary>

@@ -57,16 +57,26 @@ internal static class ParserUtil
     }
 
     /// <summary>
-    /// 结果摘录：取首个非空段落（空行分隔）而非首行，上限 maxLength（代理对安全截断）。
-    /// 折叠态 UI 仍按单行钳制显示；展开态用户可读到完整首段（实机反馈：原先解析期
-    /// 就截成 160 字符单行，展开也无内容可看）。mac 端待同步同一语义。
+    /// 结果摘录：先过 TextNormalizer（Excerpt 档，docs/TEXT-NORMALIZATION.md §3），
+    /// 再取首个非空段落（空行分隔），上限 maxLength（代理对安全截断）。
+    /// 折叠态 UI 仍按单行钳制显示；展开态用户可读到完整首段。
+    ///
+    /// 永不返回空串（§3.4-1）：规整后为空（整段是围栏/表格）时回退到未规整文本，
+    /// 否则 Store.SetResultLine 会把已显示的结果行抹掉——审查确认的唯一 UI 回归。
     /// </summary>
     public static string ResultExcerpt(string text, int maxLength = 500)
     {
-        var normalized = text.ReplaceLineEndings("\n").Trim();
-        var end = normalized.IndexOf("\n\n", StringComparison.Ordinal);
-        var paragraph = (end >= 0 ? normalized[..end] : normalized).Trim();
-        return Clip(paragraph, maxLength);
+        var normalized = Text.TextNormalizer.Normalize(text, Text.NormalizeProfile.Excerpt);
+        var excerpt = FirstParagraph(normalized);
+        if (excerpt.Length == 0) excerpt = FirstParagraph(text.ReplaceLineEndings("\n"));
+        return Clip(excerpt, maxLength);
+    }
+
+    private static string FirstParagraph(string text)
+    {
+        var t = text.Trim();
+        var end = t.IndexOf("\n\n", StringComparison.Ordinal);
+        return (end >= 0 ? t[..end] : t).Trim();
     }
 
     public static string FirstLine(string text, int maxLength)
