@@ -36,10 +36,17 @@ struct ClaudeParser: AgentSessionParser {
             if obj["isMeta"] as? Bool == true { return [] }
             if obj["isSidechain"] as? Bool == true { return [] }
             guard let message = obj["message"] as? [String: Any],
-                  let text = extractText(message["content"]),
-                  !ParserSupport.isIgnoredContent(text),
+                  let raw = extractText(message["content"]),
+                  !ParserSupport.isIgnoredContent(raw),
                   let ts = ParserSupport.parseISO(obj["timestamp"] as? String)
             else { return [] }
+            // A slash command reaches us only as an echo block; convert it to
+            // "/name args" instead of dropping the user's command (P0).
+            var text = raw
+            if let converted = ParserSupport.convertCommandEcho(raw) {
+                guard !converted.isEmpty else { return [] }
+                text = converted
+            }
             let cmd = UserCommand(
                 agent: .claude,
                 project: context.project,

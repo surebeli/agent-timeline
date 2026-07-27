@@ -71,6 +71,45 @@ final class ParserTests: XCTestCase {
         XCTAssertTrue(ctx.disabled)
     }
 
+    /// P0 回归：slash 命令回显块是该命令的唯一记录，丢弃 = 丢用户命令。
+    func testClaudeSlashCommandEchoBecomesNode() {
+        let parser = ClaudeParser()
+        var ctx = claudeContext()
+
+        // 字段序 A：<command-name> 先，args 为空
+        let nameFirst = """
+        {"type":"user","message":{"role":"user","content":"<command-name>/plugin</command-name>\\n<command-message>plugin</command-message>\\n<command-args></command-args>"},"timestamp":"2026-07-27T10:00:00.000Z","sessionId":"abc-123"}
+        """
+        guard case .userCommand(let a)? = parser.parse(line: nameFirst, context: &ctx).first else {
+            return XCTFail("name-first 回显块应产出节点")
+        }
+        XCTAssertEqual(a.text, "/plugin")
+
+        // 字段序 B：<command-message> 先（语料多数），无 args 字段
+        let messageFirst = """
+        {"type":"user","message":{"role":"user","content":"<command-message>codex:setup</command-message>\\n<command-name>/codex:setup</command-name>"},"timestamp":"2026-07-27T10:01:00.000Z","sessionId":"abc-123"}
+        """
+        guard case .userCommand(let b)? = parser.parse(line: messageFirst, context: &ctx).first else {
+            return XCTFail("message-first 回显块应产出节点")
+        }
+        XCTAssertEqual(b.text, "/codex:setup")
+
+        // 非空 args 是用户真实输入，必须拼回
+        let withArgs = """
+        {"type":"user","message":{"role":"user","content":"<command-name>/goal</command-name>\\n<command-args>把需求编号成 N1 N2</command-args>"},"timestamp":"2026-07-27T10:02:00.000Z","sessionId":"abc-123"}
+        """
+        guard case .userCommand(let c)? = parser.parse(line: withArgs, context: &ctx).first else {
+            return XCTFail("带 args 的回显块应产出节点")
+        }
+        XCTAssertEqual(c.text, "/goal 把需求编号成 N1 N2")
+
+        // 无可用命令名的回显块仍然丢弃（不产生垃圾节点）
+        let broken = """
+        {"type":"user","message":{"role":"user","content":"<command-message>x</command-message>"},"timestamp":"2026-07-27T10:03:00.000Z","sessionId":"abc-123"}
+        """
+        XCTAssertTrue(parser.parse(line: broken, context: &ctx).isEmpty)
+    }
+
     func testClaudeQueuedCommandAttachment() {
         let parser = ClaudeParser()
         var ctx = claudeContext()
