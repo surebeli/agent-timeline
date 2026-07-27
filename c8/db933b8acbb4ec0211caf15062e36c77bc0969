@@ -1,0 +1,89 @@
+windows/AgentTimeline/MainWindow.xaml.cs
+  s_5b0458546b11e2::t_0fdaf97137baf0 1-1014
+windows/AgentTimeline/MainWindow.xaml
+  s_5b0458546b11e2::t_111ea86a6c0e3c 1-492,494-507,509-539,541-592,594-679
+  s_5b0458546b11e2::t_31eb775a2d4935 493-493
+  s_5b0458546b11e2::t_0d1e7a60c4a67c 508-508
+  s_5b0458546b11e2::t_14228ad3c7e22e 540-540
+  s_5b0458546b11e2::t_dd74a8440a7889 593-593
+windows/AgentTimeline/Core/Parsers/IAgentSessionParser.cs
+  s_5b0458546b11e2::t_ad66074b2bf2ce 1-80
+windows/AgentTimeline/Core/Parsers/KimiParser.cs
+  0000019fa1a122b7 1-184
+windows/AgentTimeline/Core/Parsers/CodexParser.cs
+  0000019fa1a122b7 1-155
+windows/AgentTimeline/Core/Parsers/ZcodeParser.cs
+  0000019fa1a122b7 1-129
+windows/AgentTimeline/Core/Parsers/ClaudeParser.cs
+  0000019fa1a122b7 1-168
+windows/CoreSmokeTest/Program.cs
+  s_5b0458546b11e2::t_427430232cae88 1-36,38-565
+  s_5b0458546b11e2::t_deed3d68a449dc 37-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c8db933b8acbb4ec0211caf15062e36c77bc0969",
+  "prompts": {
+    "0000019fa1a122b7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ai-thread-claude-claude-fable-5-1785123119799",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi",
+      "total_additions": 636,
+      "total_deletions": 0,
+      "accepted_lines": 636,
+      "overriden_lines": 0
+    },
+    "s_5b0458546b11e2::t_0fdaf97137baf0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "total_additions": 1014,
+      "total_deletions": 0,
+      "accepted_lines": 1014,
+      "overriden_lines": 0
+    },
+    "s_5b0458546b11e2::t_111ea86a6c0e3c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "total_additions": 675,
+      "total_deletions": 0,
+      "accepted_lines": 675,
+      "overriden_lines": 0
+    },
+    "s_5b0458546b11e2::t_427430232cae88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "total_additions": 564,
+      "total_deletions": 0,
+      "accepted_lines": 564,
+      "overriden_lines": 0
+    },
+    "s_5b0458546b11e2::t_ad66074b2bf2ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "total_additions": 80,
+      "total_deletions": 0,
+      "accepted_lines": 80,
+      "overriden_lines": 0
+    }
+  }
+}
