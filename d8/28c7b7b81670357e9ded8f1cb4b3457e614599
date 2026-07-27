@@ -1,23 +1,19 @@
 windows/README.md
-  s_5b0458546b11e2::t_ea7af2bd7c9fd2 1-289
+  s_5b0458546b11e2::t_ea7af2bd7c9fd2 20-43
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.6.16",
   "base_commit_sha": "d828c7b7b81670357e9ded8f1cb4b3457e614599",
-  "prompts": {
-    "s_5b0458546b11e2::t_ea7af2bd7c9fd2": {
+  "prompts": {},
+  "sessions": {
+    "s_5b0458546b11e2": {
       "agent_id": {
         "tool": "claude",
         "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
         "model": "claude-opus-5"
       },
-      "human_author": "litianyi <litianyi@corp.netease.com>",
-      "messages": [],
-      "total_additions": 289,
-      "total_deletions": 0,
-      "accepted_lines": 289,
-      "overriden_lines": 0
+      "human_author": "litianyi <litianyi@corp.netease.com>"
     }
   }
 }
