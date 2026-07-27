@@ -81,6 +81,8 @@ public sealed class KimiParser : IAgentSessionParser
                 }
                 else if (messageType == "TurnEnd")
                 {
+                    // 实机语料 40/40 条 TurnEnd 的 payload 都是空对象——保留探测作
+                    // 未来兼容钩子，真正的回复走下面的 ContentPart 通道。
                     var resultLine = ExtractBestEffortString(payload);
                     if (!string.IsNullOrWhiteSpace(resultLine))
                     {
@@ -90,6 +92,25 @@ public sealed class KimiParser : IAgentSessionParser
                             Timestamp: timestamp,
                             ResultLine: ParserUtil.ResultExcerpt(resultLine),
                             FullText: resultLine)); // untruncated — mined for codenames
+                    }
+                }
+                else if (messageType == "ContentPart")
+                {
+                    // Kimi 的回复实际以 ContentPart{type:"text"} 块到达（mac 端既有通道，
+                    // win 此前缺失 → Kimi 结果行永远拿不到）。每块都发；Store 的
+                    // SetResultLine 覆盖 session 最新节点，下一次 TurnBegin 之前的
+                    // 最后一块胜出（SESSION-FORMATS.md §3 备选规则）。
+                    if (payload.ValueKind == JsonValueKind.Object &&
+                        GetString(payload, "type") == "text" &&
+                        GetString(payload, "text") is { } partText &&
+                        !string.IsNullOrWhiteSpace(partText))
+                    {
+                        events.Add(new TaskComplete(
+                            Agent: AgentKind.Kimi,
+                            SessionId: sessionId,
+                            Timestamp: timestamp,
+                            ResultLine: ParserUtil.ResultExcerpt(partText),
+                            FullText: partText));
                     }
                 }
             }

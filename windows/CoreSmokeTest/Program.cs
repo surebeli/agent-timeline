@@ -36,6 +36,7 @@ internal static class Program
         ZcodeParserBasics();
         ClaudeParserInjectionFilters();
         CodexParserSkillEcho();
+        KimiContentPartAndPromptLimit();
         SummaryJsonExtractionRobustness();
         ResultExcerptParagraph();
         ClipSurrogateSafety();
@@ -447,6 +448,37 @@ internal static class Program
         CheckEqual(events[0].Text, "/hopper:continue 继续推进 T2", "claude filter: command-message 先行块转换并保留 args");
         CheckEqual(events[1].Text, "/model", "claude filter: 空 args 只留命令名");
         CheckEqual(events[2].Text, "正常的用户命令原文", "claude filter: 正常命令不受影响");
+    }
+
+    /// <summary>
+    /// Kimi 回复走 ContentPart{type:text} 通道（TurnEnd payload 实测恒空）；
+    /// 摘要 prompt 输入按 4000 截断（对齐 mac，防长文撑爆上下文）。
+    /// </summary>
+    private static void KimiContentPartAndPromptLimit()
+    {
+        var parser = new KimiParser();
+        var path = Path.Combine(Path.GetTempPath(), ".kimi", "sessions", "hash1234", "sess-1", "wire.jsonl");
+        string Msg(string type, string payloadJson, double ts) =>
+            "{\"timestamp\":" + ts.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+            ",\"message\":{\"type\":\"" + type + "\",\"payload\":" + payloadJson + "}}";
+
+        var events = parser.ParseLines(path, new List<RawLine>
+        {
+            new(0, "{\"type\":\"metadata\",\"protocol_version\":1}"),
+            new(1, Msg("TurnBegin", "{\"user_input\":[{\"type\":\"text\",\"text\":\"实现 T5 的缓存层\"}]}", 1_700_000_000)),
+            new(2, Msg("ContentPart", "{\"type\":\"text\",\"text\":\"缓存层已实现。\\n\\n细节见下。\"}", 1_700_000_100)),
+            new(3, Msg("TurnEnd", "{}", 1_700_000_200)),
+        });
+        var cmd = events.OfType<UserCommand>().Single();
+        CheckEqual(cmd.Text, "实现 T5 的缓存层", "kimi: TurnBegin 用户命令");
+        var done = events.OfType<TaskComplete>().ToList();
+        CheckEqual(done.Count, 1, "kimi: ContentPart 出结果、空 TurnEnd 不出");
+        CheckEqual(done[0].ResultLine, "缓存层已实现。", "kimi: ContentPart 文本取首段作结果行");
+
+        var longCmd = Cmd(new string('x', 5000), 1_700_000_000);
+        var prompt = SummaryJson.BuildPrompt(longCmd.Text);
+        Check(prompt.Contains(new string('x', 4000)) && !prompt.Contains(new string('x', 4001)),
+            "prompt: 命令原文按 4000 截断");
     }
 
     /// <summary>codex 技能调用回显剥本机 SKILL.md 路径,保留 $plugin:skill 徽标文字。</summary>

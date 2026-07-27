@@ -20,6 +20,12 @@ public interface ISummarizer
 /// </summary>
 public static class SummaryJson
 {
+    /// <summary>
+    /// 进 prompt 的命令原文上限（对齐 mac SummaryPrompt 的 4000）：粘贴长文/派发式
+    /// prompt 动辄数万字符，不截断会把 CLI 与 provider 的上下文撑爆且拖慢摘要。
+    /// </summary>
+    private const int PromptInputLimit = 4000;
+
     public static string BuildPrompt(string commandText) =>
         $$"""
         你是一个命令摘要器。下面是用户提交给 AI agent 的一条命令原文。请只输出一个 JSON 对象（不要 markdown 代码块、不要任何解释），字段如下：
@@ -32,7 +38,7 @@ public static class SummaryJson
          "resultLine": null}
 
         <command>
-        {{commandText}}
+        {{ParserUtil.Clip(commandText, PromptInputLimit)}}
         </command>
         """;
 
