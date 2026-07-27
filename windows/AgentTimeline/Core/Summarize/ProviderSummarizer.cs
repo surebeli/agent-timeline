@@ -12,7 +12,8 @@ namespace AgentTimeline.Core.Summarize;
 /// </summary>
 public sealed class ProviderSummarizer : ISummarizer
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
+    // W5 对齐 mac：60s（本地大模型/慢端点 30s 常不够，超时即整条降级规则摘要）。
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
 
     private readonly AppSettings _settings;
 
@@ -24,18 +25,30 @@ public sealed class ProviderSummarizer : ISummarizer
         !string.IsNullOrWhiteSpace(_settings.ProviderBaseUrl) &&
         !string.IsNullOrWhiteSpace(_settings.ProviderModel);
 
+    /// <summary>
+    /// W5：base URL 不以 /v1 结尾时自动补全（对齐 mac）。用户在设置里填
+    /// `https://api.openai.com` 是最常见写法，不补就直接 404。
+    /// </summary>
+    internal static string BuildChatCompletionsUrl(string baseUrl)
+    {
+        var trimmed = baseUrl.Trim().TrimEnd('/');
+        if (!trimmed.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)) trimmed += "/v1";
+        return trimmed + "/chat/completions";
+    }
+
     public async Task<Summary?> SummarizeAsync(UserCommand command, CancellationToken ct)
     {
         if (!IsConfigured) return null;
 
-        var url = _settings.ProviderBaseUrl.TrimEnd('/') + "/chat/completions";
+        var url = BuildChatCompletionsUrl(_settings.ProviderBaseUrl);
         var body = JsonSerializer.Serialize(new
         {
             model = _settings.ProviderModel,
-            temperature = 0.2,
+            // W5 对齐 mac：0 而非 0.2——摘要要的是可复现，同命令重跑不该换标题。
+            temperature = 0,
             messages = new object[]
             {
-                new { role = "user", content = SummaryJson.BuildPrompt(command.Text) },
+                new { role = "user", content = SummaryJson.BuildPrompt(command) },
             },
         });
 

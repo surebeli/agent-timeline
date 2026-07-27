@@ -21,14 +21,13 @@ public interface ISummarizer
 public static class SummaryJson
 {
     /// <summary>
-    /// 进 prompt 的命令原文上限（对齐 mac SummaryPrompt 的 4000）：粘贴长文/派发式
-    /// prompt 动辄数万字符，不截断会把 CLI 与 provider 的上下文撑爆且拖慢摘要。
+    /// W4：注入 agent 与 project 上下文，正文与 mac `SummaryPrompt.build` 逐字一致——
+    /// 否则同一条命令两端会得到不同的 title/kind，且缺项目名这一消歧上下文
+    /// （"修复登录" 在两个项目里含义不同）。输入上限走 <see cref="DisplayLimits.PromptInput"/>。
     /// </summary>
-    private const int PromptInputLimit = 4000;
-
-    public static string BuildPrompt(string commandText) =>
+    public static string BuildPrompt(UserCommand command) =>
         $$"""
-        你是一个命令摘要器。下面是用户提交给 AI agent 的一条命令原文。请只输出一个 JSON 对象（不要 markdown 代码块、不要任何解释），字段如下：
+        你是一个命令摘要器。下面是用户在 {{command.Agent.DisplayName()}} 中提交的一条命令（项目：{{command.Project}}）。请只输出一个 JSON 对象（不要 markdown 代码块、不要任何解释），字段如下：
         {"title": "≤20字的标题，概括这条命令要做什么",
          "kind": "按命令主要意图归类，取 需求|任务|调研|学习|决策|修复|其他 之一",
          "keyPoints": ["关键点/需求点/任务点，每条≤30字，最多5条；命令简单时可为空数组"],
@@ -37,9 +36,10 @@ public static class SummaryJson
                         "status": "该代号在本命令中的生命周期信号，取 定义|进行中|完成|变更|提及 之一"}],
          "resultLine": null}
 
-        <command>
-        {{ParserUtil.Clip(commandText, PromptInputLimit)}}
-        </command>
+        用户命令原文：
+        ---
+        {{ParserUtil.Clip(command.Text, DisplayLimits.PromptInput)}}
+        ---
         """;
 
     /// <summary>

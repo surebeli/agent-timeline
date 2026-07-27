@@ -38,6 +38,7 @@ internal static class Program
         ClaudeParserInjectionFilters();
         ClaudeQueuedCommandRecovery();
         SummaryAttemptsAndPriority();
+        ResultLineGuardAndProviderUrl();
         CodexParserSkillEcho();
         KimiContentPartAndPromptLimit();
         SummaryJsonExtractionRobustness();
@@ -481,9 +482,59 @@ internal static class Program
         CheckEqual(done[0].ResultLine, "缓存层已实现。", "kimi: ContentPart 文本取首段作结果行");
 
         var longCmd = Cmd(new string('x', 5000), 1_700_000_000);
-        var prompt = SummaryJson.BuildPrompt(longCmd.Text);
+        var prompt = SummaryJson.BuildPrompt(longCmd);
         Check(prompt.Contains(new string('x', 4000)) && !prompt.Contains(new string('x', 4001)),
             "prompt: 命令原文按 4000 截断");
+        // W4：注入 agent 与 project 上下文（同一命令在不同项目里含义不同）
+        Check(prompt.Contains("Claude"), "W4: prompt 注入 agent 名");
+        Check(prompt.Contains("项目：proj"), "W4: prompt 注入项目名");
+        Check(prompt.Contains("用户命令原文："), "W4: 正文骨架与 mac 一致");
+    }
+
+    /// <summary>W3 结果行时间戳护栏 + W5 provider 请求构造对齐。</summary>
+    private static void ResultLineGuardAndProviderUrl()
+    {
+        var dbPath = TempDbPath();
+        try
+        {
+            using var store = new Store(dbPath);
+            var rule = new RuleSummarizer();
+            long Insert(string text, long ts)
+            {
+                var c = Cmd(text, ts);
+                return store.InsertNode(c, rule.Summarize(c), SummaryEngine.ComputeHash(c), false);
+            }
+            var early = Insert("较早的命令", 1_700_000_000);
+            var late = Insert("较晚的命令", 1_700_000_900);
+
+            // 回复时间落在两条命令之间 → 只能挂到「早」那条，不能挂到更新的命令上
+            var mid = DateTimeOffset.FromUnixTimeSeconds(1_700_000_500);
+            CheckEqual(store.SetResultLine(AgentKind.Claude, "s", "早命令的回复", mid), early,
+                "W3: 结果行挂到 ts<= 的最新节点（不越到更晚的命令）");
+            CheckEqual(store.GetNode(late)?.Summary.ResultLine, null, "W3: 更晚的命令未被污染");
+
+            // 回复时间晚于两条 → 挂到最新那条
+            var after = DateTimeOffset.FromUnixTimeSeconds(1_700_001_000);
+            CheckEqual(store.SetResultLine(AgentKind.Claude, "s", "晚命令的回复", after), late,
+                "W3: 时间戳之后的回复正常挂最新节点");
+
+            // 早于所有节点 → 无处可挂
+            var before = DateTimeOffset.FromUnixTimeSeconds(1_699_999_000);
+            Check(store.SetResultLine(AgentKind.Claude, "s", "孤儿回复", before) is null,
+                "W3: 早于全部节点时不挂载");
+        }
+        finally
+        {
+            CleanupDb(dbPath);
+        }
+
+        // W5：base URL 自动补 /v1（用户最常见写法是不带 /v1，不补直接 404）
+        CheckEqual(ProviderSummarizer.BuildChatCompletionsUrl("https://api.openai.com"),
+            "https://api.openai.com/v1/chat/completions", "W5: 无 /v1 时自动补全");
+        CheckEqual(ProviderSummarizer.BuildChatCompletionsUrl("https://api.openai.com/v1"),
+            "https://api.openai.com/v1/chat/completions", "W5: 已带 /v1 不重复补");
+        CheckEqual(ProviderSummarizer.BuildChatCompletionsUrl("https://x.test/v1/ "),
+            "https://x.test/v1/chat/completions", "W5: 尾斜杠与空白容错");
     }
 
     /// <summary>
@@ -672,9 +723,10 @@ internal static class Program
             var rule = new RuleSummarizer();
             var cmd = Cmd("建立缓存层", 1_700_000_000);
             var id = store.InsertNode(cmd, rule.Summarize(cmd), SummaryEngine.ComputeHash(cmd), false);
-            store.SetResultLine(AgentKind.Claude, "s", "首个结果行");
+            var replyAt = DateTimeOffset.FromUnixTimeSeconds(1_700_000_100);
+            store.SetResultLine(AgentKind.Claude, "s", "首个结果行", replyAt);
             CheckEqual(store.GetNode(id)?.Summary.ResultLine, "首个结果行", "fallback: 正常结果行写入");
-            Check(store.SetResultLine(AgentKind.Claude, "s", "   ") is null,
+            Check(store.SetResultLine(AgentKind.Claude, "s", "   ", replyAt) is null,
                 "fallback: 空白结果行被 Store 挡下");
             CheckEqual(store.GetNode(id)?.Summary.ResultLine, "首个结果行",
                 "fallback: 已有结果行不被空串覆盖");
@@ -698,13 +750,28 @@ internal static class Program
             "正文段", "excerpt: 首尾空白剥离后取段");
     }
 
-    /// <summary>UTF-16 截断不劈开代理对（emoji 尾部不出替换符乱码）。</summary>
+    /// <summary>W6：按 grapheme 簇截断——代理对、ZWJ 家庭、组合字、变体选择符都不劈开。</summary>
     private static void ClipSurrogateSafety()
     {
         var atBoundary = new string('a', 19) + "😀";   // 21 code units，😀 跨在截断点上
         CheckEqual(ParserUtil.Clip(atBoundary, 20), new string('a', 19) + "…", "clip: 高代理回退一位");
         CheckEqual(ParserUtil.Clip(new string('b', 25), 20), new string('b', 20) + "…", "clip: 普通截断加省略号");
         CheckEqual(ParserUtil.Clip("short", 20), "short", "clip: 不超长原样返回");
+
+        // ZWJ 家庭 👨‍👩‍👧 是 8 个 code unit 的单簇——旧的代理对判定会从 ZWJ 处切开
+        var family = new string('a', 15) + "\U0001F468‍\U0001F469‍\U0001F467";
+        var clippedFamily = ParserUtil.Clip(family, 20);
+        Check(!clippedFamily.Contains('‍'), "clip: ZWJ 序列不被劈开（无游离连接符）");
+        CheckEqual(clippedFamily, new string('a', 15) + "…", "clip: 整簇放不下则整簇不取");
+
+        // 组合字 e + U+0301 = é（2 code unit 单簇）
+        var combining = new string('a', 19) + "é";
+        Check(!ParserUtil.Clip(combining, 20).EndsWith("e…", StringComparison.Ordinal),
+            "clip: 组合字不与其基字分离");
+
+        // 变体选择符 ❤️ = U+2764 + U+FE0F
+        var vs = new string('a', 19) + "❤️";
+        Check(!ParserUtil.Clip(vs, 20).Contains('❤'), "clip: 变体选择符簇不被劈开");
     }
 
     /// <summary>

@@ -24,13 +24,30 @@ public interface IAgentSessionParser
 internal static class ParserUtil
 {
     /// <summary>
-    /// 按 UTF-16 code unit 截断但不劈开代理对（emoji 等增补平面字符）：孤立代理在 UI
-    /// 显示替换符、经 System.Text.Json 序列化变 U+FFFD 乱码。超长时截断并补省略号。
+    /// 按 **grapheme 簇**（UAX-29 文本元素）截断，与 mac `String.count`/`prefix` 同口径
+    /// （W6）：只防代理对不够——ZWJ 序列（👨‍👩‍👧 家庭）、变体选择符、肤色修饰、
+    /// 组合字（é = e + U+0301）都是多 code unit 的单个"用户感知字符"，从中间切开会
+    /// 渲染出半个表情簇或游离的组合符号。超长时截断并补省略号。
+    ///
+    /// 上限本身用 code unit 作快速路径判定（短于 max 必然不需要截断），只有超长时
+    /// 才走簇枚举——正常内容永远不会碰到护栏水位（见 DisplayLimits）。
     /// </summary>
     public static string Clip(string s, int max)
     {
         if (s.Length <= max) return s;
-        var cut = char.IsHighSurrogate(s[max - 1]) ? max - 1 : max;
+
+        var enumerator = System.Globalization.StringInfo.GetTextElementEnumerator(s);
+        var elements = 0;
+        var cut = 0;
+        while (enumerator.MoveNext())
+        {
+            var next = enumerator.ElementIndex + ((string)enumerator.Current).Length;
+            if (next > max) break;      // 这一簇会越过上限 → 停在簇边界上
+            cut = next;
+            elements++;
+            if (elements >= max) break; // 簇数也不超过 max（CJK/ASCII 与旧行为一致）
+        }
+        if (cut == 0) cut = Math.Min(max, s.Length); // 首簇就超长：退化为硬切
         return s[..cut] + "…";
     }
 

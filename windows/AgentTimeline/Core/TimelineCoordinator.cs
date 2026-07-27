@@ -130,7 +130,7 @@ public sealed class TimelineCoordinator : IDisposable
                         codenamesTouched |= IngestUserCommand(cmd);
                         break;
                     case TaskComplete done:
-                        if (_store.SetResultLine(done.Agent, done.SessionId, done.ResultLine) is { } nodeId)
+                        if (_store.SetResultLine(done.Agent, done.SessionId, done.ResultLine, done.Timestamp) is { } nodeId)
                         {
                             NodeResultLineUpdated?.Invoke(nodeId, done.ResultLine);
                         }

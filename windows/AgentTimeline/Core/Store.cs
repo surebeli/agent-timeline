@@ -179,8 +179,16 @@ public sealed class Store : IDisposable
         }
     }
 
-    /// <summary>Sets the result line on the most recent node of a session; returns that node id, or null.</summary>
-    public long? SetResultLine(AgentKind agent, string sessionId, string resultLine)
+    /// <summary>
+    /// Sets the result line on the session's most recent node **at or before**
+    /// <paramref name="before"/>; returns that node id, or null.
+    ///
+    /// W3 时间戳护栏（对齐 mac `before:` 与本文件 <see cref="LatestNodeId"/>）：
+    /// 没有它，节点乱序入库（多 agent 回填、tail 补扫）时会把旧回复的结果行挂到
+    /// 更新的命令上——同一文件里 LatestNodeId 早已带 `ts<=`，此处不带属自相矛盾。
+    /// 保留 win 自己的 `id DESC` tiebreak（同 ts 时取后插入者）。
+    /// </summary>
+    public long? SetResultLine(AgentKind agent, string sessionId, string resultLine, DateTimeOffset before)
     {
         // 永不写空串（docs/TEXT-NORMALIZATION.md §3.4-1 第二道防线）：Kimi 每个
         // ContentPart 都发一条 TaskComplete，一个「纯代码块」分片若规整成空会把
@@ -191,11 +199,12 @@ public sealed class Store : IDisposable
         {
             using var find = _conn.CreateCommand();
             find.CommandText = """
-                SELECT id FROM nodes WHERE agent=$agent AND session_id=$session
+                SELECT id FROM nodes WHERE agent=$agent AND session_id=$session AND ts<=$ts
                 ORDER BY ts DESC, id DESC LIMIT 1;
                 """;
             find.Parameters.AddWithValue("$agent", agent.Key());
             find.Parameters.AddWithValue("$session", sessionId);
+            find.Parameters.AddWithValue("$ts", before.ToUnixTimeMilliseconds());
             var idObj = find.ExecuteScalar();
             if (idObj is null || idObj is DBNull) return null;
             var id = (long)idObj;

@@ -32,7 +32,7 @@ public sealed class CliSummarizer : ISummarizer
     public async Task<Summary?> SummarizeAsync(UserCommand command, CancellationToken ct)
     {
         if (!TryResolveCli()) return null;
-        var prompt = SummaryJson.BuildPrompt(command.Text);
+        var prompt = SummaryJson.BuildPrompt(command);
 
         var psi = new ProcessStartInfo
         {
