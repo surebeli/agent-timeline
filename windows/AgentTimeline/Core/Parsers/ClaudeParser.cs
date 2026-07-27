@@ -78,7 +78,12 @@ public sealed partial class ClaudeParser : IAgentSessionParser
                     var evt = ParseAssistantLine(path, root);
                     if (evt is not null) events.Add(evt);
                 }
-                // attachment / system / file-history-snapshot / mode / queue-operation ... → ignored
+                else if (type == "attachment")
+                {
+                    var evt = ParseAttachmentLine(path, root, line.ByteOffset);
+                    if (evt is not null) events.Add(evt);
+                }
+                // system / file-history-snapshot / mode / queue-operation ... → ignored
             }
             catch (JsonException)
             {
@@ -124,6 +129,49 @@ public sealed partial class ClaudeParser : IAgentSessionParser
             Agent: AgentKind.Claude,
             Project: project,
             SessionId: sessionId,
+            Timestamp: ParserUtil.ParseIsoTimestamp(GetString(root, "timestamp")),
+            Text: text,
+            SourceFile: path,
+            SourceOffset: offset);
+    }
+
+    /// <summary>
+    /// 排队命令补录（W0，对齐 mac ClaudeParser.swift 的 attachment 分支）。
+    ///
+    /// 一轮跑动中键入的 prompt 可能被 mid-turn 消费、**永不重放为 type=user 行**——
+    /// 此时 queued_command attachment 是这条命令的唯一记录，丢掉就违反「你提交过的
+    /// 每条命令」。（正常出队的 prompt 会重放成 user 行且不带该 attachment，故本路径
+    /// 天然不产生重复；即便重复，nodes 的 UNIQUE(agent,session_id,ts,command_hash)
+    /// 也已覆盖。）
+    ///
+    /// ⚠ 必须复用同一套 L1 忽略前缀：本机语料 217 条 queued_command 里 **200 条是
+    /// &lt;task-notification&gt; 等注入块**，不过滤就等于把刚堵掉的 793 次泄漏原路引回。
+    /// 净新增的真实用户命令 17 条。
+    /// </summary>
+    private static UserCommand? ParseAttachmentLine(string path, JsonElement root, long offset)
+    {
+        if (GetBool(root, "isSidechain")) return null;
+        if (!root.TryGetProperty("attachment", out var attachment) ||
+            attachment.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+        if (GetString(attachment, "type") != "queued_command") return null;
+
+        var text = GetString(attachment, "prompt");
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        text = text.Trim();
+        foreach (var prefix in IgnoredPrefixes)
+        {
+            if (text.StartsWith(prefix, StringComparison.Ordinal)) return null;
+        }
+
+        return new UserCommand(
+            Agent: AgentKind.Claude,
+            Project: ParserUtil.ProjectNameFromCwd(
+                GetString(root, "cwd"),
+                fallback: Path.GetFileName(Path.GetDirectoryName(path)) ?? "claude"),
+            SessionId: GetString(root, "sessionId") ?? Path.GetFileNameWithoutExtension(path),
             Timestamp: ParserUtil.ParseIsoTimestamp(GetString(root, "timestamp")),
             Text: text,
             SourceFile: path,

@@ -36,6 +36,7 @@ internal static class Program
         ReplayRebuildsFromHistory();
         ZcodeParserBasics();
         ClaudeParserInjectionFilters();
+        ClaudeQueuedCommandRecovery();
         CodexParserSkillEcho();
         KimiContentPartAndPromptLimit();
         SummaryJsonExtractionRobustness();
@@ -482,6 +483,36 @@ internal static class Program
         var prompt = SummaryJson.BuildPrompt(longCmd.Text);
         Check(prompt.Contains(new string('x', 4000)) && !prompt.Contains(new string('x', 4001)),
             "prompt: 命令原文按 4000 截断");
+    }
+
+    /// <summary>
+    /// W0 排队命令补录：mid-turn 被消费的 prompt 只剩 queued_command attachment 一份记录；
+    /// 必须复用 L1 忽略前缀（本机语料 217 条中 200 条是注入块）。
+    /// </summary>
+    private static void ClaudeQueuedCommandRecovery()
+    {
+        var parser = new ClaudeParser();
+        var path = Path.Combine(Path.GetTempPath(), ".claude", "projects", "-demo", "s.jsonl");
+        string Att(string prompt, bool sidechain = false, string type = "queued_command") =>
+            "{\"type\":\"attachment\",\"timestamp\":\"2026-07-27T10:00:00.000Z\",\"sessionId\":\"s\"," +
+            "\"cwd\":\"C:/w/demo\"" + (sidechain ? ",\"isSidechain\":true" : "") +
+            ",\"attachment\":{\"type\":\"" + type + "\",\"prompt\":" +
+            JsonSerializer.Serialize(prompt) + "}}";
+
+        var events = parser.ParseLines(path, new List<RawLine>
+        {
+            new(0, Att("排队时键入的真实命令")),
+            new(1, Att("<task-notification>\n<task-id>x</task-id>\n</task-notification>")),
+            new(2, Att("<local-command-stdout>Set model</local-command-stdout>")),
+            new(3, Att("子 agent 的排队命令", sidechain: true)),
+            new(4, Att("   ")),
+            new(5, Att("其他附件类型的正文", type: "file_snapshot")),
+        }).OfType<UserCommand>().ToList();
+
+        CheckEqual(events.Count, 1, "W0: 只补录真实排队命令（注入块/sidechain/空白/他类附件全跳过）");
+        CheckEqual(events[0].Text, "排队时键入的真实命令", "W0: prompt 原文入库");
+        CheckEqual(events[0].Project, "demo", "W0: 项目名取 cwd 末段");
+        CheckEqual(events[0].SessionId, "s", "W0: sessionId 取行内字段");
     }
 
     /// <summary>codex 技能调用回显剥本机 SKILL.md 路径,保留 $plugin:skill 徽标文字。</summary>
