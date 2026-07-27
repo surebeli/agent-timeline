@@ -36,7 +36,10 @@ struct ClaudeParser: AgentSessionParser {
             if obj["isMeta"] as? Bool == true { return [] }
             if obj["isSidechain"] as? Bool == true { return [] }
             guard let message = obj["message"] as? [String: Any],
-                  let raw = extractText(message["content"]),
+                  let rawText = extractText(message["content"]),
+                  // 判定基准与 win 一致：先 trim 再做忽略前缀 / 回显块判定，
+                  // 否则带前导空白的回显块会整块 XML 泄漏成节点正文。
+                  case let raw = rawText.trimmingCharacters(in: .whitespacesAndNewlines),
                   !ParserSupport.isIgnoredContent(raw),
                   let ts = ParserSupport.parseISO(obj["timestamp"] as? String)
             else { return [] }
@@ -58,6 +61,10 @@ struct ClaudeParser: AgentSessionParser {
             return [.userCommand(cmd)]
 
         case "assistant":
+            // 子 agent 输出不是本会话的结果（win ClaudeParser.cs 同守卫）：
+            // subagents/*.jsonl 里的 assistant 行写的是父会话 id，不挡会把子 agent
+            // 的话当成父节点的结果行，并污染代号挖掘语料。
+            if obj["isSidechain"] as? Bool == true { return [] }
             guard let message = obj["message"] as? [String: Any],
                   let text = extractText(message["content"]),
                   !text.isEmpty,

@@ -110,6 +110,52 @@ final class ParserTests: XCTestCase {
         XCTAssertTrue(parser.parse(line: broken, context: &ctx).isEmpty)
     }
 
+    /// 审查确认的三处双端分叉回归（Phase C 增量审查）。
+    func testClaudeParityGuards() {
+        let parser = ClaudeParser()
+        var ctx = claudeContext()
+
+        // ① 带前导空白的回显块必须照样转换，而不是整块 XML 泄漏成正文
+        let padded = """
+        {"type":"user","message":{"role":"user","content":"\\n<command-name>/foo</command-name>\\n<command-args>bar</command-args>"},"timestamp":"2026-07-27T10:00:00.000Z","sessionId":"abc-123"}
+        """
+        guard case .userCommand(let cmd)? = parser.parse(line: padded, context: &ctx).first else {
+            return XCTFail("带前导空白的回显块应产出节点")
+        }
+        XCTAssertEqual(cmd.text, "/foo bar")
+
+        // ② 子 agent 的 assistant 行不得成为父会话的结果行
+        let sidechain = """
+        {"type":"assistant","isSidechain":true,"message":{"role":"assistant","content":[{"type":"text","text":"子 agent 的话"}]},"timestamp":"2026-07-27T10:01:00.000Z","sessionId":"abc-123"}
+        """
+        XCTAssertTrue(parser.parse(line: sidechain, context: &ctx).isEmpty)
+    }
+
+    /// 规整器与 .NET 的行为对齐：哨兵回填必须 ordinal；行尾 trim 覆盖全部 Unicode 空白。
+    func testNormalizerUnicodeParity() {
+        // 闭合反引号后紧跟组合字符：哨兵必须回填，绝不能把私用区字符写出去
+        for extender in ["\u{0301}", "\u{FE0F}", "\u{20E3}", "\u{1F3FB}"] {
+            let out = TextNormalizer.normalize("结果 `stopTask`\(extender) 完成", profile: .excerpt)
+            XCTAssertFalse(out.unicodeScalars.contains { $0.value == 0xE000 }, "哨兵泄漏：\(out)")
+            // 逐标量比对：Swift 的 contains/== 走正则等价，"k+组合符" ≠ "k"，
+            // 只有按标量序列断言才能证明保护内容被原样回填（与 win 逐字节一致）。
+            XCTAssertEqual(
+                Array(out.unicodeScalars.map(\.value)),
+                Array("结果 stopTask\(extender) 完成".unicodeScalars.map(\.value)),
+                "回填结果与 win 参照不一致：\(out)")
+        }
+        // 全角空格行尾：空行仍是空行（首段边界不错位）、表格与水平线仍被 skip
+        XCTAssertEqual(
+            ParserSupport.resultExcerpt("第一段\n\u{3000}\n第二段"), "第一段")
+        XCTAssertEqual(
+            TextNormalizer.normalize("| A | B |\u{3000}\n结论在此", profile: .excerpt), "结论在此")
+        XCTAssertEqual(
+            TextNormalizer.normalize("---\u{3000}\n真正的标题行", profile: .excerpt), "真正的标题行")
+        // ICU 的额外行终止符不得让 ATX 标题规则失配
+        XCTAssertEqual(
+            TextNormalizer.normalize("# 标题\u{000C}正文", profile: .excerpt), "标题\u{000C}正文")
+    }
+
     func testClaudeQueuedCommandAttachment() {
         let parser = ClaudeParser()
         var ctx = claudeContext()

@@ -39,7 +39,8 @@ enum TextNormalizer {
     // ESC 必须由 Swift 字面量插入真实字符：ICU 不认 `\u{1B}` 这种带花括号的写法
     // （原始字符串会把它原样交给 ICU 而报 invalid pattern）。
     private static let ansi = regex("\u{1B}\\[[0-9;]*[A-Za-z]")
-    private static let br = regex(#"<br\s*/?>"#, options: [.caseInsensitive])
+    private static let br = regex(
+        #"<br\s*/?>"#, options: [.caseInsensitive, .useUnixLineSeparators])
 
     // ── 行级规则
     /// 行首尾锚定；实测 20213 命中 / 孤立命中 0。宽松「含竖线即跳」会多杀 1599 行正文。
@@ -178,8 +179,13 @@ enum TextNormalizer {
         s = replaceAll(strike, in: s, with: "$1")
 
         for i in stride(from: protectedSpans.count - 1, through: 0, by: -1) {
+            // 必须 ordinal：Foundation 默认的正则等价搜索拒绝「结束位置落在字形簇
+            // 中间」的匹配——闭合反引号后紧跟组合字符（U+0301/FE0F/20E3/肤色修饰…）
+            // 时哨兵将永远回填不掉，私用区字符会写进 result_line 且永久留库。
+            // win 的 string.Replace(String,String) 本就是 ordinal。
             s = s.replacingOccurrences(
-                of: sentinel + String(i) + sentinel, with: protectedSpans[i])
+                of: sentinel + String(i) + sentinel, with: protectedSpans[i],
+                options: [.literal])
         }
         return s
     }
@@ -225,9 +231,13 @@ enum TextNormalizer {
     // MARK: - NSRegularExpression 薄封装
 
     private static func regex(
-        _ pattern: String, options: NSRegularExpression.Options = []
+        _ pattern: String, options: NSRegularExpression.Options = [.useUnixLineSeparators]
     ) -> NSRegularExpression {
         // 规范内正则均在 ICU/.NET 共同子集内；编译失败属编程错误。
+        // useUnixLineSeparators（ICU UREGEX_UNIX_LINES）是双端对齐的必要项：
+        // ICU 默认把 U+000B/000C/0085/2028/2029 也当行终止符，`.` 不跨、`$` 会在
+        // 其前锚定，而 .NET 只认 \n。§3.2-1 又刻意保留这些字符不做归一，
+        // 不开这个开关时 ATX 标题与表格规则会在含这些字符的行上分叉。
         try! NSRegularExpression(pattern: pattern, options: options)
     }
 
@@ -275,9 +285,13 @@ enum TextNormalizer {
         return result
     }
 
+    /// 逐行 TrimEnd（§3.3）。必须覆盖全部 Unicode 空白而不只是空格/制表符——
+    /// win 用 .NET `TrimEnd()`（char.IsWhiteSpace 全集）。中文语料里的全角空格
+    /// U+3000 若不剥，会让"空行"不再是空行（首段边界整体错位）、让表格行与水平线
+    /// 的行尾锚定失配而漏 skip。
     private static func trimTrailing(_ s: String) -> String {
-        var t = s
-        while let last = t.last, last == " " || last == "\t" { t.removeLast() }
-        return t
+        var t = Substring(s)
+        while let last = t.last, last.isWhitespace { t = t.dropLast() }
+        return String(t)
     }
 }
