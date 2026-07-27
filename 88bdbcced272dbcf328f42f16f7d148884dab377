@@ -1,0 +1,144 @@
+macos/Sources/AgentTimeline/Core/Models.swift
+  s_b85ad4e83942fb::t_21b29edadae166 17-27
+macos/Sources/AgentTimeline/UI/NodeViews.swift
+  s_b85ad4e83942fb::t_d4ad30b696831d 121-122
+  s_b85ad4e83942fb::t_f5e877ae011114 384-416
+macos/Sources/AgentTimeline/UI/TimelineViewModel.swift
+  s_b85ad4e83942fb::t_1736758b949dc0 39-53
+macos/Sources/AgentTimeline/UI/TimelineView.swift
+  s_b85ad4e83942fb::t_dd244a9ba6886f 76-85
+macos/Tests/AgentTimelineTests/ParserTests.swift
+  s_b85ad4e83942fb::t_9e3fd72fb42659 282-309
+macos/scripts/demo-seed.py
+  s_b85ad4e83942fb::t_8fe0ddbcc4c6ce 1-124
+README.md
+  0000019fa1430513 1-113
+docs/assets/screenshot-macos-dictionary.png
+  0000019fa1430513 1-1133
+docs/assets/screenshot-macos-projects.png
+  0000019fa1430513 1-660
+docs/assets/screenshot-macos-settings.png
+  0000019fa1430513 1-547
+docs/assets/screenshot-macos-timeline.png
+  0000019fa1430513 1-1241
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "88bdbcced272dbcf328f42f16f7d148884dab377",
+  "prompts": {
+    "s_b85ad4e83942fb::t_21b29edadae166": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 0,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_d4ad30b696831d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 0,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_1736758b949dc0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 15,
+      "total_deletions": 0,
+      "accepted_lines": 15,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_dd244a9ba6886f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 0,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_9e3fd72fb42659": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 28,
+      "total_deletions": 0,
+      "accepted_lines": 28,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_8fe0ddbcc4c6ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 124,
+      "total_deletions": 0,
+      "accepted_lines": 124,
+      "overriden_lines": 0
+    },
+    "s_43ac50edab3cd9::t_9bee568a2a53af": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785116951444524000",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019fa1430513": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-fable-5",
+        "id": "ai-thread-claude-claude-fable-5-1785116951827"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 3694,
+      "total_deletions": 0,
+      "accepted_lines": 3694,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_f5e877ae011114": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 33,
+      "total_deletions": 0,
+      "accepted_lines": 33,
+      "overriden_lines": 0
+    }
+  }
+}
