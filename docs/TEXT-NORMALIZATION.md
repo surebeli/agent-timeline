@@ -123,16 +123,33 @@ L2 规整是**有损**变换，L3 钳制是**无损**的。历史上两者被混
 
 ## 4. 双端一致性与既有差异
 
-解析器现状盘点发现的 win/mac 分叉（规整层落地前需拉平的部分，完整清单见普查记录）：
+> **状态刷新（2026-07-27，Phase C 完成后经三路系统性审计 + 逐条对抗验证复核）**：
+> 原清单 6 条已修完 5 条；剩余分叉重列如下，并新增审计发现项。
+> **归属**标注该由哪端改，Windows 侧的完整待办见 §5.3。
 
-1. resultLine 语义：win=首段≤500（2026-07-27 起）/ mac=全文拍平截 160 → **mac 待同步首段语义**；
-2. `<command-name>`：win=convert 成 `/xxx` 节点 / mac=strip 整条 → 建议 mac 对齐 convert（含双字段序与 args）；
-3. Kimi 结果通道：**TurnEnd payload 实测恒为空 `{}`**（40/40），mac 走 assistant ContentPart
-   通道 / win 探测 TurnEnd 四个 key 永远拿不到 → **win 待补 ContentPart 通道**；
-4. win LLM prompt 无输入截断（mac 4000）→ win 待补；
-5. 截断常量散落且不一致（标题 win40/mac60、要点 win60×5/mac80×6、规则标题 win20/mac40…）
-   → 规整层落地时列常量迁移表统一；
-6. mac 的 `attachment.queued_command` 补录、win 的 codex JSON 候选提取，互为单端优势 → 互抄。
+### 4.1 已拉平 ✅
+
+1. resultLine 语义（mac 全文拍平截 160 → 规整/首段/≤500，与 win 一致）；
+2. `<command-name>` slash 命令（mac strip 整条 → convert，含双字段序与 args）；
+3. Kimi 结果通道（win 补 ContentPart 通道）；
+4. LLM prompt 输入截断（win 补 4000）；
+5. 截断常量（改为「存储只留护栏」，双端同表 `Core/DisplayLimits.{swift,cs}`，见 §3.5）。
+
+### 4.2 仍存在的分叉
+
+| # | 分叉 | 归属 | 用户可见后果 |
+|---|---|---|---|
+| 1 | Claude `attachment.queued_command` 补录：mac 有 / win 整类丢弃 | **win** | 一轮跑动中排队输入、被 mid-turn 消费的命令，win 时间线永不出现（本机语料 4 条实证）——违反「你提交过的每条命令」 |
+| 2 | LLM 摘要失败重试：mac 有 attempts 上限 + 会话内重试 / win 两者皆无 | **win** | win 偶发超时后节点永停在规则摘要（须重启 App）；永久失败节点每次启动无上限重跑、持续烧配额 |
+| 3 | 摘要队列优先级：mac 最新优先 / win FIFO 最旧优先 | **win** | 回填数百节点时，win 用户盯着的顶部最新节点最后才拿到 LLM 标题 |
+| 4 | `SetResultLine` 时间戳护栏：mac 有 `before:` / win 无（且与自身 `LatestNodeId` 自相矛盾） | **win** | 节点乱序入库时，win 会把旧回复的结果行挂到更新的命令上 |
+| 5 | 摘要 prompt 正文：mac 注入 agent + project 上下文 / win 不注入；win 截断常量未走 `DisplayLimits`（P4 漏网一处） | **win** | 同一命令两端得到不同 title/kind；win 缺项目名这一消歧上下文 |
+| 6 | Provider 请求构造：mac temperature 0 + `/v1` 自动补全 / win 0.2 + 不补全 | **win** | win 同命令重跑标题可能不同；base URL 不带 `/v1` 时 win 直接 404 |
+| 7 | 截断簇安全：mac 按 grapheme / win 只防代理对（ZWJ、变体选择符、肤色修饰会被劈开） | **win** | win 极端截断点渲染出半个表情簇；注释「两端都保证不劈开簇」对 win 不成立 |
+| 8 | zcode 解析器：win 已实现 / mac 仍是惰性桩 | **mac** | mac 用户跑 ZCode 时间线零节点（README Roadmap M4） |
+| 9 | Codex 技能回显 `[$plugin:skill](…/SKILL.md)` convert：win 有 / mac 无 | **mac** | mac 展开态与复制命令带本机插件绝对路径（跨机无效且泄漏用户名，本机 20/1870 条） |
+| 10 | Kimi 裸 slash 命令过滤阈值两端不同 | **both** | 同一 wire.jsonl 在两端产出不同节点集（如 `/compact 全部` mac 丢、win 留） |
+| 11 | Kimi 项目显示名派生（前缀与标题截断口径） | **both** | 同一 session 两端项目名不同（`kimi:1a2b3c4d` vs `1a2b3c4d`） |
 
 ## 5. 实施计划
 
@@ -144,8 +161,13 @@ L2 规整是**有损**变换，L3 钳制是**无损**的。历史上两者被混
   32KB 预算），接入结果行派生 / RuleSummarizer / 词典 lastContext 三处作用点；删除
   `StripMarkdownNoise`；`Store.SetResultLine` 空串兜底；golden 基准
   `docs/normalize-cases.tsv`（48 例）+ 幂等断言，CoreSmokeTest 225 全绿；
-- **Phase C（下一步，mac）**：按本文 §3 v2 移植 `TextNormalizer`、接同样三个作用点、
-  读同一份 `docs/normalize-cases.tsv` 断言；同时拉平 §4 分叉（优先级见下）；
+- **Phase C ✅ 已完成（mac，2026-07-27）**：按 §3 v2 移植 `TextNormalizer`（三档、逐行
+  状态机、32KB 预算），接结果行/规则摘要/词典 lastContext 三个作用点，读同一份
+  `docs/normalize-cases.tsv` 断言（48 例 + 幂等）；P0 slash 命令 strip→convert
+  （本机语料 79 条从 0 产出恢复为 79 条）、P1 resultLine 首段语义、P4 常量护栏化；
+  增量审查确认并修复 6 处 ICU/.NET 分叉（哨兵回填须 ordinal、行尾 TrimEnd 须覆盖
+  全角空格、`useUnixLineSeparators`、assistant 缺 isSidechain 守卫、回显块判定须先
+  trim）；mac 33 测试 + win 225 断言全绿；
 - **Phase D（已列入待办 = README Roadmap **M5**，2026-07-27）**：结果详情富文本渲染
   （代码块/表格/可点链接）。
   ⚠ 前置约束：L2 是不可逆有损变换、`FullText` 不落库、`TaskComplete` 无 source_offset，
@@ -159,12 +181,12 @@ L2 规整是**有损**变换，L3 钳制是**无损**的。历史上两者被混
 
 | 优先级 | 项 | 说明 |
 |---|---|---|
-| **P0** | slash 命令 strip → convert | mac 现把 `<command-name>` 整条丢弃，**171 次用户命令根本不产生节点**——README 承诺「你提交过的每条命令」，丢节点比文本不整洁严重一个量级 |
-| **P1** | resultLine 语义对齐 | mac 现为「全文拍平截 160」，应改为「规整 → 首段 → ≤500」，与 win 一致 |
-| **P2** | TextNormalizer 移植 | 逐条按 §3 v2；块级判定用逐行状态机（Swift 端约 30 行）；`NSRegularExpression`(ICU) 不支持可变长 lookbehind，本文所用正则均在共同子集内；`\x1b` 在 Swift 写 `\u{1B}` |
-| **P3** | L1 增量项 | mac 已有 10 个 ignoredPrefixes，需补 `<task-notification>`；`<system-reminder>` 防御性成对剥除 |
+| **P0** ✅ | slash 命令 strip → convert | mac 现把 `<command-name>` 整条丢弃，**171 次用户命令根本不产生节点**——README 承诺「你提交过的每条命令」，丢节点比文本不整洁严重一个量级 |
+| **P1** ✅ | resultLine 语义对齐 | mac 现为「全文拍平截 160」，应改为「规整 → 首段 → ≤500」，与 win 一致 |
+| **P2** ✅ | TextNormalizer 移植 | 逐条按 §3 v2；块级判定用逐行状态机（Swift 端约 30 行）；`NSRegularExpression`(ICU) 不支持可变长 lookbehind，本文所用正则均在共同子集内；`\x1b` 在 Swift 写 `\u{1B}` |
+| **P3** ✅ | L1 增量项 | mac 已有 10 个 ignoredPrefixes，需补 `<task-notification>`；`<system-reminder>` 防御性成对剥除 |
 | **P4** ✅ | 常量统一 | **已完成（2026-07-27）**：改为「存储只留护栏、显示层负责钳制」——常量不再是排版决策，双端同表（`Core/DisplayLimits.{swift,cs}`：标题 120 / 要点 200×6 / 代号定义 120 / 结果行 500 / prompt 4000）。定档依据是 mac 431 节点实测（标题 p50=14 / p90=25 / max=41；旧 mac 40 只在 0.7% 触发、旧 win 20 会咬掉约 15%），护栏取 max 的 3 倍。**两端折叠态 UI 零变化**，完整内容由三级渐进披露给出（见 §3.5）。长度计量口径差异（win UTF-16 / mac grapheme）在护栏水位下不可能触发 |
-| **P5** | 互抄单端优势 | mac→win：`attachment.queued_command` 补录；win→mac：codex JSON 候选提取、时间戳容错回退 |
+| **P5** ◐ | 互抄单端优势 | mac→win：`attachment.queued_command` 补录；win→mac：codex JSON 候选提取、时间戳容错回退 |
 
 ### 5.2 已知未决（诚实记录）
 
@@ -177,3 +199,22 @@ L2 规整是**有损**变换，L3 钳制是**无损**的。历史上两者被混
    库里已存文本，bump 只会在混合数据上空跑一遍；
 3. **agent 结果侧的注入块**：L1 前缀过滤只作用于命令通道，若结果文本混入
    `<system-reminder>` 类标签目前无拦截。本机语料 0 命中，暂不处理。
+
+### 5.3 Windows 同步清单（Phase C'，按产品损害排序）
+
+> 来源：Phase C 完成后的三路双端审计（解析层 / 摘要-存储-词典层 / 测试与文档），
+> 每条均经独立对抗验证在两端实跑复现。归属 win 的 7 条，按修的价值排序。
+> **开工 prompt 即贴即用：[windows/SYNC-KICKOFF-PROMPT.md](../windows/SYNC-KICKOFF-PROMPT.md)**。
+
+| 优先级 | 项 | 落点 | 最小修法 |
+|---|---|---|---|
+| **W0** | `attachment.queued_command` 补录（丢用户命令） | `Core/Parsers/ClaudeParser.cs` ParseLines | 加 `else if (type == "attachment")` 分支（约 25 行）：`attachment.type == "queued_command"` 且非 sidechain 时，把 `attachment.prompt` 当 UserCommand 走既有落库路径（唯一索引已覆盖重复 tail） |
+| **W1** | 摘要失败重试与 attempts 上限 | `Core/Store.cs` + `Core/Summarize/SummaryEngine.cs` | `nodes` 加 `summary_attempts` 列（幂等 ALTER）；失败时 bump 后 <3 才重入队（延迟约 1s）；`RetryPendingSummaries` 过滤 attempts<3；设置「应用」时清零 |
+| **W2** | 摘要队列改最新优先 | `Core/Summarize/SummaryEngine.cs` | FIFO Channel 换成按 ts 降序的 PriorityQueue，Channel 只留作唤醒信号 |
+| **W3** | `SetResultLine` 补时间戳护栏 | `Core/Store.cs` + 调用点 | 签名加 `DateTimeOffset before`，SQL 加 `AND ts <= $ts`（与同文件 `LatestNodeId` 拉齐，保留 win 自己的 `id DESC` tiebreak） |
+| **W4** | 摘要 prompt 注入 agent/project 上下文 + 常量走 DisplayLimits | `Core/Summarize/ISummarizer.cs` | `BuildPrompt(UserCommand)` 取代裸字符串；首句与 mac 逐字一致；私有 `PromptInputLimit` 改用 `DisplayLimits.PromptInput`（P4 漏网） |
+| **W5** | Provider 请求构造对齐 | `Core/Summarize/ProviderSummarizer.cs` | temperature 0.2→0；base URL 不以 `/v1` 结尾时自动补 `/v1`；超时 30s→60s |
+| **W6** | `Clip` 改按 grapheme 簇计量 | `Core/Parsers/IAgentSessionParser.cs` | 用 `StringInfo.GetNextTextElementLength` 走 UAX-29 簇，与 mac `String.count` 同口径；并修正注释里「两端都保证不劈开簇」的失实表述 |
+
+mac 侧对应待办：zcode 解析器实现（README M4）、Codex 技能回显 convert；
+双端共同待定：Kimi 裸 slash 阈值与项目名派生口径（§4.2 第 10/11 条，需先定规范再双端落）。
