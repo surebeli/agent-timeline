@@ -151,9 +151,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let timelineView = TimelineView(
             viewModel: viewModel,
             onTogglePin: { [weak self] in self?.panel.applyLevel() },
-            onOpenSettings: { [weak self] in self?.openSettings() },
-            onHide: { [weak self] in self?.panel.orderOut(nil) })
+            onOpenSettings: { [weak self] in self?.openSettings() })
         let hosting = HoverReportingHostingView(rootView: AnyView(timelineView))
+        // SwiftUI 默认为标题栏留安全区，会把头部整体下压一个标题栏高度，
+        // 交通灯与标题被迫分成两行。挂件竖向空间寸土寸金——让内容顶到窗口顶，
+        // 头部与交通灯同排（原生 Safari/Finder 工具栏就是这个关系）。
+        hosting.safeAreaRegions = []
         panel = FloatingPanel(contentView: hosting)
         hosting.onHoverChange = { [weak self] hovering in
             self?.panel.setHovering(hovering)

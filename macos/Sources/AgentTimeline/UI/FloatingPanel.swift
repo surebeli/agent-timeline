@@ -5,7 +5,7 @@ import SwiftUI
 /// focus from the frontmost app; it may still become key (for text selection)
 /// without activating us. Opacity follows hover/key state:
 /// readable (~0.95) while hovered or key, near-transparent (~0.25) otherwise.
-final class FloatingPanel: NSPanel {
+final class FloatingPanel: NSPanel, NSWindowDelegate {
     /// Posted (userInfo["hold": Bool]) while a popover/menu anchored in the panel
     /// is open, so the panel stays readable even though the mouse left it.
     static let holdReadableNotification = Notification.Name("PanelHoldReadable")
@@ -23,13 +23,18 @@ final class FloatingPanel: NSPanel {
             width: tokens.panel.defaultWidth, height: tokens.panel.defaultHeight)
         super.init(
             contentRect: frame,
-            styleMask: [.nonactivatingPanel, .titled, .resizable, .fullSizeContentView],
+            styleMask: [.nonactivatingPanel, .titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false)
 
+        // 原生 caption：真交通灯（只留关闭），不是自绘图标。
+        // 实测本窗类可用性——close：加 .closable 即可用；miniaturize：NSPanel 默认
+        // 禁用，且挂件没有 Dock 图标，最小化语义上无处可去；zoom：把半透明侧栏
+        // 时间线"最大化"没有意义。macOS 自家的工具面板（字体面板、检查器）同样
+        // 只给关闭，所以这里保持一致而不是硬凑三颗。
+        title = "Agent Timeline"      // 隐藏显示，但让 Mission Control / 截图选择器认得出
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
-        standardWindowButton(.closeButton)?.isHidden = true
         standardWindowButton(.miniaturizeButton)?.isHidden = true
         standardWindowButton(.zoomButton)?.isHidden = true
 
@@ -60,6 +65,7 @@ final class FloatingPanel: NSPanel {
         effect.addSubview(contentView)
         self.contentView = effect
 
+        delegate = self     // 自任 delegate：windowShouldClose 走「收回菜单栏」
         applyLevel()
         restoreFrame()
 
@@ -81,6 +87,13 @@ final class FloatingPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    /// 菜单栏挂件的原生语义：关闭 = 收回菜单栏，进程继续驻留。
+    /// 挂在 windowShouldClose 上，⌘W 与交通灯走的是同一条路径（原生一致）。
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        orderOut(nil)
+        return false
+    }
 
     // MARK: - Hover / focus driven opacity
 

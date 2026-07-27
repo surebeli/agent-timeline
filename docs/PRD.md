@@ -85,6 +85,13 @@
 ### 3.5 窗口与交互（F5）
 
 - 入口：mac menu bar（NSStatusItem）/ win 系统托盘；可选隐藏 Dock 图标（纯挂件模式）；
+- **原生 caption（mac，2026-07-28）**：用系统真交通灯而非自绘图标——`.closable` 给出可用的
+  关闭按钮，与标题、工具控件同排（内容忽略标题栏安全区，头部高度对齐 28pt 标题栏）。
+  **只给关闭**是本窗类的原生事实而非偷懒：实测 NSPanel 的最小化按钮默认禁用（须显式
+  `.miniaturizable` 才活），而菜单栏挂件没有 Dock 图标、最小化无处可去；缩放对半透明侧栏
+  时间线亦无意义——macOS 自家工具面板（字体面板、检查器）同样只给关闭。
+  关闭语义 = 收回菜单栏、进程驻留（`windowShouldClose` 返回 false + orderOut），
+  因此 ⌘W 与交通灯走同一条原生路径；
 - 半透明浮窗：hover → 约 95% 不透明；失焦 → 约 25%（两档均可在设置中调节）；过渡带动画；
 - always-on-top 开关（mac：window level floating；win：Topmost）；
 - 非激活面板：点击 timeline 不抢占当前 app 焦点（mac NSPanel nonactivatingPanel）；

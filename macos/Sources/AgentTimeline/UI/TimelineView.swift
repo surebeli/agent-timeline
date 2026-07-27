@@ -7,7 +7,6 @@ struct TimelineView: View {
     @Bindable var viewModel: TimelineViewModel
     let onTogglePin: () -> Void
     let onOpenSettings: () -> Void
-    let onHide: () -> Void
 
     @AppStorage(SettingsKey.alwaysOnTop) private var alwaysOnTop = true
 
@@ -15,8 +14,11 @@ struct TimelineView: View {
         VStack(spacing: 0) {
             header
                 .padding(.horizontal, tokens.spacing.panelPadding)
-                .padding(.top, tokens.spacing.panelPadding)
                 .padding(.bottom, 8)
+                // 头部整体高度对齐系统标题栏（28pt），内容垂直居中 →
+                // 标题与右侧控件正好落在交通灯那一行上。
+                .frame(height: 28, alignment: .center)
+                .padding(.top, 4)
             Divider().opacity(0.4)
             timeline
         }
@@ -26,14 +28,16 @@ struct TimelineView: View {
         .background(tokens.color.panelScrim.color)
     }
 
+    /// 原生交通灯占位：按钮由系统绘制在标题栏左上角（x≈7，直径 14），
+    /// 头部内容让出这段宽度，避免压在按钮上。
+    private static let trafficLightInset: CGFloat = 26
+
     private var header: some View {
         HStack(spacing: 8) {
-            Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(tokens.color.accent.color)
             Text("Agent Timeline")
                 .font(.system(size: tokens.typography.size.title, weight: .semibold))
                 .foregroundStyle(tokens.color.textPrimary.color)
+                .padding(.leading, Self.trafficLightInset)
             Spacer()
             projectMenu
             kindMenu
@@ -55,13 +59,6 @@ struct TimelineView: View {
             }
             .buttonStyle(.plain)
             .help("设置")
-            Button(action: onHide) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(tokens.color.textTertiary.color)
-            }
-            .buttonStyle(.plain)
-            .help("隐藏面板（menu bar 图标可重新打开）")
         }
     }
 
