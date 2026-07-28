@@ -454,6 +454,46 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(parser.watchRoots().map(\.lastPathComponent), ["agents"])
     }
 
+    // MARK: - 跨端合并审计同步项（§4.2b A1–A3）
+
+    /// A1：子 agent 的 wire 整文件排除（与 Claude isSidechain 同语义）——
+    /// 它与 main 共用 session 目录名，不排除会把子 agent 回复挂到 main 的节点上。
+    func testKimiSubAgentExcluded() {
+        let parser = KimiParser()
+        let root = ParserSupport.home("~/.kimi-code/sessions")
+        let main = root.appendingPathComponent("wd_p_aabbccddeeff/session_x/agents/main/wire.jsonl")
+        let sub = root.appendingPathComponent("wd_p_aabbccddeeff/session_x/agents/agent-0/wire.jsonl")
+        XCTAssertNotNil(parser.makeContext(for: main), "main 必须收")
+        XCTAssertNil(parser.makeContext(for: sub), "子 agent 必须整文件排除")
+        // 路径形状不符也不认（否则 sessionId 会退化成上级目录名）
+        XCTAssertNil(parser.makeContext(
+            for: root.appendingPathComponent("wd_p/session_x/wire.jsonl")))
+    }
+
+    /// A2：codex 注入块——<task> 去壳保留正文，其余标签整条跳过。
+    func testCodexInjectedBlocks() {
+        XCTAssertEqual(
+            CodexParser.unwrapInjectedBlock("<task>\n修复登录闪退\n</task>"), "修复登录闪退")
+        XCTAssertNil(CodexParser.unwrapInjectedBlock("<heartbeat>{\"automation_id\":1}</heartbeat>"))
+        XCTAssertNil(CodexParser.unwrapInjectedBlock("<user_instructions>…</user_instructions>"))
+        XCTAssertNil(CodexParser.unwrapInjectedBlock("<task></task>"), "空壳不产出节点")
+        // 正常文本原样通过
+        XCTAssertEqual(CodexParser.unwrapInjectedBlock("普通命令"), "普通命令")
+    }
+
+    /// A3：结果行不得退化成光秃秃的标题（Kimi 回复几乎总以 `## Summary` 起头）。
+    func testResultExcerptDropsLeadingHeadings() {
+        XCTAssertEqual(
+            ParserSupport.resultExcerpt("## Summary\n\n已完成登录改造，回归通过。"),
+            "已完成登录改造，回归通过。")
+        XCTAssertEqual(
+            ParserSupport.resultExcerpt("# 标题\n## 副标题\n\n真正的结论"), "真正的结论")
+        // 整段只有标题 → 保留标题而不是变空（§3.4-1 永不写空串）
+        XCTAssertEqual(ParserSupport.resultExcerpt("## Summary"), "Summary")
+        // 无标题时行为不变
+        XCTAssertEqual(ParserSupport.resultExcerpt("直接就是结论。\n\n第二段"), "直接就是结论。")
+    }
+
     // MARK: - Codename lifecycle（用户场景回归）
 
     /// 场景1：会话中把需求编号成 N1/N2/N3，后续出现 "N2完成" "N3变更"。

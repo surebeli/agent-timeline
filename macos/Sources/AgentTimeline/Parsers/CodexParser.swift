@@ -56,6 +56,33 @@ struct CodexParser: AgentSessionParser {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// A2（Windows 本机 168 万行语料实证）：codex 的 user_message 里混着编排器
+    /// 注入块。`<task>…</task>` 是**给用户真实任务加的壳**（72 条）→ 去壳保留正文；
+    /// 其余标签是自动化自发的（`<heartbeat>` 等）→ 整条跳过。修前 37 个节点的
+    /// 标题字面就是 `<task>`。
+    private static let taskWrapperRegex = try! NSRegularExpression(
+        pattern: #"^<task>\s*([\s\S]*?)\s*</task>\s*$"#)
+
+    private static let ignoredCodexBlocks = [
+        "<user_instructions", "<environment_context", "<heartbeat",
+        "<environments_instructions", "<apps_instructions", "<skills_instructions",
+        "<plugins_instructions", "<collaboration_mode", "<multi_agent_mode",
+        "<context_window", "<turn_aborted",
+    ]
+
+    /// - Returns: `nil` 表示整条跳过；否则是去壳后的正文。
+    static func unwrapInjectedBlock(_ text: String) -> String? {
+        let lower = text.lowercased()
+        if ignoredCodexBlocks.contains(where: { lower.hasPrefix($0) }) { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        if let m = taskWrapperRegex.firstMatch(in: text, range: range),
+           let inner = Range(m.range(at: 1), in: text) {
+            let body = String(text[inner]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return body.isEmpty ? nil : body
+        }
+        return text
+    }
+
     func parse(line: String, context: inout ParsedFileContext) -> [SessionEvent] {
         guard let obj = ParserSupport.json(line), let type = obj["type"] as? String else { return [] }
         let payload = obj["payload"] as? [String: Any] ?? [:]
@@ -83,8 +110,9 @@ struct CodexParser: AgentSessionParser {
                 guard let raw = payload["message"] as? String else { return [] }
                 // 与 win 一致：先 trim 再判定与落库（否则同一条命令两端正文差
                 // 空白，连节点 id 都不同）。
-                let text = Self.convertSkillEcho(
-                    raw.trimmingCharacters(in: .whitespacesAndNewlines))
+                guard let unwrapped = Self.unwrapInjectedBlock(
+                    raw.trimmingCharacters(in: .whitespacesAndNewlines)) else { return [] }
+                let text = Self.convertSkillEcho(unwrapped)
                 guard !ParserSupport.isIgnoredContent(text) else { return [] }
                 let cmd = UserCommand(
                     agent: .codex,

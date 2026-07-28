@@ -180,14 +180,14 @@ L2 规整是**有损**变换，L3 钳制是**无损**的。历史上两者被混
 > （1681 codex / 862 claude / 187 kimi / 46 zcode）。本机补做四路审计，
 > 每条都有实跑实证（编译产物 + 真实语料统计 + 临时库端到端）。
 
-**已在 Windows 修复（b977e10），mac 需同步：**
+**已在 Windows 修复（b977e10），mac 已同步（2026-07-28）：**
 
 | # | 缺陷 | 实证 | mac 落点 |
 |---|---|---|---|
-| **A1** | **Kimi 子 agent 结果行串台**：`agents/agent-N/wire.jsonl` 与 main 共用 `session_<uuid>` 目录名 → 共用 sessionId。子 agent 的"问"是 `system_trigger`（已过滤）、"答"是普通 content.part，于是 `SetResultLine` 把子 agent 回复挂到 main 的命令节点上 | 本机 67 个子 agent 文件 / 63 条回复；临时库端到端：**5 个节点结果行被错配**（「时间不对，重新校准下时间」→「已完成 p2 交叉审核。」），代号词典多 4 条只源自子 agent 的条目。回填按 mtime 升序时恰好掩盖，**实时 tail 必踩** | `KimiParser.swift` 的 `makeContext` 同样只取 `sessionDir.lastPathComponent` |
-| **A2** | **codex 注入块泄漏**：过滤名单在 168 万行语料上命中 0，73 条 user_message 以裸标签开头全部漏入 | **37 个节点标题字面是 `<task>`**；`<task>` 72 条（编排器给用户真实任务加的壳 → 应去壳）、`<heartbeat>` 1 条（automation_id/current_time_iso，自动化自发 → 应跳过） | `CodexParser.swift` 同名过滤 |
-| **A3** | **结果行退化成光秃秃的标题**：Kimi 回复几乎总以 `## Summary` 开头，规整后首段就是那一个词 | 用户库里 kimi **7 条结果行字面是 "Summary"**；≤12 字符占比 kimi 38.9% vs codex 4.0% / claude 3.8% / zcode 0% | `ParserSupport.resultExcerpt` 同一套逻辑 |
-| **A4** | **无 UI 字段被静默覆盖**：设置窗移除 zcode 路径输入后该字段只剩手改 settings.json，而运行期任意保存都用内存快照盖回 | 实机复现（隔离 DataDir） | mac 若也移除了输入需同查 |
+| **A1** | **Kimi 子 agent 结果行串台**：`agents/agent-N/wire.jsonl` 与 main 共用 `session_<uuid>` 目录名 → 共用 sessionId。子 agent 的"问"是 `system_trigger`（已过滤）、"答"是普通 content.part，于是 `SetResultLine` 把子 agent 回复挂到 main 的命令节点上 | 本机 67 个子 agent 文件 / 63 条回复；临时库端到端：**5 个节点结果行被错配**（「时间不对，重新校准下时间」→「已完成 p2 交叉审核。」），代号词典多 4 条只源自子 agent 的条目。回填按 mtime 升序时恰好掩盖，**实时 tail 必踩** | `KimiParser.swift` 的 `makeContext` 同样只取 `sessionDir.lastPathComponent`  ✅ mac 同步：`agents/main` 之外整文件排除并锚定完整路径形状；本机实证 44 main / 1 子 agent 文件（1 条回复，修前会串到 main 节点） |
+| **A2** | **codex 注入块泄漏**：过滤名单在 168 万行语料上命中 0，73 条 user_message 以裸标签开头全部漏入 | **37 个节点标题字面是 `<task>`**；`<task>` 72 条（编排器给用户真实任务加的壳 → 应去壳）、`<heartbeat>` 1 条（automation_id/current_time_iso，自动化自发 → 应跳过） | `CodexParser.swift` 同名过滤  ✅ mac 同步：`<task>` 去壳保留正文、11 个注入标签整条跳过 |
+| **A3** | **结果行退化成光秃秃的标题**：Kimi 回复几乎总以 `## Summary` 开头，规整后首段就是那一个词 | 用户库里 kimi **7 条结果行字面是 "Summary"**；≤12 字符占比 kimi 38.9% vs codex 4.0% / claude 3.8% / zcode 0% | `ParserSupport.resultExcerpt` 同一套逻辑  ✅ mac 同步：先剥前导标题行再取首段，剥后为空则回退含标题原文（永不写空串）。本机语料 49 条结果行改善 1 条（`# M1-S1-KIMI-001 — prd-research output` → 真正的内容）；**本机无 `## Summary` 式开头，故 Windows 报的 7 条退化在 mac 不复现**——修法正确但此处收益小，如实记录 |
+| **A4** | **无 UI 字段被静默覆盖**：设置窗移除 zcode 路径输入后该字段只剩手改 settings.json，而运行期任意保存都用内存快照盖回 | 实机复现（隔离 DataDir） | mac 若也移除了输入需同查  ✅ **mac 不适用**：mac 用 UserDefaults，14 个 `@AppStorage` 键各自独立写入，不存在「用内存快照整体覆盖」的模型；且 zcode 路径键已随设置窗整理**整体删除**（残留引用 0） |
 
 **双端共有、待定方案（需先定语义再同时落地）：**
 
@@ -202,6 +202,21 @@ L2 规整是**有损**变换，L3 钳制是**无损**的。历史上两者被混
   方案二选一：(a) 流式只应用**本文件第一条** session_meta（与类注释「session_meta is the
   FIRST line」和 EnsureMeta 读法自洽，代价：被 resume 的会话按 rollout 各自成会话）；
   (b) EnsureMeta 扫 offset 之前全部前缀取最后一条（40MB+ 文件上代价高）。**建议 (a)**。
+
+  **mac 侧评估（2026-07-28，按任务书要求先评估后落地）**：
+  - **实证**：本机 261 个 rollout 中 55 个在第 0 行之后仍有 session_meta（44 个 id 不同）；
+    用户库里 codex 已有 **38 组 / 41 行**同 `source_file`+同正文的重复节点（34 个会话）；
+  - **对「每会话最后一条 assistant 消息」的影响——(a) 反而更正确**：现状是被 resume 的
+    rollout 在文件中途改用**原会话 id**，于是它的结果行会挂到**另一个 rollout 文件**里的
+    命令节点上（跨文件错配）；(a) 之后每个 rollout 自成会话，结果行只会挂在同文件的命令
+    上。代号挖掘同理（`latestNodeId` 也按 sessionId 找）；
+  - **对其余 UI 无影响**：时间线按「天 / 项目」分组与过滤，不按会话；代号词典按 nodeId
+    关联，不读 sessionId；
+  - **迁移代价**：已入库节点保留既有 session_id；新规则只影响此后解析。因 mac 的节点 id
+    是 `hash(agent|sessionId|ts|text)`、win 的唯一键含 session_id，**强制重扫**时同一行会
+    因 id 变化插成新行——但两端都不会主动重扫（偏移持久化），故过渡是安全的；
+  - **结论：建议按 (a) 双端同时落地**，并顺带清理库内既有重复行（可判定：同
+    `source_file` + 同正文 + 不同 session_id）。等确认。
 
 **已记录不修（可达性为 0，附实证）：**
 

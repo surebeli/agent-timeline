@@ -163,14 +163,39 @@ enum ParserSupport {
     /// 永不返回空串（§3.4-1）：规整后为空（整段是围栏/表格）时回退未规整文本，
     /// 否则会把已显示的结果行抹掉——审查确认的唯一 UI 可见回归。
     static func resultExcerpt(_ text: String, maxLength: Int = DisplayLimits.resultLine) -> String {
-        let normalized = TextNormalizer.normalize(text, profile: .excerpt)
+        // A3：Kimi 的回复几乎总以 `## Summary` 起头，直接取首段会得到光秃秃的
+        // 一个词（用户库里 7 条结果行字面就是 "Summary"；≤12 字符占比 kimi 38.9%
+        // vs codex 4.0%）。先剥掉前导标题行，让首段落在真正的内容上。
+        let normalized = TextNormalizer.normalize(dropLeadingHeadings(text), profile: .excerpt)
         var excerpt = firstParagraph(normalized)
+        if excerpt.isEmpty {
+            // 剥标题后为空 → 用含标题的原文再规整（标题总比空好）
+            excerpt = firstParagraph(TextNormalizer.normalize(text, profile: .excerpt))
+        }
         if excerpt.isEmpty {
             excerpt = firstParagraph(
                 text.replacingOccurrences(of: "\r\n", with: "\n")
                     .replacingOccurrences(of: "\r", with: "\n"))
         }
         return truncate(excerpt, to: maxLength)
+    }
+
+    /// 剥掉开头连续的 markdown 标题行（`## Summary` 之类）与其后空行。
+    private static func dropLeadingHeadings(_ text: String) -> String {
+        var lines = text.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .components(separatedBy: "\n")
+        var dropped = 0
+        while let first = lines.first {
+            let t = first.trimmingCharacters(in: .whitespaces)
+            if t.isEmpty || (t.hasPrefix("#") && t.contains(" ")) || t.allSatisfy({ $0 == "#" }) {
+                lines.removeFirst(); dropped += 1
+            } else {
+                break
+            }
+        }
+        // 整段都是标题/空行 → 保持原文，交给上层兜底
+        return dropped == 0 || lines.isEmpty ? text : lines.joined(separator: "\n")
     }
 
     private static func firstParagraph(_ text: String) -> String {

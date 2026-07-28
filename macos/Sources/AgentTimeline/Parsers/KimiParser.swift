@@ -14,6 +14,17 @@ struct KimiParser: AgentSessionParser {
 
     func watchRoots() -> [URL] { [root] }
 
+    /// 只认**主 agent** 的 wire：`…/session_<uuid>/agents/main/wire.jsonl`。
+    ///
+    /// 子 agent（`agents/agent-N/wire.jsonl`）**整文件排除**——与 Claude 侧
+    /// `isSidechain` 同语义（子 agent 的内部过程不是用户的时间线）。A1 实证：
+    /// 子 agent 目录与 main 共用 `session_<uuid>` 目录名 → 共用 sessionId，
+    /// 而它的「问」是 `origin.kind==system_trigger`（已被正确过滤）、「答」却是
+    /// 普通 content.part —— 于是结果行被挂到 main 的命令节点上，代号词典也会
+    /// 混入只源自子 agent 的条目。Windows 本机实测 67 个子 agent 文件 / 63 条
+    /// 回复 → 5 个节点结果行被抢占。
+    ///
+    /// 同时锚定完整路径形状：形状不符时旧写法会把 sessionId 退化成上级目录名。
     func makeContext(for url: URL) -> ParsedFileContext? {
         guard url.lastPathComponent == "wire.jsonl",
               url.path.hasPrefix(root.path) else { return nil }
@@ -22,7 +33,9 @@ struct KimiParser: AgentSessionParser {
         let agentsDir = agentDir.deletingLastPathComponent()    // agents
         let sessionDir = agentsDir.deletingLastPathComponent()  // session_<uuid>
         let projectDir = sessionDir.deletingLastPathComponent() // wd_<name>_<hash>
-        guard agentsDir.lastPathComponent == "agents" else { return nil }
+        guard agentDir.lastPathComponent == "main",
+              agentsDir.lastPathComponent == "agents",
+              sessionDir.lastPathComponent.hasPrefix("session_") else { return nil }
 
         return ParsedFileContext(
             url: url,
