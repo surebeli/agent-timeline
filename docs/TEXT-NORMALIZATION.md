@@ -144,13 +144,34 @@ L2 规整是**有损**变换，L3 钳制是**无损**的。历史上两者被混
 
 ### 4.2 仍存在的分叉
 
-| # | 分叉 | 归属 | 用户可见后果 |
-|---|---|---|---|
-| ~~1–7~~ | ~~win 侧 7 项~~ | ~~win~~ | **✅ 全部完成（2026-07-28，W0–W6，见 §5.3）** |
-| 8 | zcode 解析器：win 已实现 / mac 仍是惰性桩 | **mac** | mac 用户跑 ZCode 时间线零节点（README Roadmap M4） |
-| 9 | Codex 技能回显 `[$plugin:skill](…/SKILL.md)` convert：win 有 / mac 无 | **mac** | mac 展开态与复制命令带本机插件绝对路径（跨机无效且泄漏用户名，本机 20/1870 条） |
-| 10 | Kimi 裸 slash 命令过滤阈值两端不同 | **both** | 同一 wire.jsonl 在两端产出不同节点集（如 `/compact 全部` mac 丢、win 留） |
-| 11 | Kimi 项目显示名派生（前缀与标题截断口径） | **both** | 同一 session 两端项目名不同（`kimi:1a2b3c4d` vs `1a2b3c4d`） |
+> **2026-07-28 四路解析器对拍复核**（每家 agent 一路逐行比对 + 对抗验证；
+> Claude 67 例差分执行、Kimi 两端跑同一批 45 个真实 session 逐行 diff、
+> Codex 在 260 个真实 rollout 上跑 resume 模式）。结论按家族：
+
+| 家族 | 结论 | 证据 |
+|---|---|---|
+| **Claude** | 主线一致 ✅，5 处边缘分叉 | 67 例差分执行：产出节点的行、slash 回显双字段序+args、bash 直通、tool_result 跳过、isMeta/isSidechain、sessionId/project、queued_command 补录**逐字节相同** |
+| **Kimi Code** | **完全一致** ✅ | 两端跑同一批 45 个真实 session：45 文件 / 41 命令 / 50 结果行，项目名·sessionId·毫秒时间戳·正文**逐行 diff 无差异** |
+| **Codex** | **major 分叉** ❌ | 同一语料上「哪些行产出节点」一致（1874 命令 / 2002 结果行），但项目名与自摄取行为不同（见下表） |
+| **zcode** | **单端实现** ❌ | mac 是惰性桩：`watchRoots()` 返空、`parse()` 恒返 `[]`，同一份 transcript 在 win 产出节点、在 mac 零节点 |
+
+剩余分叉清单（`~~删除线~~` = 已修）：
+
+| # | 分叉 | 归属 | 严重度 | 用户可见后果 |
+|---|---|---|---|---|
+| ~~1–7~~ | ~~win 侧 W0–W6~~ | ~~win~~ | — | ✅ 2026-07-28 完成 |
+| ~~10~~ | ~~Kimi 裸 slash 阈值~~ | ~~both~~ | — | ✅ 2026-07-28 统一（含参数即保留） |
+| ~~11~~ | ~~Kimi 项目名派生~~ | ~~both~~ | — | ✅ 2026-07-28 随换代重写，两端同源 |
+| 8 | zcode 解析器：win 已实现 / mac 惰性桩 | **mac** | 高 | mac 跑 ZCode 时间线零节点（Roadmap M4） |
+| 12 | Codex mid-file meta 恢复：mac 首行重读**截断在 16 KB** | **mac** | 高 | 实测 260 个 rollout 里 169 个首行 >16 KB；重启后续扫时 **379/1874 条命令**项目名退化成 `codex`（win 显示真实项目名如 `NECallKit`） |
+| 13 | Codex 摘要器自摄取：mac 有 scratch 目录排除 / win 无 | **win** | 高 | 摘要引擎解析到 codex 时，win 会把自己发出的每条摘要 prompt 当成用户命令收进时间线（自摄取回路） |
+| 9 | Codex 技能回显 `[$plugin:skill](…SKILL.md)` convert：win 有 / mac 无 | **mac** | 中 | mac 展开态与复制命令带本机插件绝对路径（跨机无效、泄漏用户名；本机 20/1870 条） |
+| 14 | Claude 时间戳容错：mac 解析失败**丢整行** / win 回退当前时间 | **mac**\* | 中 | 语料实测 0/85902 触发（防御性）。\*两端各有问题：win 的 now 回退会让节点跳到时间线顶部且参与唯一键→重扫产生重复行；正解是**双端都放宽形态、但对无法解析的值取确定性策略** |
+| 15 | Claude L1 忽略前缀表：mac 11 条且不含 `>` / win 9 条且必须含 `>` | **win** | 中 | `<user_instructions>…`、`<environment_context>…`、带属性的 `<system-reminder priority="high">…` 在 win 会变成垃圾节点，mac 正确丢弃 |
+| 16 | Claude assistant 多 text 段：mac 拼接全部 / win 只取首段 | **both** | 低 | 分段回复的结果行两端不同（语料未触发） |
+| 17 | Claude `queued_command` prompt：mac 未 trim / win 已 trim | **mac** | 低 | 带前后空白的排队命令，mac 节点正文含多余空白 |
+| 18 | Claude project：mac 跨行沿用 cwd / win 每行独立回退目录 slug | **win** | 低 | 无 cwd 的行在 win 显示转义 slug（`-Users-x-work-proj`）而非项目名 |
+| 19 | Codex user_message 首尾空白：mac 不 trim / win trim | **mac** | 中 | 同一命令两端正文差空白，节点 id 亦不同 |
 
 ## 5. 实施计划
 
