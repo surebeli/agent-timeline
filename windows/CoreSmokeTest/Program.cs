@@ -49,6 +49,7 @@ internal static class Program
         SummaryJsonExtractionRobustness();
         TextNormalizerGoldenCases();
         ResultExcerptFallback();
+        ResultExcerptSkipsHeadings();
         ResultExcerptParagraph();
         ClipSurrogateSafety();
 
@@ -771,6 +772,16 @@ internal static class Program
         Check(parser.CanHandle(path), "kimi: CanHandle .kimi-code 下的 wire.jsonl");
         Check(!parser.CanHandle(Path.Combine(Path.GetTempPath(), ".kimi", "sessions", "h", "s", "wire.jsonl")),
             "kimi: 旧 .kimi 布局不再接手");
+        // 子 agent 整文件排除（同 Claude 的 isSidechain 语义）：它与 main 共用
+        // session_<uuid> 目录名 → 共用 sessionId，其回复会抢占 main 命令节点的结果行
+        // （实机审计：本机 67 个子 agent 文件、63 条回复，5 个节点结果行被错配）。
+        Check(!parser.CanHandle(Path.Combine(Path.GetTempPath(), ".kimi-code", "sessions",
+            "wd_x_0123456789ab", "session_a", "agents", "agent-7", "wire.jsonl")),
+            "kimi: 子 agent 的 wire 整文件不接手");
+        // 路径形状锚定：形状不符时旧实现会把 sessionId 退化成 ".kimi-code"、project 退化成用户名
+        Check(!parser.CanHandle(Path.Combine(Path.GetTempPath(), ".kimi-code", "sessions",
+            "wd_x_0123456789ab", "wire.jsonl")),
+            "kimi: 缺 session_/agents 层级的浅路径不接手");
         Check(!parser.CanHandle(Path.Combine(Path.GetDirectoryName(path)!, "transcript.jsonl")),
             "kimi: 其他文件名不接手");
 
@@ -820,6 +831,24 @@ internal static class Program
         Check(prompt.Contains("Claude"), "W4: prompt 注入 agent 名");
         Check(prompt.Contains("项目：proj"), "W4: prompt 注入项目名");
         Check(prompt.Contains("用户命令原文："), "W4: 正文骨架与 mac 一致");
+    }
+
+    /// <summary>
+    /// 结果行不再退化成光秃秃的标题（实机审计：kimi 回复几乎总以 `## Summary` 开头，
+    /// 用户库里 7 条结果行字面就是 "Summary"，≤12 字符占比 38.9%）。
+    /// </summary>
+    private static void ResultExcerptSkipsHeadings()
+    {
+        CheckEqual(ParserUtil.ResultExcerpt("## Summary\n\nI independently reviewed the draft."),
+            "I independently reviewed the draft.", "excerpt: 剥掉 ## 标题取正文段");
+        CheckEqual(ParserUtil.ResultExcerpt("# RCA Output — x\n\n## Summary\n\n根因是分区倾斜。"),
+            "根因是分区倾斜。", "excerpt: 连续多级标题全部剥掉");
+        CheckEqual(ParserUtil.ResultExcerpt("# 只有标题"), "只有标题",
+            "excerpt: 全篇皆标题时回退到标题本身（永不空串）");
+        CheckEqual(ParserUtil.ResultExcerpt("#include <stdio.h> 已引入\n\n次段"),
+            "#include <stdio.h> 已引入", "excerpt: #include 不是标题（需尾随空格）");
+        CheckEqual(ParserUtil.ResultExcerpt("正文在前。\n\n## 后面的标题不动"),
+            "正文在前。", "excerpt: 只剥开头，正文中的标题不受影响");
     }
 
     /// <summary>W3 结果行时间戳护栏 + W5 provider 请求构造对齐。</summary>
@@ -952,10 +981,18 @@ internal static class Program
         {
             new(0, Line(@"[$hopper:continue](C:\Users\me\.codex\plugins\cache\hopper\0.1\skills\continue\SKILL.md) 按既定目标推进")),
             new(1, Line("普通 codex 命令")),
+            // 编排器包装：壳不是人写的，芯是（本机语料 72 条，此前 37 个节点标题字面是 "<task>"）
+            new(2, Line("<task>\n严苛审核路线图文件 04-roadmap.md。\n\n背景：R5 基线 45.9%。\n</task>")),
+            // 自动化循环自发的轮次，不是用户命令（含 automation_id/current_time_iso）
+            new(3, Line("<heartbeat>\n  <automation_id>f016-coordinator</automation_id>\n</heartbeat>")),
+            // 带属性的注入块：裸标签名匹配才挡得住（带 '>' 的前缀匹配不上）
+            new(4, Line("<environment_context version=\"2\">\ncwd=F:\\x\n</environment_context>")),
         }).OfType<UserCommand>().ToList();
-        CheckEqual(events.Count, 2, "codex skill echo: 两条都保留");
+        CheckEqual(events.Count, 3, "codex: heartbeat 与带属性注入块被跳过");
         CheckEqual(events[0].Text, "$hopper:continue 按既定目标推进", "codex skill echo: 徽标留下路径剥掉");
         CheckEqual(events[1].Text, "普通 codex 命令", "codex skill echo: 普通命令不受影响");
+        CheckEqual(events[2].Text, "严苛审核路线图文件 04-roadmap.md。\n\n背景：R5 基线 45.9%。",
+            "codex: <task> 去壳留正文");
     }
 
     /// <summary>

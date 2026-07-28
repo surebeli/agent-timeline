@@ -94,10 +94,56 @@ internal static class ParserUtil
     /// </summary>
     public static string ResultExcerpt(string text, int maxLength = 500)
     {
-        var normalized = Text.TextNormalizer.Normalize(text, Text.NormalizeProfile.Excerpt);
+        var body = DropLeadingHeadings(text.ReplaceLineEndings("\n"));
+        var normalized = Text.TextNormalizer.Normalize(body, Text.NormalizeProfile.Excerpt);
         var excerpt = FirstParagraph(normalized);
+        // 兜底链：剥标题后为空 → 用原文（含标题）再规整；仍为空 → 未规整原文。
+        // 永不返回空串（§3.4-1）。
+        if (excerpt.Length == 0)
+        {
+            excerpt = FirstParagraph(
+                Text.TextNormalizer.Normalize(text, Text.NormalizeProfile.Excerpt));
+        }
         if (excerpt.Length == 0) excerpt = FirstParagraph(text.ReplaceLineEndings("\n"));
         return Clip(excerpt, maxLength);
+    }
+
+    /// <summary>
+    /// 剥掉回复开头的 markdown 标题行，让首段落在**正文**上。
+    ///
+    /// 实机审计：Kimi 的回复几乎总以 `## Summary` / `# RCA Output — …` 开头，规整后
+    /// 首段就是那一个词——用户库里 kimi 结果行有 7 条字面就是 "Summary"，
+    /// ≤12 字符的占比 38.9%（对比 codex 4.0% / claude 3.8% / zcode 0%）。
+    /// 判据严格用「行首 #{1,6} + 空格」（与 §3.3 标题规则同一判据，不误伤 `#include`），
+    /// 只在开头连续剥；正文里的标题不动。全篇皆标题时由上面的兜底链回到原文。
+    /// </summary>
+    private static string DropLeadingHeadings(string text)
+    {
+        var i = 0;
+        while (i < text.Length)
+        {
+            var lineEnd = text.IndexOf('\n', i);
+            var line = (lineEnd < 0 ? text[i..] : text[i..lineEnd]).Trim();
+            if (line.Length == 0)                       // 跳过空行继续看下一行
+            {
+                if (lineEnd < 0) break;
+                i = lineEnd + 1;
+                continue;
+            }
+            if (!IsAtxHeading(line)) break;             // 遇到正文行 → 停
+            if (lineEnd < 0) return "";                 // 全篇皆标题
+            i = lineEnd + 1;
+        }
+        return i == 0 ? text : text[i..];
+
+        static bool IsAtxHeading(string line)
+        {
+            var hashes = 0;
+            while (hashes < line.Length && line[hashes] == '#') hashes++;
+            return hashes is >= 1 and <= 6 &&
+                   hashes < line.Length &&
+                   (line[hashes] == ' ' || line[hashes] == '\t');
+        }
     }
 
     private static string FirstParagraph(string text)

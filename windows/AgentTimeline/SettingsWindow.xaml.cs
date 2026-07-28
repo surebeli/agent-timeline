@@ -101,7 +101,12 @@ public sealed partial class SettingsWindow : Window
         s.EnableCodex = EnableCodexCheck.IsChecked == true;
         s.EnableKimi = EnableKimiCheck.IsChecked == true;
         s.EnableZcode = EnableZcodeCheck.IsChecked == true;
-        // ZcodeSessionRoot 无 UI，保存时原样保留已存的值（默认空 = 自动探测）。
+
+        // 无 UI 的字段（ZcodeSessionRoot，README 教用户手改 settings.json）保存前
+        // 从**磁盘**重读：内存里的 s 是启动时加载的快照，app 开着时用户手改了文件，
+        // 这里一保存就会用旧值静默盖回去（实机审计确认）。
+        var onDisk = AppSettings.Load();
+        s.ZcodeSessionRoot = onDisk.ZcodeSessionRoot;
 
         s.Save();
         App.Engine.ReloadSummarizer();

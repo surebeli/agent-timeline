@@ -30,6 +30,33 @@ public sealed class CodexParser : IAgentSessionParser
         @"^\[(\$[^\]\n]+)\]\([^)\n]*SKILL\.md\)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
+    /// <summary>&lt;task&gt;…&lt;/task&gt; 编排器包装 → 取内文（芯是用户真实任务）。</summary>
+    private static readonly Regex TaskWrapperRegex = new(
+        @"^<task>\s*(.*?)\s*</task>\s*$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline);
+
+    /// <summary>
+    /// codex 侧非人类输入块（裸标签名，容忍带属性）。语料实证：`&lt;heartbeat&gt;` 是
+    /// 自动化协调循环自发的轮次（含 automation_id/current_time_iso/instructions），
+    /// 不是用户命令；`&lt;user_instructions&gt;`/`&lt;environment_context&gt;` 是环境注入。
+    /// </summary>
+    private static readonly string[] IgnoredBlocks =
+    {
+        "<user_instructions", "<environment_context", "<heartbeat",
+        "<environments_instructions", "<apps_instructions", "<skills_instructions",
+        "<plugins_instructions", "<collaboration_mode", "<multi_agent_mode",
+        "<context_window", "<turn_aborted",
+    };
+
+    private static bool IsIgnoredCodexBlock(string text)
+    {
+        foreach (var tag in IgnoredBlocks)
+        {
+            if (text.StartsWith(tag, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
     private sealed class FileContext
     {
         public string? SessionId;
@@ -113,9 +140,18 @@ public sealed class CodexParser : IAgentSessionParser
                             var message = GetString(payload, "message");
                             if (string.IsNullOrWhiteSpace(message)) break;
                             var text = message.Trim();
-                            // Environment injections, not typed by the user.
-                            if (text.StartsWith("<user_instructions>", StringComparison.Ordinal)) break;
-                            if (text.StartsWith("<environment_context>", StringComparison.Ordinal)) break;
+                            // 环境注入 / 自动化循环发起的轮次，都不是人打的字。
+                            // ⚠ 标签一律**裸标签名匹配**（不含 '>'）——harness 会给注入块
+                            // 带属性，带 '>' 的前缀匹配不上（与 Claude 侧同一教训）。
+                            if (IsIgnoredCodexBlock(text)) break;
+                            // 编排器把用户真实任务包在 <task>…</task> 里下发（本机语料 72 条）：
+                            // 壳不是人写的，芯是——去壳留正文，否则时间线上 37 个节点的标题
+                            // 字面就是 "<task>"（实机审计发现）。
+                            if (TaskWrapperRegex.Match(text) is { Success: true } wrapped)
+                            {
+                                text = wrapped.Groups[1].Value.Trim();
+                                if (text.Length == 0) break;
+                            }
                             // 插件技能调用回显 [$plugin:skill](本地 SKILL.md 绝对路径) 开头
                             // (语料 17/70 条):保留命令徽标文字,剥掉本机路径(跨机无效
                             // 且泄漏用户名)。见 docs/TEXT-NORMALIZATION.md。

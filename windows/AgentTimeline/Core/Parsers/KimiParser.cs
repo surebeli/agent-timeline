@@ -34,10 +34,33 @@ public sealed class KimiParser : IAgentSessionParser
     private readonly Dictionary<string, (string SessionId, string Project)> _contexts =
         new(StringComparer.OrdinalIgnoreCase);
 
-    public bool CanHandle(string path) =>
-        string.Equals(Path.GetFileName(path), "wire.jsonl", StringComparison.OrdinalIgnoreCase) &&
+    /// <summary>
+    /// 只认主 agent 的 wire：`…/session_&lt;uuid&gt;/agents/main/wire.jsonl`。
+    ///
+    /// 子 agent（`agents/agent-N/wire.jsonl`）**整文件排除**——与 Claude 侧
+    /// `isSidechain` 的语义一致（子 agent 的内部过程不是用户的时间线）。
+    /// 实机审计发现：子 agent 目录与 main 共用 `session_&lt;uuid&gt;` 目录名 → 共用
+    /// sessionId，而它的"问"是 `origin.kind=system_trigger`（被正确过滤）、"答"却
+    /// 是普通 content.part —— 于是 `SetResultLine` 把子 agent 的回复挂到了 main
+    /// 的命令节点上。本机 67 个子 agent 文件、63 条回复，实测 5 个节点的结果行被
+    /// 抢占且内容完全不相干（"时间不对，重新校准下时间" → "已完成 p2 交叉审核。"），
+    /// 并向代号词典写入 4 条只源自子 agent 文本的条目。
+    ///
+    /// 顺带锚定路径形状（旧实现是裸子串匹配，形状不符时 sessionId 会退化成
+    /// ".kimi-code"、project 退化成用户名）。
+    /// </summary>
+    public bool CanHandle(string path)
+    {
         // 分隔符归一：Windows 上是 `\`，冒烟测试跑在 macOS 上会拼出 `/`。
-        path.Replace('\\', '/').Contains(".kimi-code/sessions", StringComparison.OrdinalIgnoreCase);
+        var p = path.Replace('\\', '/');
+        return MainWirePathRegex.IsMatch(p);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex MainWirePathRegex = new(
+        @"\.kimi-code/sessions/[^/]+/[^/]+/agents/main/wire\.jsonl$",
+        System.Text.RegularExpressions.RegexOptions.Compiled |
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
     public IReadOnlyList<SessionEvent> ParseLines(string path, IReadOnlyList<RawLine> lines)
     {
