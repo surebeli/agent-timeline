@@ -12,7 +12,7 @@
 ![.NET](https://img.shields.io/badge/.NET-8-10A37F)
 [![License: MIT](https://img.shields.io/badge/license-MIT-86909C)](LICENSE)
 
-<img src="docs/assets/screenshot-dark.png" width="360" alt="Agent Timeline 半透明浮窗 · 暗色背景" />
+<img src="docs/assets/screenshot-dark.png" width="380" alt="Agent Timeline 半透明浮窗：五家 agent 混排、双墨线台账、代号状态徽章" />
 
 </div>
 
@@ -82,7 +82,7 @@ swift test                                # 48 项单测
 
 设置界面：[screenshot-macos-settings.png](docs/assets/screenshot-macos-settings.png)。两端同一演示数据集拍摄（[docs/DEMO-DATASET.md](docs/DEMO-DATASET.md)），视觉规范同源 `design/design-tokens.json`。
 
-> 截图摄于四家 agent 时期（v0.4.x）；Grok Build 于 v0.5.0 接入，界面结构不变、仅多一枚 `GR` 徽标。
+> 首图摄于 v0.5.0（五家 agent 混排）；上面两组「实机一览」摄于四家 agent 时期（v0.4.x），界面结构不变、仅多一枚 `GR` 徽标。
 
 ## 工作原理
 
