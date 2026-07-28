@@ -173,6 +173,50 @@ L2 规整是**有损**变换，L3 钳制是**无损**的。历史上两者被混
 | ~~19~~ | ~~Codex user_message 未 trim~~ | ~~mac~~ | ✅ 2026-07-28 |
 | ~~8~~ | ~~zcode 解析器：win 已实现 / mac 惰性桩~~ | ~~mac~~ | ✅ 2026-07-28 —— mac 端按 §4 实现，sessionId 取 agent_ 目录、项目名取 sidecar cwd 末段（缺则回退 sess_ 前 13 字符）、过程事件忽略；端到端验证 4 行 → 1 任务节点 + 1 结果行 |
 
+### 4.2b 跨端合并审计新发现（2026-07-28，Windows 本机四路审计）
+
+> 背景：mac 端 v0.4.1 修改了大量 Windows 文件，但 macOS 上只能跑跨平台冒烟——
+> 无法编译 WinUI 层、无法用 Windows 路径语义验证、无法跑本机四家真实语料
+> （1681 codex / 862 claude / 187 kimi / 46 zcode）。本机补做四路审计，
+> 每条都有实跑实证（编译产物 + 真实语料统计 + 临时库端到端）。
+
+**已在 Windows 修复（b977e10），mac 需同步：**
+
+| # | 缺陷 | 实证 | mac 落点 |
+|---|---|---|---|
+| **A1** | **Kimi 子 agent 结果行串台**：`agents/agent-N/wire.jsonl` 与 main 共用 `session_<uuid>` 目录名 → 共用 sessionId。子 agent 的"问"是 `system_trigger`（已过滤）、"答"是普通 content.part，于是 `SetResultLine` 把子 agent 回复挂到 main 的命令节点上 | 本机 67 个子 agent 文件 / 63 条回复；临时库端到端：**5 个节点结果行被错配**（「时间不对，重新校准下时间」→「已完成 p2 交叉审核。」），代号词典多 4 条只源自子 agent 的条目。回填按 mtime 升序时恰好掩盖，**实时 tail 必踩** | `KimiParser.swift` 的 `makeContext` 同样只取 `sessionDir.lastPathComponent` |
+| **A2** | **codex 注入块泄漏**：过滤名单在 168 万行语料上命中 0，73 条 user_message 以裸标签开头全部漏入 | **37 个节点标题字面是 `<task>`**；`<task>` 72 条（编排器给用户真实任务加的壳 → 应去壳）、`<heartbeat>` 1 条（automation_id/current_time_iso，自动化自发 → 应跳过） | `CodexParser.swift` 同名过滤 |
+| **A3** | **结果行退化成光秃秃的标题**：Kimi 回复几乎总以 `## Summary` 开头，规整后首段就是那一个词 | 用户库里 kimi **7 条结果行字面是 "Summary"**；≤12 字符占比 kimi 38.9% vs codex 4.0% / claude 3.8% / zcode 0% | `ParserSupport.resultExcerpt` 同一套逻辑 |
+| **A4** | **无 UI 字段被静默覆盖**：设置窗移除 zcode 路径输入后该字段只剩手改 settings.json，而运行期任意保存都用内存快照盖回 | 实机复现（隔离 DataDir） | mac 若也移除了输入需同查 |
+
+**双端共有、待定方案（需先定语义再同时落地）：**
+
+- **B1 codex `session_meta` 取值不一致**：`EnsureMeta`（重启续扫）只读**第 0 行**，
+  而流式路径对**每一条** `session_meta` 都重设 sessionId。本机 388 个 rollout 在第 0 行
+  之后还有 session_meta（其中 346 个 id 不同，是被 resume/fork 的原会话 id），
+  实测「实时扫 vs 重启续扫」对 **2582/2644 行**判出不同 sessionId。
+  后果：sessionId 是 `UNIQUE(agent,session_id,ts,command_hash)` 的一员 →
+  重扫可产生重复行（用户库里已有 **257 组 / 514 行** 同 source_file+offset 的重复节点）；
+  且 `SetResultLine` 按 sessionId 找节点，重启后结果行可能挂不上。
+  **两端同形**（`CodexParser.swift` 也是文件头读一次 + 流式逐条重设），属共有设计缺陷。
+  方案二选一：(a) 流式只应用**本文件第一条** session_meta（与类注释「session_meta is the
+  FIRST line」和 EnsureMeta 读法自洽，代价：被 resume 的会话按 rollout 各自成会话）；
+  (b) EnsureMeta 扫 offset 之前全部前缀取最后一条（40MB+ 文件上代价高）。**建议 (a)**。
+
+**已记录不修（可达性为 0，附实证）：**
+
+- parser 的 per-path context 在 offset 归零重扫时不重置（旧 cwd/时间戳基准会带给新内容）——
+  本机 `file_offsets` 679 行中 fileId 变化 0、offset 越界 0、文件消失 0，且 claude 的
+  user/assistant/attachment 行 100% 自带 cwd 与合法 ts，无可污染的空位；
+- `ClaudeParser` 的 `Disabled` 一旦置位对该 path 永久粘住——本机「cwd==摘要器目录」与
+  「路径被 ShouldIgnore 拦下」两个集合差集双向为 0，该守卫完全冗余；
+- `CodexParser._contexts` 用大小写敏感比较器（Claude 用 OrdinalIgnoreCase）——本机路径
+  全部由同一根字符串派生，且批次去重 HashSet 本身 OrdinalIgnoreCase；
+- `_contexts` 只增不减——实测 555 B/条、本机 2543 个会话文件合计约 1.4 MB；
+- `DisplayLimits.SummaryTitle=120` 的定档依据是 mac 431 节点（p90=25），但本机 10156 个
+  节点里 **996 个（9.8%）** 撞到护栏被硬截（codex 命令常是无换行长段落，规则摘要取首行
+  =取整条 prompt）。属「定档依据需按 Windows 分布更新」而非 bug，由三级渐进披露兜底。
+
 ### 4.3 已接受的对称限制（两端行为一致，非分叉）
 
 1. **Claude 的重启续扫窗口**：`ClaudeParser` 不像 `CodexParser` 那样在 `makeContext`
