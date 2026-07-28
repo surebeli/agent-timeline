@@ -91,6 +91,14 @@ struct CodexParser: AgentSessionParser {
 
         switch type {
         case "session_meta":
+            // §4.2b B1：**只应用本文件第一条** session_meta。
+            // 被 resume/fork 的 rollout 在文件中途还会写入**原会话**的 meta，逐条重设
+            // 会让「实时扫」与「重启续扫」（后者只读第 0 行）判出不同 sessionId ——
+            // sessionId 参与节点 id/唯一键，于是重扫插出重复行（本机库里 codex 已有
+            // 38 组 / 41 行重复）；且结果行会被挂到**另一个 rollout 文件**的命令上。
+            // 只认首条后：每个 rollout 自成会话，结果行只挂同文件的命令，语义更正确。
+            guard !context.metaApplied else { return [] }
+            context.metaApplied = true
             if let id = payload["id"] as? String { context.sessionId = id }
             if let cwd = payload["cwd"] as? String {
                 context.cwd = cwd

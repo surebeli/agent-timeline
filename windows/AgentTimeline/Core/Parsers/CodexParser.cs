@@ -63,6 +63,9 @@ public sealed class CodexParser : IAgentSessionParser
         public string? Cwd;
         public bool MetaChecked;
 
+        /// <summary>已应用过本文件的**第一条** session_meta（§4.2b B1）。</summary>
+        public bool MetaApplied;
+
         /// <summary>本文件里最后一个**成功解析**的时间戳（W-e 回退基准）。</summary>
         public DateTimeOffset? LastTimestamp;
 
@@ -201,9 +204,15 @@ public sealed class CodexParser : IAgentSessionParser
     /// </summary>
     private static void ApplyMeta(FileContext ctx, JsonElement payload)
     {
+        // §4.2b B1：只应用**本文件第一条** session_meta。被 resume/fork 的 rollout
+        // 在文件中途还会写入**原会话**的 meta，逐条重设会让「实时扫」与「重启续扫」
+        // （后者只读第 0 行）判出不同 sessionId —— sessionId 参与唯一键，重扫因此
+        // 插出重复行；且结果行会被挂到另一个 rollout 文件的命令上。
+        ctx.MetaChecked = true;
+        if (ctx.MetaApplied) return;
+        ctx.MetaApplied = true;
         ctx.SessionId = GetString(payload, "id");
         ctx.Cwd = GetString(payload, "cwd");
-        ctx.MetaChecked = true;
         if (AppPaths.IsSummarizerWorkDir(ctx.Cwd)) ctx.Disabled = true;
     }
 

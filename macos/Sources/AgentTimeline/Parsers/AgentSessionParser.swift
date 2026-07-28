@@ -15,6 +15,8 @@ struct ParsedFileContext {
     /// 本文件最近一次成功解析出的时间戳，用于给缺失/畸形时间戳的行顺延
     /// （见 `ParserSupport.timestamp(_:carriedBy:)`）。
     var lastTimestamp: Date?
+    /// 本文件的会话元信息是否已应用（codex：只认第一条 `session_meta`，见 §4.2b B1）。
+    var metaApplied = false
     /// 当前轮次里最后一条 agent 消息，等轮次结束事件到达时落为结果行。
     /// Grok 用（`agent_message_chunk` 一轮多条，只有末条是答复，见 GrokParser）。
     var pendingAssistantText: String?

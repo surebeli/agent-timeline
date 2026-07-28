@@ -494,6 +494,33 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(ParserSupport.resultExcerpt("直接就是结论。\n\n第二段"), "直接就是结论。")
     }
 
+    /// B1：只应用本文件第一条 session_meta——被 resume 的 rollout 中途写入的
+    /// 原会话 meta 必须无视，否则实时扫与重启续扫判出不同 sessionId（→ 重复行 +
+    /// 结果行跨文件错配）。
+    func testCodexOnlyFirstSessionMeta() {
+        let parser = CodexParser()
+        let url = URL(fileURLWithPath: NSHomeDirectory() + "/.codex/sessions/2026/07/28/rollout-x.jsonl")
+        var ctx = ParsedFileContext(url: url, agent: .codex, sessionId: "fallback", project: "codex", cwd: nil)
+
+        let first = #"{"timestamp":"2026-07-28T03:00:00.000Z","type":"session_meta","payload":{"id":"sess-current","cwd":"/Users/x/myproj"}}"#
+        _ = parser.parse(line: first, context: &ctx)
+        XCTAssertEqual(ctx.sessionId, "sess-current")
+        XCTAssertEqual(ctx.project, "myproj")
+
+        // 文件中途的原会话 meta（resume/fork 留下的）必须被忽略
+        let resumed = #"{"timestamp":"2026-07-28T03:10:00.000Z","type":"session_meta","payload":{"id":"sess-original","cwd":"/Users/x/otherproj"}}"#
+        _ = parser.parse(line: resumed, context: &ctx)
+        XCTAssertEqual(ctx.sessionId, "sess-current", "中途 meta 不得改写会话身份")
+        XCTAssertEqual(ctx.project, "myproj", "中途 meta 不得改写项目名")
+
+        // 其后的命令仍归属首条 meta 的会话
+        let cmd = #"{"timestamp":"2026-07-28T03:20:00.000Z","type":"event_msg","payload":{"type":"user_message","message":"继续"}}"#
+        guard case .userCommand(let c)? = parser.parse(line: cmd, context: &ctx).first else {
+            return XCTFail("应产出命令")
+        }
+        XCTAssertEqual(c.sessionId, "sess-current")
+    }
+
     // MARK: - Codename lifecycle（用户场景回归）
 
     /// 场景1：会话中把需求编号成 N1/N2/N3，后续出现 "N2完成" "N3变更"。
