@@ -253,6 +253,16 @@ final class ParserTests: XCTestCase {
         }
         XCTAssertEqual(a.timestamp, b.timestamp)
 
+        // 非事件行（system / file-history-snapshot）的时间戳同样喂养回退基准
+        // ——与 win 同口径：越近的锚点越好
+        var ctx2 = claudeContext()
+        let systemLine = #"{"type":"system","timestamp":"2026-07-28T12:00:00.000Z","sessionId":"abc-123"}"#
+        XCTAssertTrue(parser.parse(line: systemLine, context: &ctx2).isEmpty, "system 行不产出节点")
+        guard case .userCommand(let c)? = parser.parse(line: orphan, context: &ctx2).first else {
+            return XCTFail("非事件行喂养的基准应可被顺延")
+        }
+        XCTAssertEqual(c.timestamp, ParserSupport.parseISO("2026-07-28T12:00:00.000Z"))
+
         // 形态放宽：无时区 / 空格分隔 / 纯日期都认（与 .NET TryParse 对齐）
         for form in ["2026-07-28T09:12:33", "2026-07-28 09:12:33Z", "2026-07-28"] {
             XCTAssertNotNil(ParserSupport.parseISO(form), "应认得 \(form)")

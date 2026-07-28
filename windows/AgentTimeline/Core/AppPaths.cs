@@ -21,6 +21,25 @@ public static class AppPaths
     /// </summary>
     public static string SummarizerWorkDir => Path.Combine(DataDir, "summarizer");
 
+    /// <summary>
+    /// 这个 cwd 是不是我们自己的摘要器 scratch 目录（对齐 mac `AppSettings.summarizerScratchDir`
+    /// 判定）。SessionWatcher 的路径级排除只对 claude 有效——它靠「项目 slug 里含
+    /// AgentTimeline+summarizer」认出来；codex 的 rollout 落在 `~\.codex\sessions\YYYY\MM\DD\`
+    /// 下，路径里永远不含这两个词，只能靠 `session_meta.payload.cwd` 认。摘要引擎解析到
+    /// `codex exec` 时，不认就会把自己发出的每条摘要 prompt 当成用户命令收进时间线（自摄取回路）。
+    ///
+    /// 比较口径比 mac 的字符串全等宽一点：归一分隔符 + 去尾分隔符 + 大小写不敏感，
+    /// 因为 Windows 路径本就大小写不敏感，而各家 CLI 回写 cwd 时 `\` / `/` 混用。
+    /// </summary>
+    public static bool IsSummarizerWorkDir(string? cwd)
+    {
+        if (string.IsNullOrWhiteSpace(cwd)) return false;
+        return string.Equals(NormalizeDir(cwd!), NormalizeDir(SummarizerWorkDir),
+            StringComparison.OrdinalIgnoreCase);
+
+        static string NormalizeDir(string p) => p.Replace('\\', '/').TrimEnd('/');
+    }
+
     // Session roots per docs/SESSION-FORMATS.md (~ → %USERPROFILE%).
     public static string ClaudeProjectsRoot => Path.Combine(UserProfile, ".claude", "projects");
     public static string CodexSessionsRoot => Path.Combine(UserProfile, ".codex", "sessions");

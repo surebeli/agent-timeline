@@ -30,6 +30,9 @@ struct ClaudeParser: AgentSessionParser {
             }
         }
         guard !context.disabled else { return [] }
+        // 回退基准由**任意**带可解析时间戳的行喂养（含 system / file-history-snapshot
+        // 等非事件行）——与 win 同口径：越近的锚点越能把缺时间戳的行放回真实邻居旁。
+        let lineTimestamp = ParserSupport.timestamp(obj["timestamp"], carriedBy: &context)
 
         switch type {
         case "user":
@@ -41,7 +44,7 @@ struct ClaudeParser: AgentSessionParser {
                   // 否则带前导空白的回显块会整块 XML 泄漏成节点正文。
                   case let raw = rawText.trimmingCharacters(in: .whitespacesAndNewlines),
                   !ParserSupport.isIgnoredContent(raw),
-                  let ts = ParserSupport.timestamp(obj["timestamp"], carriedBy: &context)
+                  let ts = lineTimestamp
             else { return [] }
             // A slash command reaches us only as an echo block; convert it to
             // "/name args" instead of dropping the user's command (P0).
@@ -69,7 +72,7 @@ struct ClaudeParser: AgentSessionParser {
             guard let message = obj["message"] as? [String: Any],
                   let text = extractText(message["content"]),
                   !text.isEmpty,
-                  let ts = ParserSupport.timestamp(obj["timestamp"], carriedBy: &context)
+                  let ts = lineTimestamp
             else { return [] }
             return [.assistantText(
                 agent: .claude,
@@ -88,7 +91,7 @@ struct ClaudeParser: AgentSessionParser {
                   let rawPrompt = att["prompt"] as? String,
                   case let text = rawPrompt.trimmingCharacters(in: .whitespacesAndNewlines),
                   !ParserSupport.isIgnoredContent(text),
-                  let ts = ParserSupport.timestamp(obj["timestamp"], carriedBy: &context)
+                  let ts = lineTimestamp
             else { return [] }
             let queued = UserCommand(
                 agent: .claude,

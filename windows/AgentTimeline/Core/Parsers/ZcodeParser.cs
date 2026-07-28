@@ -89,8 +89,15 @@ public sealed class ZcodeParser : IAgentSessionParser
         return events;
     }
 
+    /// <summary>
+    /// zcode 的 turn_started / turn_complete 行实测总带 ISO 时间戳；解不出时沿用旧行为
+    /// （回退当前时间）。**注意**：Claude/Codex 已改为「沿用本文件最后一个可解析时间戳、
+    /// 没有则丢行」的双端共同规则（docs/TEXT-NORMALIZATION.md §4.2 第 14 条），zcode 未跟进——
+    /// 它是 Windows 单端解析器（mac 侧还是惰性桩，§4.2 第 8 条），没有对拍约束；
+    /// mac 实现 zcode 时应连同此处一起按共同规则统一。
+    /// </summary>
     private static DateTimeOffset ParseTimestamp(JsonElement root) =>
-        ParserUtil.ParseIsoTimestamp(GetString(root, "timestamp"));
+        ParserUtil.TryParseIsoTimestamp(GetString(root, "timestamp")) ?? DateTimeOffset.UtcNow;
 
     /// <summary>
     /// 项目显示名：同目录 metadata.json 的 cwd 末段；缺 sidecar 时回退 sess_ 目录名截断。

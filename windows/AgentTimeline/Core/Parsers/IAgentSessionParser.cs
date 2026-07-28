@@ -51,8 +51,19 @@ internal static class ParserUtil
         return s[..cut] + "…";
     }
 
-    /// <summary>Lenient ISO-8601 → DateTimeOffset; falls back to now (UTC) so events never get dropped over a timestamp.</summary>
-    public static DateTimeOffset ParseIsoTimestamp(string? iso)
+    /// <summary>
+    /// 宽松 ISO-8601 → DateTimeOffset，**解不出就返回 null**（双端共同约定，
+    /// docs/TEXT-NORMALIZATION.md §4.2 第 14 条）。
+    ///
+    /// 形态上放宽（`DateTimeOffset.TryParse` 本就吃各种 ISO 变体），但**不再回退
+    /// `UtcNow`**：now 回退有两个真实危害——① 节点会跳到时间线顶部，装成"刚发生"；
+    /// ② ts 参与 `UNIQUE(agent, session_id, ts, command_hash)`，文件重建/重扫时
+    /// 同一条命令每次都拿到新 ts，唯一键失效 → 重复行。
+    ///
+    /// 调用方（Claude / Codex）拿到 null 时按「沿用本文件最后一个成功解析的时间戳」
+    /// 处理；文件里还没有过任何可解析时间戳则丢弃该行。
+    /// </summary>
+    public static DateTimeOffset? TryParseIsoTimestamp(string? iso)
     {
         if (iso is not null &&
             DateTimeOffset.TryParse(iso, System.Globalization.CultureInfo.InvariantCulture,
@@ -60,7 +71,7 @@ internal static class ParserUtil
         {
             return ts;
         }
-        return DateTimeOffset.UtcNow;
+        return null;
     }
 
     /// <summary>Last path segment of a cwd recorded with either separator ("/Users/x/foo" or "C:\x\foo").</summary>

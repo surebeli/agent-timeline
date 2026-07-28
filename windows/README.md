@@ -17,6 +17,34 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 
 ## 更新记录
 
+- **2026-07-28 (i) 四路解析器对拍 — Windows 侧分叉修复（W-a…W-e）**
+  - **W-a codex 摘要器自摄取（高）**：摘要引擎解析到 `codex exec` 时，CliSummarizer 以
+    cwd=`%LOCALAPPDATA%\AgentTimeline\summarizer` 起进程，codex 把每条摘要 prompt 写成
+    `user_message` 落在 `~\.codex\sessions\YYYY\MM\DD\rollout-*.jsonl`——路径里不含
+    "AgentTimeline"/"summarizer"，`SessionWatcher.ShouldIgnore` 的路径级排除完全够不着，
+    于是自己发出的每条摘要 prompt 都被当成用户命令收进时间线（自摄取回路）。
+    改为按 `session_meta.payload.cwd` 判定（mac 同判据）：`FileContext.Disabled` 置位后
+    整文件零事件；流式与重启续扫的 `EnsureMeta` 首行直读走**同一份** `ApplyMeta`；
+    claude 侧也补上同判定作双保险；
+  - **W-b Claude L1 忽略前缀表（中）**：win 是 9 条且**带闭合 `>`**，mac 是 11 条且匹配
+    **裸标签名**。后果：带属性的注入块（`<system-reminder priority="high">`、
+    `<bash-stdout exit="0">` 等）前缀匹配不上、整块 XML 变成垃圾"用户命令"节点，且
+    `<user_instructions>` / `<environment_context>` 根本不在表里（claude 通道整批漏网）。
+    现与 mac `ParserSupport.ignoredPrefixes` 逐字一致；
+  - **W-c Claude assistant 多 text 段（低）**：win 在**首段**就 break，首段为空/缺 `text`
+    时整条结果行凭空消失。改为拼接全部 `type=="text"` 段（缺 `text` 的段跳过），
+    与规范 §1「取其中 type=="text" 段拼接」和 mac 一致；
+  - **W-d Claude 项目名跨行沿用（低）**：claude 不是每行都带 `cwd`，win 每行独立回退成
+    转义目录 slug（`-Users-x-work-proj`）。改为 per-path `FileContext` 沿用 cwd/项目名；
+  - **W-e 时间戳容错（中，双端共同规则）**：两端原本各错一半——mac 解不出丢整行，win
+    回退 `DateTimeOffset.UtcNow`（节点跳到时间线顶部装成"刚发生"，且 ts 参与
+    `UNIQUE(agent,session_id,ts,command_hash)`，重扫必产生重复行）。新规则：形态照旧宽松
+    （`DateTimeOffset.TryParse` 吃的 ISO 变体全收）→ 解不出则**沿用本文件最后一个成功解析
+    的时间戳**（进位在每行解析最前面做，任意行解析成功都会更新基准）→ 本文件还没有过任何
+    时间戳则丢该行。已落 Claude 与 Codex；zcode 是 win 单端解析器（mac 侧仍是惰性桩），
+    暂留旧的 now 回退并就地标注，待 mac 实现 zcode 时一并统一；
+  - CoreSmokeTest 266→305 断言全绿（新增 39 条，含"把修复回退即失败"的反证验证）。
+
 - **2026-07-28 (h) Phase C' 双端拉平（W0–W6，mac 侧审计清单全部落地）**
   - **W0 排队命令补录（丢用户命令）**：一轮跑动中键入、被 mid-turn 消费的 prompt
     只剩 `attachment.queued_command` 一份记录，win 此前整类丢弃 attachment 行。

@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -20,9 +19,12 @@ namespace AgentTimeline.Core.Parsers;
 ///     is extracted as a "/xxx" slash-command node (optional rule — implemented);
 ///   - fields: timestamp (ISO8601), cwd, gitBranch, sessionId, uuid, version.
 ///
-/// Result line: first text segment of each type=="assistant" message is emitted as a
-/// TaskComplete candidate; the store keeps the LATEST one per session, which converges
-/// to "最后一条 assistant 消息" required by the spec.
+/// Result line: ALL text segments of each type=="assistant" message (joined with "\n")
+/// are emitted as a TaskComplete candidate; the store keeps the LATEST one per session,
+/// which converges to "最后一条 assistant 消息" required by the spec.
+///
+/// Per-file context (mirrors mac `ParsedFileContext`): cwd/项目名跨行沿用、本文件最后一个
+/// 可解析时间戳（缺失时间戳的行沿用它）、以及"整文件禁用"标记（我们自己摘要器的会话）。
 /// </summary>
 public sealed partial class ClaudeParser : IAgentSessionParser
 {
@@ -38,27 +40,50 @@ public sealed partial class ClaudeParser : IAgentSessionParser
 
     // 非人类输入块整条跳过。实机语料普查(2026-07-27,docs/TEXT-NORMALIZATION.md):
     // <task-notification> 793 次、<local-command-stdout> 96 次(含 ANSI)、Caveat:/
-    // [Request interrupted/续传 blob 等此前会以「用户命令」身份泄漏进时间线;
-    // 清单对齐 mac 端 AgentSessionParser.ignoredPrefixes 既有语义。
+    // [Request interrupted/续传 blob 等此前会以「用户命令」身份泄漏进时间线。
+    //
+    // ⚠ 清单与 mac `ParserSupport.ignoredPrefixes` **逐字一致**（11 条、顺序相同）：
+    //   ① 标签一律写**裸标签名、不带闭合 '>'**——harness 会给注入块带属性
+    //      （`<system-reminder priority="high">`、`<bash-stdout exit="0">`），
+    //      带 '>' 的前缀匹配不上，整块 XML 会变成垃圾"用户命令"节点；
+    //   ② `<user_instructions>` / `<environment_context>` 是 Claude 侧也会出现的
+    //      环境注入（codex 通道已过滤，claude 通道此前整批漏网）。
     private static readonly string[] IgnoredPrefixes =
     {
-        "<local-command-caveat>",
-        "<system-reminder>",
-        "<local-command-stdout>",
-        "<task-notification>",
+        "<local-command-caveat", "<local-command-stdout",
+        "<system-reminder", "<user_instructions", "<environment_context", "<task-notification",
         // `!cmd` 直通 shell 的**输出**（实机 W0 验证时发现的新泄漏，本机语料 10 条）：
         // 输入侧是用户真实操作、由下面 BashInputRegex 转换保留，输出侧不是人说的话。
-        "<bash-stdout>",
-        "<bash-stderr>",
-        "Caveat:",
-        "[Request interrupted",
-        "This session is being continued from",
+        "<bash-stdout", "<bash-stderr",
+        "Caveat:", "[Request interrupted",
+        "This session is being continued from",  // post-compaction continuation blob
     };
 
     /// <summary>`!git pull` 直通 shell：命令本身是用户真实操作，转成 "$ cmd" 保留。</summary>
     private static readonly Regex BashInputRegex = new(
         @"^<bash-input>(.*?)</bash-input>",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline);
+
+    /// <summary>
+    /// 每文件可变解析状态（对齐 mac `ParsedFileContext`），跨增量读取保留：
+    /// 早出现的元信息（cwd/项目名、最后一个可解析时间戳）要对之后的行继续生效。
+    /// </summary>
+    private sealed class FileContext
+    {
+        /// <summary>最近一行带的 cwd；无 cwd 的行沿用它（W-d）。</summary>
+        public string? Cwd;
+
+        /// <summary>由 <see cref="Cwd"/> 派生的项目显示名。</summary>
+        public string? Project;
+
+        /// <summary>本文件里最后一个**成功解析**的时间戳（W-e 回退基准）。</summary>
+        public DateTimeOffset? LastTimestamp;
+
+        /// <summary>整文件忽略（我们自己摘要器的 headless 会话）。</summary>
+        public bool Disabled;
+    }
+
+    private readonly Dictionary<string, FileContext> _contexts = new(StringComparer.OrdinalIgnoreCase);
 
     public bool CanHandle(string path) =>
         path.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase) &&
@@ -67,6 +92,13 @@ public sealed partial class ClaudeParser : IAgentSessionParser
     public IReadOnlyList<SessionEvent> ParseLines(string path, IReadOnlyList<RawLine> lines)
     {
         var events = new List<SessionEvent>();
+        if (!_contexts.TryGetValue(path, out var ctx))
+        {
+            ctx = new FileContext();
+            _contexts[path] = ctx;
+        }
+        if (ctx.Disabled) return events;
+
         foreach (var line in lines)
         {
             if (string.IsNullOrWhiteSpace(line.Text)) continue;
@@ -75,21 +107,41 @@ public sealed partial class ClaudeParser : IAgentSessionParser
                 using var doc = JsonDocument.Parse(line.Text);
                 var root = doc.RootElement;
                 if (root.ValueKind != JsonValueKind.Object) continue;
-                var type = GetString(root, "type");
 
+                // ── cwd / 项目名跨行沿用（W-d，对齐 mac ClaudeParser.parse 开头）──
+                // 不是每行都带 cwd；无 cwd 的行若各自独立回退，就会显示转义目录 slug
+                // （`-Users-x-work-proj`）而不是项目叶子名。
+                var cwd = GetString(root, "cwd");
+                if (!string.IsNullOrEmpty(cwd) && !string.Equals(cwd, ctx.Cwd, StringComparison.Ordinal))
+                {
+                    ctx.Cwd = cwd;
+                    ctx.Project = ParserUtil.ProjectNameFromCwd(cwd, fallback: FallbackProject(path));
+                    // 我们自己摘要器的 headless 会话永不上时间线（mac 同判定）。
+                    if (AppPaths.IsSummarizerWorkDir(cwd)) ctx.Disabled = true;
+                }
+                if (ctx.Disabled) break;
+
+                // ── 时间戳（W-e，双端共同规则）──
+                // 形态宽松解析；解不出就沿用本文件最后一个成功解析的时间戳（确定性、
+                // 与真实邻居相邻、重扫幂等）；本文件还没有过任何时间戳则丢掉这一行。
+                var parsed = ParserUtil.TryParseIsoTimestamp(GetString(root, "timestamp"));
+                if (parsed is not null) ctx.LastTimestamp = parsed;
+                if (ctx.LastTimestamp is not { } ts) continue;
+
+                var type = GetString(root, "type");
                 if (type == "user")
                 {
-                    var evt = ParseUserLine(path, root, line.ByteOffset);
+                    var evt = ParseUserLine(path, root, ctx, ts, line.ByteOffset);
                     if (evt is not null) events.Add(evt);
                 }
                 else if (type == "assistant")
                 {
-                    var evt = ParseAssistantLine(path, root);
+                    var evt = ParseAssistantLine(path, root, ts);
                     if (evt is not null) events.Add(evt);
                 }
                 else if (type == "attachment")
                 {
-                    var evt = ParseAttachmentLine(path, root, line.ByteOffset);
+                    var evt = ParseAttachmentLine(path, root, ctx, ts, line.ByteOffset);
                     if (evt is not null) events.Add(evt);
                 }
                 // system / file-history-snapshot / mode / queue-operation ... → ignored
@@ -102,7 +154,8 @@ public sealed partial class ClaudeParser : IAgentSessionParser
         return events;
     }
 
-    private UserCommand? ParseUserLine(string path, JsonElement root, long offset)
+    private static UserCommand? ParseUserLine(
+        string path, JsonElement root, FileContext ctx, DateTimeOffset ts, long offset)
     {
         if (GetBool(root, "isMeta") || GetBool(root, "isSidechain")) return null;
         if (!root.TryGetProperty("message", out var message)) return null;
@@ -122,7 +175,7 @@ public sealed partial class ClaudeParser : IAgentSessionParser
             var bash = BashInputRegex.Match(text);
             if (!bash.Success) return null;
             var cmdText = bash.Groups[1].Value.Trim();
-            return cmdText.Length == 0 ? null : BuildCommand(path, root, offset, $"$ {cmdText}");
+            return cmdText.Length == 0 ? null : BuildCommand(path, root, ctx, ts, offset, $"$ {cmdText}");
         }
         // slash 命令回显块有两种字段顺序(<command-name> 先 / <command-message> 先,
         // 语料 60/171 为后者)——只做 command-name 前缀匹配会整批漏网。统一按命令块
@@ -137,20 +190,23 @@ public sealed partial class ClaudeParser : IAgentSessionParser
             text = args.Length > 0 ? $"{m.Groups[1].Value} {args}" : m.Groups[1].Value;
         }
 
-        return BuildCommand(path, root, offset, text);
+        return BuildCommand(path, root, ctx, ts, offset, text);
     }
 
     /// <summary>会话/项目/时间戳的取法在各入口一致，集中一处。</summary>
-    private static UserCommand BuildCommand(string path, JsonElement root, long offset, string text) =>
+    private static UserCommand BuildCommand(
+        string path, JsonElement root, FileContext ctx, DateTimeOffset ts, long offset, string text) =>
         new(Agent: AgentKind.Claude,
-            Project: ParserUtil.ProjectNameFromCwd(
-                GetString(root, "cwd"),
-                fallback: Path.GetFileName(Path.GetDirectoryName(path)) ?? "claude"),
+            Project: ctx.Project ?? FallbackProject(path),
             SessionId: GetString(root, "sessionId") ?? Path.GetFileNameWithoutExtension(path),
-            Timestamp: ParserUtil.ParseIsoTimestamp(GetString(root, "timestamp")),
+            Timestamp: ts,
             Text: text,
             SourceFile: path,
             SourceOffset: offset);
+
+    /// <summary>项目名兜底：文件所在目录名（cwd 的转义 slug）。</summary>
+    private static string FallbackProject(string path) =>
+        Path.GetFileName(Path.GetDirectoryName(path)) ?? "claude";
 
     /// <summary>
     /// 排队命令补录（W0，对齐 mac ClaudeParser.swift 的 attachment 分支）。
@@ -165,7 +221,8 @@ public sealed partial class ClaudeParser : IAgentSessionParser
     /// &lt;task-notification&gt; 等注入块**，不过滤就等于把刚堵掉的 793 次泄漏原路引回。
     /// 净新增的真实用户命令 17 条。
     /// </summary>
-    private static UserCommand? ParseAttachmentLine(string path, JsonElement root, long offset)
+    private static UserCommand? ParseAttachmentLine(
+        string path, JsonElement root, FileContext ctx, DateTimeOffset ts, long offset)
     {
         if (GetBool(root, "isSidechain")) return null;
         if (!root.TryGetProperty("attachment", out var attachment) ||
@@ -183,63 +240,49 @@ public sealed partial class ClaudeParser : IAgentSessionParser
             if (text.StartsWith(prefix, StringComparison.Ordinal)) return null;
         }
 
-        return BuildCommand(path, root, offset, text);
+        return BuildCommand(path, root, ctx, ts, offset, text);
     }
 
-    private static TaskComplete? ParseAssistantLine(string path, JsonElement root)
+    private static TaskComplete? ParseAssistantLine(string path, JsonElement root, DateTimeOffset ts)
     {
         if (GetBool(root, "isSidechain")) return null;
         if (!root.TryGetProperty("message", out var message)) return null;
-        if (!message.TryGetProperty("content", out var content)) return null;
 
-        string? firstText = null;
-        if (content.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var segment in content.EnumerateArray())
-            {
-                if (segment.ValueKind == JsonValueKind.Object &&
-                    GetString(segment, "type") == "text")
-                {
-                    firstText = GetString(segment, "text");
-                    break;
-                }
-            }
-        }
-        else if (content.ValueKind == JsonValueKind.String)
-        {
-            firstText = content.GetString();
-        }
-        if (string.IsNullOrWhiteSpace(firstText)) return null;
+        // 与用户通道同一套抽取（W-c）：**拼接全部** type=="text" 段，不是只取首段。
+        // 只取首段时，首段为空/缺 text 的分段回复会整条丢掉结果行。
+        var text = ExtractContent(message);
+        if (string.IsNullOrWhiteSpace(text)) return null;
 
         var sessionId = GetString(root, "sessionId") ?? Path.GetFileNameWithoutExtension(path);
         return new TaskComplete(
             Agent: AgentKind.Claude,
             SessionId: sessionId,
-            Timestamp: ParserUtil.ParseIsoTimestamp(GetString(root, "timestamp")),
-            ResultLine: ParserUtil.ResultExcerpt(firstText),
-            FullText: firstText); // untruncated — the coordinator mines it for codenames
+            Timestamp: ts,
+            ResultLine: ParserUtil.ResultExcerpt(text),
+            FullText: text); // untruncated — the coordinator mines it for codenames
     }
 
-    /// <summary>message.content: string, or array of segments (take "text", skip "tool_result").</summary>
+    /// <summary>
+    /// message.content：string 直接取；数组则把全部 type=="text" 段以 "\n" 拼接
+    /// （docs/SESSION-FORMATS.md §1「为数组时取其中 type=="text" 段拼接」）。
+    /// "tool_result" 等其他段跳过——那是工具回包不是人的输入。
+    /// 段内 text 缺失/非字符串时**跳过该段**（不产生空行），与 mac `compactMap` 同语义；
+    /// 空字符串是合法内容，保留（拼接后表现为空行）。
+    /// </summary>
     private static string ExtractContent(JsonElement message)
     {
         if (!message.TryGetProperty("content", out var content)) return "";
         if (content.ValueKind == JsonValueKind.String) return content.GetString() ?? "";
         if (content.ValueKind != JsonValueKind.Array) return "";
 
-        var sb = new StringBuilder();
+        var texts = new List<string>();
         foreach (var segment in content.EnumerateArray())
         {
             if (segment.ValueKind != JsonValueKind.Object) continue;
-            var segType = GetString(segment, "type");
-            if (segType == "text")
-            {
-                if (sb.Length > 0) sb.Append('\n');
-                sb.Append(GetString(segment, "text") ?? "");
-            }
-            // "tool_result" and anything else: skipped — tool responses are not user input.
+            if (GetString(segment, "type") != "text") continue;
+            if (GetString(segment, "text") is { } segText) texts.Add(segText);
         }
-        return sb.ToString();
+        return texts.Count == 0 ? "" : string.Join("\n", texts);
     }
 
     private static string? GetString(JsonElement el, string name) =>

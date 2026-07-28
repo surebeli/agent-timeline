@@ -59,6 +59,8 @@ struct CodexParser: AgentSessionParser {
     func parse(line: String, context: inout ParsedFileContext) -> [SessionEvent] {
         guard let obj = ParserSupport.json(line), let type = obj["type"] as? String else { return [] }
         let payload = obj["payload"] as? [String: Any] ?? [:]
+        // 同上：session_meta / response_item 的时间戳也喂养回退基准（与 win 同口径）。
+        let lineTimestamp = ParserSupport.timestamp(obj["timestamp"], carriedBy: &context)
 
         switch type {
         case "session_meta":
@@ -75,7 +77,7 @@ struct CodexParser: AgentSessionParser {
         case "event_msg":
             guard !context.disabled else { return [] }
             let payloadType = payload["type"] as? String
-            guard let ts = ParserSupport.timestamp(obj["timestamp"], carriedBy: &context) else { return [] }
+            guard let ts = lineTimestamp else { return [] }
 
             if payloadType == "user_message" {
                 guard let raw = payload["message"] as? String else { return [] }

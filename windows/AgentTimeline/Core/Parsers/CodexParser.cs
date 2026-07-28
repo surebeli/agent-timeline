@@ -17,6 +17,9 @@ namespace AgentTimeline.Core.Parsers;
 ///
 /// session_meta is the FIRST line of a rollout file. When tailing resumes mid-file after an
 /// app restart the meta line is before our offset, so EnsureMeta re-reads just the first line.
+///
+/// `session_meta.payload.cwd` 等于摘要器 scratch 目录时**整文件禁用**（见 FileContext.Disabled）：
+/// 那份 rollout 是我们自己 `codex exec` 摘要跑出来的，收进来就是自摄取回路。
 /// </summary>
 public sealed class CodexParser : IAgentSessionParser
 {
@@ -32,6 +35,20 @@ public sealed class CodexParser : IAgentSessionParser
         public string? SessionId;
         public string? Cwd;
         public bool MetaChecked;
+
+        /// <summary>本文件里最后一个**成功解析**的时间戳（W-e 回退基准）。</summary>
+        public DateTimeOffset? LastTimestamp;
+
+        /// <summary>
+        /// 整文件忽略：这份 rollout 是**我们自己的摘要器**跑 `codex exec` 产生的。
+        ///
+        /// 摘要引擎解析到 codex 时，CliSummarizer 以 cwd=%LOCALAPPDATA%\AgentTimeline\summarizer
+        /// 起进程，codex 把每条摘要 prompt 原样写成 `user_message` 落进
+        /// `~\.codex\sessions\YYYY\MM\DD\rollout-*.jsonl`——路径里不含 "AgentTimeline"/"summarizer"，
+        /// SessionWatcher 的路径级排除完全够不着。不认这个 cwd，时间线就会把自己发出的
+        /// 每条摘要 prompt 当成用户命令收进来（自摄取回路）。mac 侧同判定。
+        /// </summary>
+        public bool Disabled;
     }
 
     private readonly Dictionary<string, FileContext> _contexts = new();
@@ -56,6 +73,7 @@ public sealed class CodexParser : IAgentSessionParser
         {
             EnsureMeta(path, ctx);
         }
+        if (ctx.Disabled) return events;
 
         foreach (var line in lines)
         {
@@ -67,7 +85,13 @@ public sealed class CodexParser : IAgentSessionParser
                 if (root.ValueKind != JsonValueKind.Object) continue;
 
                 var type = GetString(root, "type");
-                var timestamp = ParserUtil.ParseIsoTimestamp(GetString(root, "timestamp"));
+                // 时间戳（W-e，双端共同规则）：形态宽松解析；解不出就沿用本文件最后一个
+                // 成功解析的时间戳；本文件还没有过任何时间戳则这一行不产出事件。
+                // 绝不回退 UtcNow——那会让节点跳到时间线顶部，且 ts 参与
+                // UNIQUE(agent,session_id,ts,command_hash)，重扫必产生重复行。
+                var parsed = ParserUtil.TryParseIsoTimestamp(GetString(root, "timestamp"));
+                if (parsed is not null) ctx.LastTimestamp = parsed;
+                var timestamp = ctx.LastTimestamp;
                 if (!root.TryGetProperty("payload", out var payload) ||
                     payload.ValueKind != JsonValueKind.Object)
                 {
@@ -77,12 +101,12 @@ public sealed class CodexParser : IAgentSessionParser
                 switch (type)
                 {
                     case "session_meta":
-                        ctx.SessionId = GetString(payload, "id");
-                        ctx.Cwd = GetString(payload, "cwd");
-                        ctx.MetaChecked = true;
+                        ApplyMeta(ctx, payload);
+                        if (ctx.Disabled) return events; // 摘要器自己的 rollout：整文件零事件
                         break;
 
                     case "event_msg":
+                        if (ctx.Disabled || timestamp is not { } ts) break;
                         var payloadType = GetString(payload, "type");
                         if (payloadType == "user_message")
                         {
@@ -101,7 +125,7 @@ public sealed class CodexParser : IAgentSessionParser
                                 Agent: AgentKind.Codex,
                                 Project: ParserUtil.ProjectNameFromCwd(ctx.Cwd, fallback: "codex"),
                                 SessionId: SessionIdFor(path, ctx),
-                                Timestamp: timestamp,
+                                Timestamp: ts,
                                 Text: text,
                                 SourceFile: path,
                                 SourceOffset: line.ByteOffset));
@@ -114,7 +138,7 @@ public sealed class CodexParser : IAgentSessionParser
                                 events.Add(new TaskComplete(
                                     Agent: AgentKind.Codex,
                                     SessionId: SessionIdFor(path, ctx),
-                                    Timestamp: timestamp,
+                                    Timestamp: ts,
                                     ResultLine: ParserUtil.ResultExcerpt(last),
                                     FullText: last)); // untruncated — mined for codenames
                             }
@@ -135,6 +159,18 @@ public sealed class CodexParser : IAgentSessionParser
     private static string SessionIdFor(string path, FileContext ctx) =>
         ctx.SessionId ?? Path.GetFileNameWithoutExtension(path);
 
+    /// <summary>
+    /// session_meta 落到上下文——首行直读（EnsureMeta）与增量流式两条路径必须**同一份逻辑**，
+    /// 否则重启续扫时摘要器排除会漏掉（自摄取正是在重启后最容易复现）。
+    /// </summary>
+    private static void ApplyMeta(FileContext ctx, JsonElement payload)
+    {
+        ctx.SessionId = GetString(payload, "id");
+        ctx.Cwd = GetString(payload, "cwd");
+        ctx.MetaChecked = true;
+        if (AppPaths.IsSummarizerWorkDir(ctx.Cwd)) ctx.Disabled = true;
+    }
+
     private void EnsureMeta(string path, FileContext ctx)
     {
         ctx.MetaChecked = true;
@@ -148,10 +184,10 @@ public sealed class CodexParser : IAgentSessionParser
             using var doc = JsonDocument.Parse(first);
             var root = doc.RootElement;
             if (GetString(root, "type") == "session_meta" &&
-                root.TryGetProperty("payload", out var payload))
+                root.TryGetProperty("payload", out var payload) &&
+                payload.ValueKind == JsonValueKind.Object)
             {
-                ctx.SessionId = GetString(payload, "id");
-                ctx.Cwd = GetString(payload, "cwd");
+                ApplyMeta(ctx, payload);
             }
         }
         catch (Exception ex)

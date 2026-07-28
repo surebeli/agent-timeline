@@ -36,6 +36,11 @@ internal static class Program
         ReplayRebuildsFromHistory();
         ZcodeParserBasics();
         ClaudeParserInjectionFilters();
+        ClaudeIgnoredPrefixParity();
+        ClaudeAssistantMultiSegment();
+        ClaudeProjectCarriesAcrossLines();
+        TimestampCarryForward();
+        CodexSummarizerSelfIngestion();
         ClaudeQueuedCommandRecovery();
         SummaryAttemptsAndPriority();
         ResultLineGuardAndProviderUrl();
@@ -459,6 +464,276 @@ internal static class Program
         CheckEqual(events[1].Text, "/model", "claude filter: 空 args 只留命令名");
         CheckEqual(events[2].Text, "$ git pull", "claude filter: bash-input 转 \"$ cmd\" 保留");
         CheckEqual(events[3].Text, "正常的用户命令原文", "claude filter: 正常命令不受影响");
+    }
+
+    /// <summary>claude 会话行的公共骨架：type / 时间戳 / cwd / message.content 都可控。</summary>
+    private static string ClaudeUserLine(string content, string? iso = "2026-01-15T10:00:00.000Z",
+        string? cwd = "C:/w/demo") =>
+        "{\"type\":\"user\",\"sessionId\":\"s\"" +
+        (iso is null ? "" : ",\"timestamp\":" + JsonSerializer.Serialize(iso)) +
+        (cwd is null ? "" : ",\"cwd\":" + JsonSerializer.Serialize(cwd)) +
+        ",\"message\":{\"role\":\"user\",\"content\":" + JsonSerializer.Serialize(content) + "}}";
+
+    private static string ClaudeSessionPath(string slug = "-demo") =>
+        Path.Combine(Path.GetTempPath(), ".claude", "projects", slug, "s.jsonl");
+
+    /// <summary>
+    /// W-b：L1 忽略前缀表逐字对齐 mac `ParserSupport.ignoredPrefixes`（11 条、裸标签不带 '>'）。
+    ///
+    /// win 此前写成带 '>' 的 9 条：① harness 给注入块带属性时
+    /// （`<system-reminder priority="high">`、`<bash-stdout exit="0">`）前缀匹配不上，
+    /// 整块 XML 变成垃圾"用户命令"节点；② `<user_instructions>` / `<environment_context>`
+    /// 根本不在表里，claude 通道整批漏网（codex 通道早有过滤）。mac 侧两类都正确丢弃。
+    /// </summary>
+    private static void ClaudeIgnoredPrefixParity()
+    {
+        void Dropped(string content, string name)
+        {
+            // 每例独立 parser：避免跨例复用 per-path 上下文影响判定
+            var got = new ClaudeParser()
+                .ParseLines(ClaudeSessionPath(), new List<RawLine> { new(0, ClaudeUserLine(content)) })
+                .OfType<UserCommand>().ToList();
+            CheckEqual(got.Count, 0, name);
+        }
+
+        // ① 表里此前缺失的两条（mac 有、win 无）
+        Dropped("<user_instructions>\n本项目一律用中文回答。\n</user_instructions>",
+            "W-b: <user_instructions> 丢弃（win 此前整批漏网）");
+        Dropped("<environment_context>\ncwd: C:/w/demo\n</environment_context>",
+            "W-b: <environment_context> 丢弃（win 此前整批漏网）");
+
+        // ② 带属性的标签形态：必须匹配裸标签名，带 '>' 的老写法在这里全部漏
+        Dropped("<system-reminder priority=\"high\">别忘了跑测试</system-reminder>",
+            "W-b: <system-reminder 带属性仍丢弃");
+        Dropped("<bash-stdout exit=\"0\">From https://x/y</bash-stdout>",
+            "W-b: <bash-stdout 带属性仍丢弃");
+        Dropped("<bash-stderr code=\"128\">fatal: not a git repo</bash-stderr>",
+            "W-b: <bash-stderr 带属性仍丢弃");
+        Dropped("<local-command-stdout status=\"ok\">Set model</local-command-stdout>",
+            "W-b: <local-command-stdout 带属性仍丢弃");
+        Dropped("<local-command-caveat mode=\"x\">本地命令回显</local-command-caveat>",
+            "W-b: <local-command-caveat 带属性仍丢弃");
+        Dropped("<task-notification id=\"7\"><status>completed</status></task-notification>",
+            "W-b: <task-notification 带属性仍丢弃");
+
+        // ③ 正文里长得像标签的内容不能被误伤（原则 2：剥离必须白名单化）
+        var kept = new ClaudeParser()
+            .ParseLines(ClaudeSessionPath(), new List<RawLine>
+            {
+                new(0, ClaudeUserLine("把 Option<String> 换成 <port> 占位符")),
+            })
+            .OfType<UserCommand>().ToList();
+        CheckEqual(kept.Count, 1, "W-b: 泛型/占位符正文不被前缀表误伤");
+    }
+
+    /// <summary>
+    /// W-c：assistant 多 text 段——mac 拼接**全部** type=="text" 段（缺 text 的段跳过），
+    /// win 旧实现在**首段**就 break，首段为空/缺 text 时整条结果行凭空消失。
+    /// 规范 §1「为数组时取其中 type=="text" 段拼接」以 mac 为准。
+    /// </summary>
+    private static void ClaudeAssistantMultiSegment()
+    {
+        string Assistant(string contentJson) =>
+            "{\"type\":\"assistant\",\"sessionId\":\"s\",\"timestamp\":\"2026-01-15T10:00:00.000Z\"," +
+            "\"cwd\":\"C:/w/demo\",\"message\":{\"role\":\"assistant\",\"content\":" + contentJson + "}}";
+
+        var multi = new ClaudeParser().ParseLines(ClaudeSessionPath(), new List<RawLine>
+        {
+            new(0, Assistant(
+                """[{"type":"text","text":"第一段回复"},{"type":"thinking","thinking":"内心戏"},{"type":"text"},{"type":"text","text":"第二段回复"}]""")),
+        }).OfType<TaskComplete>().ToList();
+        CheckEqual(multi.Count, 1, "W-c: assistant 多段产出结果行");
+        CheckEqual(multi[0].FullText, "第一段回复\n第二段回复",
+            "W-c: 全部 text 段以 \\n 拼接（thinking / 缺 text 的段跳过）");
+
+        // 首段为空：旧实现 break 在首段 → IsNullOrWhiteSpace → 整条丢弃
+        var emptyFirst = new ClaudeParser().ParseLines(ClaudeSessionPath(), new List<RawLine>
+        {
+            new(0, Assistant("""[{"type":"text","text":""},{"type":"text","text":"真正的回复在第二段"}]""")),
+        }).OfType<TaskComplete>().ToList();
+        CheckEqual(emptyFirst.Count, 1, "W-c: 首段为空不再整条丢弃");
+        CheckEqual(emptyFirst[0].ResultLine, "真正的回复在第二段", "W-c: 结果行取到后续段落");
+
+        // 一个可用 text 段都没有 → 仍然不产出（与 mac texts.isEmpty → nil 一致）
+        var none = new ClaudeParser().ParseLines(ClaudeSessionPath(), new List<RawLine>
+        {
+            new(0, Assistant("""[{"type":"tool_use","name":"Read"},{"type":"text"}]""")),
+        }).ToList();
+        CheckEqual(none.Count, 0, "W-c: 无可用 text 段时不产出结果行");
+    }
+
+    /// <summary>
+    /// W-d：cwd/项目名跨行沿用。claude 不是每行都带 cwd；win 旧实现每行独立回退到
+    /// 转义目录 slug（`-Users-x-work-proj`），mac 用 per-file 上下文沿用真实项目叶子名。
+    /// </summary>
+    private static void ClaudeProjectCarriesAcrossLines()
+    {
+        var path = ClaudeSessionPath("-Users-x-work-proj");
+        var parser = new ClaudeParser();
+        var events = parser.ParseLines(path, new List<RawLine>
+        {
+            new(0, ClaudeUserLine("第一条带 cwd", cwd: "/Users/x/work/proj")),
+            new(100, ClaudeUserLine("第二条不带 cwd", cwd: null)),
+        }).OfType<UserCommand>().ToList();
+        CheckEqual(events.Count, 2, "W-d: 两条命令都产出");
+        CheckEqual(events[0].Project, "proj", "W-d: 带 cwd 的行取 cwd 末段");
+        CheckEqual(events[1].Project, "proj", "W-d: 无 cwd 的行沿用上下文项目名（不退化成 slug）");
+
+        // 增量续读（下一批 lines，同一 path）仍然沿用
+        var later = parser
+            .ParseLines(path, new List<RawLine> { new(200, ClaudeUserLine("下一批仍不带 cwd", cwd: null)) })
+            .OfType<UserCommand>().ToList();
+        CheckEqual(later.Count > 0 ? later[0].Project : "", "proj", "W-d: 跨增量批次沿用项目名");
+
+        // 文件里从头到尾没出现过 cwd → 才回退目录 slug
+        var fresh = new ClaudeParser()
+            .ParseLines(path, new List<RawLine> { new(0, ClaudeUserLine("从头就没有 cwd", cwd: null)) })
+            .OfType<UserCommand>().ToList();
+        CheckEqual(fresh.Count > 0 ? fresh[0].Project : "", "-Users-x-work-proj",
+            "W-d: 全程无 cwd 才回退目录 slug");
+    }
+
+    /// <summary>
+    /// W-e：时间戳缺失/不可解析时的双端共同规则（docs/TEXT-NORMALIZATION.md §4.2 第 14 条）——
+    /// ① 形态宽松（.NET TryParse 吃的 ISO 变体照收）；② 解不出 → 沿用**本文件**最后一个
+    /// 成功解析的时间戳（确定性、与真实邻居相邻、重扫幂等）；③ 本文件还没有过任何时间戳
+    /// → 丢掉该行。
+    ///
+    /// 旧 win 行为（回退 `UtcNow`）有两处真实危害：节点跳到时间线顶部装成"刚发生"；
+    /// ts 参与 `UNIQUE(agent, session_id, ts, command_hash)`，文件重建/重扫时同一条命令
+    /// 每次拿新 ts → 唯一键失效 → 重复行。
+    ///
+    /// ⚠ 载体口径（mac 必须对齐）：进位在**每行解析的最前面**做，任何一行时间戳解析成功
+    /// 都会更新回退基准——不限于最终产出事件的行。
+    /// </summary>
+    private static void TimestampCarryForward()
+    {
+        var t10 = new DateTimeOffset(2026, 1, 15, 10, 0, 0, TimeSpan.Zero);
+
+        // ---------- Claude ----------
+        var claude = new ClaudeParser().ParseLines(ClaudeSessionPath(), new List<RawLine>
+        {
+            new(0, ClaudeUserLine("最前面这条没有时间戳", iso: null)),
+            new(100, ClaudeUserLine("有正常时间戳的命令")),
+            new(200, ClaudeUserLine("后面这条没有时间戳", iso: null)),
+            new(300, ClaudeUserLine("后面这条时间戳是坏的", iso: "不是一个时间")),
+        }).OfType<UserCommand>().ToList();
+        CheckEqual(claude.Count, 3, "W-e/claude: 首个可用时间戳之前的行被丢弃");
+        CheckEqual(claude[0].Text, "有正常时间戳的命令", "W-e/claude: 被丢的是最前面那条");
+        CheckEqual(claude[0].Timestamp, t10, "W-e/claude: 正常时间戳原样解析");
+        CheckEqual(claude[1].Timestamp, t10, "W-e/claude: 缺时间戳的行沿用前一个成功值");
+        CheckEqual(claude[2].Timestamp, t10, "W-e/claude: 不可解析的时间戳同样沿用（不回退当前时间）");
+
+        // 进位基准由**任意**行喂养：非事件行（system）也算
+        var seeded = new ClaudeParser().ParseLines(ClaudeSessionPath(), new List<RawLine>
+        {
+            new(0, "{\"type\":\"system\",\"timestamp\":\"2026-01-15T10:00:00.000Z\",\"cwd\":\"C:/w/demo\"}"),
+            new(100, ClaudeUserLine("紧跟在 system 行后面、自己没有时间戳", iso: null)),
+        }).OfType<UserCommand>().ToList();
+        CheckEqual(seeded.Count, 1, "W-e/claude: 非事件行的时间戳也能喂养回退基准");
+        CheckEqual(seeded[0].Timestamp, t10, "W-e/claude: 沿用 system 行的时间戳");
+
+        // ---------- Codex ----------
+        string CodexMeta(string cwd, string? iso) =>
+            "{" + (iso is null ? "" : "\"timestamp\":" + JsonSerializer.Serialize(iso) + ",") +
+            "\"type\":\"session_meta\",\"payload\":{\"id\":\"sess-1\",\"cwd\":" +
+            JsonSerializer.Serialize(cwd) + "}}";
+        string CodexUser(string msg, string? iso) =>
+            "{" + (iso is null ? "" : "\"timestamp\":" + JsonSerializer.Serialize(iso) + ",") +
+            "\"type\":\"event_msg\",\"payload\":{\"type\":\"user_message\",\"message\":" +
+            JsonSerializer.Serialize(msg) + "}}";
+        const string CodexPath = @"C:\u\.codex\sessions\2026\01\15\rollout-ts.jsonl";
+
+        var codex = new CodexParser().ParseLines(CodexPath, new List<RawLine>
+        {
+            new(0, CodexMeta("C:/w/demo", iso: null)),
+            new(100, CodexUser("最前面这条没有时间戳", iso: null)),
+            new(200, CodexUser("有正常时间戳的命令", "2026-01-15T10:00:00.000Z")),
+            new(300, CodexUser("后面这条时间戳是坏的", "not-a-time")),
+            new(400, "{\"type\":\"event_msg\",\"payload\":{\"type\":\"task_complete\",\"last_agent_message\":\"办完了\"}}"),
+        });
+        var codexCmds = codex.OfType<UserCommand>().ToList();
+        CheckEqual(codexCmds.Count, 2, "W-e/codex: 首个可用时间戳之前的行被丢弃");
+        CheckEqual(codexCmds[0].Timestamp, t10, "W-e/codex: 正常时间戳原样解析");
+        CheckEqual(codexCmds[1].Timestamp, t10, "W-e/codex: 坏时间戳沿用前一个成功值");
+        var codexDone = codex.OfType<TaskComplete>().ToList();
+        CheckEqual(codexDone.Count, 1, "W-e/codex: 缺时间戳的 task_complete 仍产出结果行");
+        CheckEqual(codexDone[0].Timestamp, t10, "W-e/codex: 结果行沿用前一个成功值");
+
+        // session_meta 行的时间戳同样喂养回退基准
+        var codexSeeded = new CodexParser().ParseLines(
+            @"C:\u\.codex\sessions\2026\01\15\rollout-seed.jsonl", new List<RawLine>
+            {
+                new(0, CodexMeta("C:/w/demo", "2026-01-15T10:00:00.000Z")),
+                new(100, CodexUser("首条命令自己没有时间戳", iso: null)),
+            }).OfType<UserCommand>().ToList();
+        CheckEqual(codexSeeded.Count, 1, "W-e/codex: session_meta 的时间戳也能喂养回退基准");
+        CheckEqual(codexSeeded[0].Timestamp, t10, "W-e/codex: 沿用 session_meta 的时间戳");
+    }
+
+    /// <summary>
+    /// W-a：codex 摘要器自摄取。摘要引擎解析到 `codex exec` 时，CliSummarizer 用
+    /// cwd=%LOCALAPPDATA%\AgentTimeline\summarizer 起进程，codex 把每条摘要 prompt 写成
+    /// `user_message` 落进 `~\.codex\sessions\YYYY\MM\DD\rollout-*.jsonl`——路径里不含
+    /// "AgentTimeline"/"summarizer"，SessionWatcher.ShouldIgnore 的路径级排除够不着。
+    /// 判据只能是 `session_meta.payload.cwd`（mac 同判定）。
+    /// </summary>
+    private static void CodexSummarizerSelfIngestion()
+    {
+        string Meta(string cwd) =>
+            "{\"timestamp\":\"2026-01-15T10:00:00.000Z\",\"type\":\"session_meta\"," +
+            "\"payload\":{\"id\":\"sess-self\",\"cwd\":" + JsonSerializer.Serialize(cwd) + "}}";
+        string User(string msg) =>
+            "{\"timestamp\":\"2026-01-15T10:00:01.000Z\",\"type\":\"event_msg\"," +
+            "\"payload\":{\"type\":\"user_message\",\"message\":" + JsonSerializer.Serialize(msg) + "}}";
+        const string Done =
+            "{\"timestamp\":\"2026-01-15T10:00:02.000Z\",\"type\":\"event_msg\"," +
+            "\"payload\":{\"type\":\"task_complete\",\"last_agent_message\":\"{\\\"title\\\":\\\"x\\\"}\"}}";
+
+        var self = new CodexParser().ParseLines(
+            @"C:\u\.codex\sessions\2026\01\15\rollout-self.jsonl", new List<RawLine>
+            {
+                new(0, Meta(AppPaths.SummarizerWorkDir)),
+                new(300, User("请为下面这条用户命令产出 JSON 摘要：建立缓存层")),
+                new(600, Done),
+            });
+        CheckEqual(self.Count, 0, "W-a: 摘要器自身 rollout（cwd=scratch）零事件");
+
+        var ok = new CodexParser().ParseLines(
+            @"C:\u\.codex\sessions\2026\01\15\rollout-ok.jsonl", new List<RawLine>
+            {
+                new(0, Meta("C:/w/demo")),
+                new(300, User("正常项目里的 codex 命令")),
+            }).OfType<UserCommand>().ToList();
+        CheckEqual(ok.Count, 1, "W-a: 正常 cwd 的 rollout 照常产出命令");
+        CheckEqual(ok[0].Text, "正常项目里的 codex 命令", "W-a: 正常命令正文不受影响");
+        CheckEqual(ok[0].Project, "demo", "W-a: 正常 cwd 仍派生项目名");
+
+        // 重启后从持久化 offset 续扫：meta 行在偏移之前，靠 EnsureMeta 首行直读恢复。
+        // 自摄取回路恰恰最容易在重启后复现，这条路径必须同样认出 scratch cwd。
+        var tmpDir = Path.Combine(Path.GetTempPath(), "at-codex-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tmpDir);
+        try
+        {
+            var file = Path.Combine(tmpDir, "rollout-resume.jsonl");
+            var metaLine = Meta(AppPaths.SummarizerWorkDir);
+            var userLine = User("重启后又发出的摘要 prompt");
+            File.WriteAllText(file, metaLine + "\n" + userLine + "\n");
+            var offset = System.Text.Encoding.UTF8.GetByteCount(metaLine + "\n");
+            var resumed = new CodexParser().ParseLines(file, new List<RawLine> { new(offset, userLine) });
+            CheckEqual(resumed.Count, 0, "W-a: 重启续扫（EnsureMeta 首行直读）同样认出 scratch cwd");
+        }
+        finally
+        {
+            try { Directory.Delete(tmpDir, true); } catch { /* best effort */ }
+        }
+
+        // claude 通道同判定（mac ClaudeParser 也在 cwd 上认）：SessionWatcher 的路径级
+        // 排除对 claude 有效（项目 slug 含 AgentTimeline+summarizer），这里是同源双保险。
+        var claudeSelf = new ClaudeParser().ParseLines(
+            ClaudeSessionPath("-C--Users-me-AppData-Local-AgentTimeline-summarizer"),
+            new List<RawLine> { new(0, ClaudeUserLine("摘要 prompt", cwd: AppPaths.SummarizerWorkDir)) });
+        CheckEqual(claudeSelf.Count, 0, "W-a: claude 侧 cwd=scratch 的会话同样零事件");
     }
 
     /// <summary>
