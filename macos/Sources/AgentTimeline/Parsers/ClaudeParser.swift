@@ -46,7 +46,8 @@ struct ClaudeParser: AgentSessionParser {
             // A slash command reaches us only as an echo block; convert it to
             // "/name args" instead of dropping the user's command (P0).
             var text = raw
-            if let converted = ParserSupport.convertCommandEcho(raw) {
+            if let converted = ParserSupport.convertCommandEcho(raw)
+                ?? ParserSupport.convertBashInput(raw) {
                 guard !converted.isEmpty else { return [] }
                 text = converted
             }

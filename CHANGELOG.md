@@ -7,6 +7,57 @@
 > tag↔VERSION↔CHANGELOG 一致性、跑双端测试、出 macOS `.app` zip 与 Windows x64 zip
 > 并挂到 GitHub Release。
 
+## [0.4.1] - 2026-07-28
+
+> 双端拉平轮：Windows 端补完 Phase C' 的 W0–W6（含一处丢命令缺陷），
+> mac 端 caption 回归原生，两端各自把对方发现的泄漏补上。
+
+### 修复（数据缺陷）
+
+- **Windows：排队命令补录（W0）**——一轮跑动中输入、被 mid-turn 消费而不再以
+  `type=user` 行重放的 prompt，此前在 Windows 时间线永不出现（mac 早有该路径）。
+  实机验证：217 条 `queued_command` 中 200 条是注入块、**净增 17 条真实用户命令**。
+- **双端：`!cmd` 直通 shell 泄漏**（Windows W0 实机重扫时肉眼抓到）——`!git pull`
+  这类操作会以**两条**节点进时间线（`<bash-input>` 与 `<bash-stdout>` 各一条）。
+  按语义分治：输出侧 `<bash-stdout>`/`<bash-stderr>` 不是人说的话 → 加入 L1 忽略
+  前缀；输入侧是用户真实操作 → 转为 `$ cmd` 保留（与 slash 命令 convert 同思路）。
+  Windows 语料实证 20 条并已清库；mac 侧本机语料 0 命中但**代码同样无处理**，
+  属潜伏缺陷，本轮一并补上。
+
+### 修复（Windows 双端拉平 W1–W6）
+
+- **摘要重试与 attempts 上限（W1）**：此前 CLI 偶发超时后节点永停在规则摘要
+  （须重启 App），永久失败节点每次启动无上限重跑烧配额；现与 mac 一致——失败
+  重入队、上限 3 次、设置「应用」时清零。
+- **摘要队列改最新优先（W2）**：回填数百节点时不再让你盯着的顶部最后才拿到
+  LLM 标题。
+- **结果行时间戳护栏（W3）**：节点乱序入库时不再把旧回复挂到更新的命令上。
+- **摘要 prompt 补 agent/project 上下文（W4）**、**provider 请求构造对齐**
+  （temperature 0、`/v1` 自动补全、超时 60s）（W5）、**截断改按 grapheme 簇**
+  （不再劈开 ZWJ/变体选择符）（W6）。
+
+### 变更
+
+- **macOS caption 改用原生交通灯**：自绘 `×` 换成系统绘制的关闭按钮
+  （styleMask 补 `.closable`——此前按钮存在但被禁用），hover 揭示符号、非 key 态
+  置灰等全是系统原生行为；⌘W 与按钮走同一条 `windowShouldClose` 路径，语义为
+  **收回菜单栏、进程驻留**。窗口 `title` 补齐，Mission Control 与截图选择器可识别。
+  **只给关闭**是实测结论：NSPanel 的最小化按钮默认禁用（须显式 `.miniaturizable`），
+  而挂件无 Dock 图标、最小化无处可去；缩放对半透明侧栏时间线亦无意义——macOS
+  自家工具面板（字体面板、检查器）同样只给关闭。
+- **头部与交通灯同排**：SwiftUI 默认为标题栏保留安全区，会把头部整体下压一行；
+  现让内容顶到窗口顶并对齐 28pt 标题栏，标题/过滤器/工具按钮与交通灯落在同一行
+  （Safari/Finder 工具栏的原生关系），回收一整行竖向空间。
+
+> Windows 端 caption 维持其自身原生约定（右上角三键，任务栏语境下最小化有意义），
+> 双端「各自原生」是本产品既定原则，非遗漏。
+
+### 双端一致性
+
+`docs/TEXT-NORMALIZATION.md` §4 现有 **12 条已拉平**（W0–W6 全部标记完成并移入
+§4.1）；剩余为 mac 侧 zcode 解析器（Roadmap M4）与两条需先定规范的共同待定项。
+测试：mac 34、Windows CoreSmokeTest 253，双端全绿。
+
 ## [0.4.0] - 2026-07-28
 
 > 主线：**时间线文本治理**双端收口——把混进时间线的 harness 注入块、markdown 标记

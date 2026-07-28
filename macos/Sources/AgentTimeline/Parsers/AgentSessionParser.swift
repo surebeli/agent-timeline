@@ -53,6 +53,8 @@ enum ParserSupport {
     static let ignoredPrefixes = [
         "<local-command-caveat", "<local-command-stdout",
         "<system-reminder", "<user_instructions", "<environment_context", "<task-notification",
+        // `!cmd` 直通 shell 的输出侧不是人说的话；输入侧由 convertBashInput 保留。
+        "<bash-stdout", "<bash-stderr",
         "Caveat:", "[Request interrupted",
         "This session is being continued from",  // post-compaction continuation blob
     ]
@@ -94,6 +96,23 @@ enum ParserSupport {
             if !args.isEmpty { return "\(name) \(args)" }
         }
         return name
+    }
+
+    private static let bashInputRegex = try! NSRegularExpression(
+        pattern: #"^<bash-input>([\s\S]*?)</bash-input>"#)
+
+    /// `!git pull` 直通 shell：命令本身是用户真实操作（与 slash 命令同理），
+    /// 转成 `$ cmd` 保留；输出侧 `<bash-stdout>`/`<bash-stderr>` 已在
+    /// `ignoredPrefixes` 里剥掉。语义与 win `ClaudeParser.BashInputRegex` 一致。
+    ///
+    /// - Returns: `nil` 表示不是直通块（调用方原样保留）；空串表示是直通块但
+    ///   取不到命令（调用方丢弃）。
+    static func convertBashInput(_ text: String) -> String? {
+        guard text.hasPrefix("<bash-input>") else { return nil }
+        guard let m = bashInputRegex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let r = Range(m.range(at: 1), in: text) else { return "" }
+        let cmd = String(text[r]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return cmd.isEmpty ? "" : "$ \(cmd)"
     }
 
     static func truncate(_ text: String, to limit: Int) -> String {

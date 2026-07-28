@@ -156,6 +156,29 @@ final class ParserTests: XCTestCase {
             TextNormalizer.normalize("# 标题\u{000C}正文", profile: .excerpt), "标题\u{000C}正文")
     }
 
+    /// `!cmd` 直通 shell：输入侧是用户真实操作要保留（转 `$ cmd`），
+    /// 输出侧是命令回显不是人说的话（丢弃）。与 win 同语义。
+    func testClaudeBashPassthrough() {
+        let parser = ClaudeParser()
+        var ctx = claudeContext()
+
+        let input = """
+        {"type":"user","message":{"role":"user","content":"<bash-input>git pull --rebase</bash-input>"},"timestamp":"2026-07-28T10:00:00.000Z","sessionId":"abc-123"}
+        """
+        guard case .userCommand(let cmd)? = parser.parse(line: input, context: &ctx).first else {
+            return XCTFail("直通命令应保留为节点")
+        }
+        XCTAssertEqual(cmd.text, "$ git pull --rebase")
+
+        for output in ["<bash-stdout>Already up to date.</bash-stdout>",
+                       "<bash-stderr>fatal: not a git repo</bash-stderr>"] {
+            let line = """
+            {"type":"user","message":{"role":"user","content":"\(output)"},"timestamp":"2026-07-28T10:00:01.000Z","sessionId":"abc-123"}
+            """
+            XCTAssertTrue(parser.parse(line: line, context: &ctx).isEmpty, "输出侧应丢弃：\(output)")
+        }
+    }
+
     func testClaudeQueuedCommandAttachment() {
         let parser = ClaudeParser()
         var ctx = claudeContext()
