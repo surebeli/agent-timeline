@@ -1,0 +1,38 @@
+CHANGELOG.md
+  0000019fa80edc50 1-278
+docs/TEXT-NORMALIZATION.md
+  0000019fa80edc50 1-356
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "61f527514624a5013f16bf76cbc3b3758fc83d47",
+  "prompts": {
+    "s_a4293ec107ea8c::t_36a7e45ec0ffb0": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785230973656438000",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019fa80edc50": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785230974032"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 634,
+      "total_deletions": 0,
+      "accepted_lines": 634,
+      "overriden_lines": 0
+    }
+  }
+}
