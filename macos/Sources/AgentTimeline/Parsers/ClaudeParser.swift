@@ -41,7 +41,7 @@ struct ClaudeParser: AgentSessionParser {
                   // 否则带前导空白的回显块会整块 XML 泄漏成节点正文。
                   case let raw = rawText.trimmingCharacters(in: .whitespacesAndNewlines),
                   !ParserSupport.isIgnoredContent(raw),
-                  let ts = ParserSupport.parseISO(obj["timestamp"] as? String)
+                  let ts = ParserSupport.timestamp(obj["timestamp"], carriedBy: &context)
             else { return [] }
             // A slash command reaches us only as an echo block; convert it to
             // "/name args" instead of dropping the user's command (P0).
@@ -69,7 +69,7 @@ struct ClaudeParser: AgentSessionParser {
             guard let message = obj["message"] as? [String: Any],
                   let text = extractText(message["content"]),
                   !text.isEmpty,
-                  let ts = ParserSupport.parseISO(obj["timestamp"] as? String)
+                  let ts = ParserSupport.timestamp(obj["timestamp"], carriedBy: &context)
             else { return [] }
             return [.assistantText(
                 agent: .claude,
@@ -85,9 +85,10 @@ struct ClaudeParser: AgentSessionParser {
             guard obj["isSidechain"] as? Bool != true,
                   let att = obj["attachment"] as? [String: Any],
                   att["type"] as? String == "queued_command",
-                  let text = att["prompt"] as? String,
+                  let rawPrompt = att["prompt"] as? String,
+                  case let text = rawPrompt.trimmingCharacters(in: .whitespacesAndNewlines),
                   !ParserSupport.isIgnoredContent(text),
-                  let ts = ParserSupport.parseISO(obj["timestamp"] as? String)
+                  let ts = ParserSupport.timestamp(obj["timestamp"], carriedBy: &context)
             else { return [] }
             let queued = UserCommand(
                 agent: .claude,

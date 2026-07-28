@@ -231,6 +231,65 @@ final class ParserTests: XCTestCase {
         XCTAssertTrue(parser.parse(line: line, context: &ctx).isEmpty)
     }
 
+    // MARK: - 双端对拍确认项（2026-07-28 四路审计）
+
+    /// 时间戳共同规则：形态放宽 → 顺延本文件上一条 → 无前值才丢。
+    func testTimestampCarryForward() {
+        let parser = ClaudeParser()
+        var ctx = claudeContext()
+
+        // 文件里还没有任何成功时间戳 → 丢弃（不能凭空造 now：会跳顶 + 重扫出重复行）
+        let orphan = #"{"type":"user","message":{"role":"user","content":"无时间戳"},"sessionId":"abc-123"}"#
+        XCTAssertTrue(parser.parse(line: orphan, context: &ctx).isEmpty)
+
+        // 一条正常的 → 记住它
+        let good = #"{"type":"user","message":{"role":"user","content":"正常"},"timestamp":"2026-07-28T10:00:00.000Z","sessionId":"abc-123"}"#
+        guard case .userCommand(let a)? = parser.parse(line: good, context: &ctx).first else {
+            return XCTFail("正常行应产出")
+        }
+        // 之后缺时间戳的行顺延上一条（与真实邻居相邻、重扫稳定）
+        guard case .userCommand(let b)? = parser.parse(line: orphan, context: &ctx).first else {
+            return XCTFail("有前值时应顺延而不是丢弃")
+        }
+        XCTAssertEqual(a.timestamp, b.timestamp)
+
+        // 形态放宽：无时区 / 空格分隔 / 纯日期都认（与 .NET TryParse 对齐）
+        for form in ["2026-07-28T09:12:33", "2026-07-28 09:12:33Z", "2026-07-28"] {
+            XCTAssertNotNil(ParserSupport.parseISO(form), "应认得 \(form)")
+        }
+    }
+
+    /// Codex 技能回显：留徽标文字、剥本机绝对路径（跨机无效且泄漏用户名）。
+    func testCodexSkillEchoConvert() {
+        let input = "[$ne-git-commit:ne-git-commit](/Users/me/.codex/plugins/cache/x/SKILL.md) OMNRTCG2-74029"
+        XCTAssertEqual(
+            CodexParser.convertSkillEcho(input),
+            "$ne-git-commit:ne-git-commit OMNRTCG2-74029")
+        // 非技能回显原样返回
+        let plain = "见 [文档](https://example.com/a) 说明"
+        XCTAssertEqual(CodexParser.convertSkillEcho(plain), plain)
+    }
+
+    /// Codex user_message 与 Claude queued_command 都要先 trim（否则两端节点 id 都不同）。
+    func testWhitespaceTrimParity() {
+        let codex = CodexParser()
+        let url = URL(fileURLWithPath: NSHomeDirectory() + "/.codex/sessions/2026/07/28/rollout-x.jsonl")
+        var cctx = ParsedFileContext(url: url, agent: .codex, sessionId: "s", project: "p", cwd: nil)
+        let line = #"{"timestamp":"2026-07-28T03:23:32.816Z","type":"event_msg","payload":{"type":"user_message","message":"  需要\n"}}"#
+        guard case .userCommand(let c)? = codex.parse(line: line, context: &cctx).first else {
+            return XCTFail("应产出 codex 命令")
+        }
+        XCTAssertEqual(c.text, "需要")
+
+        let claude = ClaudeParser()
+        var ctx = claudeContext()
+        let queued = #"{"type":"attachment","attachment":{"type":"queued_command","prompt":"  排队的命令\n"},"timestamp":"2026-07-28T10:00:00.000Z","sessionId":"abc-123"}"#
+        guard case .userCommand(let q)? = claude.parse(line: queued, context: &ctx).first else {
+            return XCTFail("应产出排队命令")
+        }
+        XCTAssertEqual(q.text, "排队的命令")
+    }
+
     // MARK: - Kimi Code（2026-07-28 换代：~/.kimi-code + wire 1.4）
 
     private func kimiContext(project: String = "translate-the-damn") -> ParsedFileContext {

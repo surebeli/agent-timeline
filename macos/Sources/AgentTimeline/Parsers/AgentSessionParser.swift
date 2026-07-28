@@ -12,6 +12,9 @@ struct ParsedFileContext {
     /// Set when the file turns out to be one we must ignore entirely
     /// (e.g. our own summarizer's headless sessions).
     var disabled = false
+    /// 本文件最近一次成功解析出的时间戳，用于给缺失/畸形时间戳的行顺延
+    /// （见 `ParserSupport.timestamp(_:carriedBy:)`）。
+    var lastTimestamp: Date?
 }
 
 protocol AgentSessionParser: Sendable {
@@ -35,9 +38,38 @@ enum ParserSupport {
         return f
     }()
 
+    /// 宽松形态解析：严格 ISO8601 之外，再认无时区 / 空格分隔 / 纯日期几种
+    /// 常见写法（.NET 的 DateTimeOffset.TryParse 本来就吃这些，双端对齐）。
+    private static let lenientFormatters: [DateFormatter] = [
+        "yyyy-MM-dd'T'HH:mm:ss.SSS", "yyyy-MM-dd'T'HH:mm:ss",
+        "yyyy-MM-dd HH:mm:ssZZZZZ", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd",
+    ].map {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.dateFormat = $0
+        return f
+    }
+
     static func parseISO(_ string: String?) -> Date? {
         guard let string else { return nil }
-        return isoFormatter.date(from: string) ?? isoFormatterNoFraction.date(from: string)
+        if let d = isoFormatter.date(from: string) ?? isoFormatterNoFraction.date(from: string) {
+            return d
+        }
+        return lenientFormatters.lazy.compactMap { $0.date(from: string) }.first
+    }
+
+    /// 双端共同规则（docs/TEXT-NORMALIZATION.md §4.2-14）：
+    /// 形态放宽 → 解析不出则**顺延本文件上一条成功的时间戳**（确定性、与真实
+    /// 邻居相邻、重扫结果稳定）→ 文件里还没有任何成功时间戳才丢弃该行。
+    /// 不用「回退当前时间」：那会让节点跳到时间线顶部，且 ts 参与唯一键，
+    /// 文件重建后重扫会插出重复行。
+    static func timestamp(_ raw: Any?, carriedBy context: inout ParsedFileContext) -> Date? {
+        if let parsed = parseISO(raw as? String) {
+            context.lastTimestamp = parsed
+            return parsed
+        }
+        return context.lastTimestamp
     }
 
     static func json(_ line: String) -> [String: Any]? {
