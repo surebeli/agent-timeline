@@ -203,8 +203,10 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 
 - Claude Code：`%USERPROFILE%\.claude\projects\**\*.jsonl`
 - Codex：`%USERPROFILE%\.codex\sessions\YYYY\MM\DD\rollout-*.jsonl`
-- Kimi：`%USERPROFILE%\.kimi\sessions\<hash>\<uuid>\wire.jsonl`
-- zcode：预留（在设置中填 session 根目录后启用；解析器为占位实现）
+- Kimi Code：`%USERPROFILE%\.kimi-code\sessions\wd_<项目>_<12hex>\session_<uuid>\agents\main\wire.jsonl`
+  （2026-07-28 换代：旧的 `.kimi\sessions` 布局与 TurnBegin/ContentPart 协议已不支持）
+- zcode：`%USERPROFILE%\.zcode\cli\agents\sess_<uuid>\agent_<uuid>\transcript.jsonl`
+  （默认根自动监听；如需改路径可编辑 settings.json 的 `ZcodeSessionRoot`）
 
 ## 设计规范（design tokens）
 
@@ -265,7 +267,8 @@ AgentTimeline/
    若无效可改用 `AppWindowTitleBar` 拖拽区方案。
 4. **ItemsRepeater DataTemplate 的 DataContext**：`ExpandNode_Click` 依赖模板根元素的
    DataContext 为 NodeViewModel（ItemsRepeater 默认行为）；若为 null，改为遍历可视树取绑定项。
-5. **Kimi TurnEnd payload**：规范未定义字段，代码做了 best-effort 提取，拿到真实样例后修正。
+5. **Kimi Code wire 协议**：已按本机 44 个真实 session 重写（`turn.prompt` +
+   `context.append_loop_event/content.part`），Windows 实机只需确认路径与监听生效。
 6. **窗口尺寸 DPI**：tokens 中的面板尺寸按物理像素处理（未乘缩放系数），高 DPI 下面板略小，
    如需精确可乘 `RasterizationScale`。
 7. 未做单实例保护（重复启动会有两个托盘图标）。
@@ -286,4 +289,4 @@ CodenameDetector 同源）——首段量词是 `{0,9}` 而非 `{1,9}`，否则 
 - F4 摘要引擎：CLI / Provider / Rule 三实现 + hash 缓存 + 串行限速 + 降级 ✅
 - F5 窗口交互：托盘、半透明两档 + 动画、置顶开关、位置尺寸记忆 ✅
   （「非激活面板不抢焦点」为 mac NSPanel 特性，Windows 无直接等价物，未实现）
-- F6 设置：引擎/透明度/置顶/回填天数/agent 开关/zcode 路径 ✅
+- F6 设置：引擎/透明度/置顶/回填天数/agent 开关 ✅（版本号在标题栏，双端同串）

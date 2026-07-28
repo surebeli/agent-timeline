@@ -40,7 +40,7 @@ internal static class Program
         SummaryAttemptsAndPriority();
         ResultLineGuardAndProviderUrl();
         CodexParserSkillEcho();
-        KimiContentPartAndPromptLimit();
+        KimiWireProtocolAndPromptLimit();
         SummaryJsonExtractionRobustness();
         TextNormalizerGoldenCases();
         ResultExcerptFallback();
@@ -462,29 +462,61 @@ internal static class Program
     }
 
     /// <summary>
-    /// Kimi 回复走 ContentPart{type:text} 通道（TurnEnd payload 实测恒空）；
-    /// 摘要 prompt 输入按 4000 截断（对齐 mac，防长文撑爆上下文）。
+    /// Kimi Code 新布局/新协议（2026-07-28 换代，本机 44 个真实 session 实证）：
+    /// `~\.kimi-code\sessions\wd_<项目>_<12hex>\session_<uuid>\agents\main\wire.jsonl`，
+    /// 顶层 type：turn.prompt(origin.kind=user) 出命令、
+    /// context.append_loop_event/content.part(part.type=text) 出结果行（think 排除）。
+    /// 另含：摘要 prompt 输入按 4000 截断（对齐 mac，防长文撑爆上下文）。
     /// </summary>
-    private static void KimiContentPartAndPromptLimit()
+    private static void KimiWireProtocolAndPromptLimit()
     {
         var parser = new KimiParser();
-        var path = Path.Combine(Path.GetTempPath(), ".kimi", "sessions", "hash1234", "sess-1", "wire.jsonl");
-        string Msg(string type, string payloadJson, double ts) =>
-            "{\"timestamp\":" + ts.ToString(System.Globalization.CultureInfo.InvariantCulture) +
-            ",\"message\":{\"type\":\"" + type + "\",\"payload\":" + payloadJson + "}}";
+        var path = Path.Combine(Path.GetTempPath(), ".kimi-code", "sessions",
+            "wd_agent-timeline_dd8b1189a258", "session_4d5df5df-3fbf", "agents", "main", "wire.jsonl");
+
+        Check(parser.CanHandle(path), "kimi: CanHandle .kimi-code 下的 wire.jsonl");
+        Check(!parser.CanHandle(Path.Combine(Path.GetTempPath(), ".kimi", "sessions", "h", "s", "wire.jsonl")),
+            "kimi: 旧 .kimi 布局不再接手");
+        Check(!parser.CanHandle(Path.Combine(Path.GetDirectoryName(path)!, "transcript.jsonl")),
+            "kimi: 其他文件名不接手");
+
+        // 项目名去壳：wd_ 前缀 + 末段 hash 剥掉，名字自带的下划线必须保留。
+        CheckEqual(KimiParser.ProjectNameFromWorkDir("wd_hawk_agent-rs_dd8b1189a258"), "hawk_agent-rs",
+            "kimi: 项目名含下划线时只剥前缀与末段 hash");
+        CheckEqual(KimiParser.ProjectNameFromWorkDir("wd_litianyi_e819714055c1"), "litianyi",
+            "kimi: 常规工作目录名去壳");
+        CheckEqual(KimiParser.ProjectNameFromWorkDir("wd_no-hash-here"), "no-hash-here",
+            "kimi: 无 hash 后缀时原样保留");
+        CheckEqual(KimiParser.ProjectNameFromWorkDir("something_else"), "something_else",
+            "kimi: 不匹配 wd_ 前缀时回退目录名");
 
         var events = parser.ParseLines(path, new List<RawLine>
         {
-            new(0, "{\"type\":\"metadata\",\"protocol_version\":1}"),
-            new(1, Msg("TurnBegin", "{\"user_input\":[{\"type\":\"text\",\"text\":\"实现 T5 的缓存层\"}]}", 1_700_000_000)),
-            new(2, Msg("ContentPart", "{\"type\":\"text\",\"text\":\"缓存层已实现。\\n\\n细节见下。\"}", 1_700_000_100)),
-            new(3, Msg("TurnEnd", "{}", 1_700_000_200)),
+            new(0, """{"type":"metadata","protocol_version":"1.3","created_at":1781173231910}"""),
+            new(1, """{"type":"turn.prompt","input":[{"type":"text","text":"实现 T5 的缓存层"},{"type":"image","url":"x"},{"type":"text","text":"顺便补测试"}],"origin":{"kind":"user"},"time":1781801007033}"""),
+            new(2, """{"type":"context.append_loop_event","event":{"type":"content.part","part":{"type":"think","text":"我先想想缓存怎么做"}},"time":1781801008000}"""),
+            new(3, """{"type":"context.append_loop_event","event":{"type":"step.begin","step":1},"time":1781801008500}"""),
+            new(4, """{"type":"context.append_loop_event","event":{"type":"content.part","part":{"type":"text","text":"缓存层已实现。\n\n细节见下。"}},"time":1781801009000}"""),
+            new(5, """{"type":"turn.prompt","input":[{"type":"text","text":"自动续跑"}],"origin":{"kind":"system_trigger"},"time":1781801010000}"""),
+            new(6, """{"type":"context.append_message","message":{"role":"user","content":"注入的上下文"},"time":1781801011000}"""),
+            new(7, """{"type":"usage.record","tokens":123,"time":1781801012000}"""),
+            new(8, """{"type":"turn.prompt","input":[{"type":"text","text":"/model"}],"origin":{"kind":"user"},"time":1781801013000}"""),
+            new(9, """{"type":"turn.prompt","input":[{"type":"text","text":"   "}],"origin":{"kind":"user"},"time":1781801014000}"""),
+            new(10, "not json at all"),
         });
+
         var cmd = events.OfType<UserCommand>().Single();
-        CheckEqual(cmd.Text, "实现 T5 的缓存层", "kimi: TurnBegin 用户命令");
+        CheckEqual(cmd.Text, "实现 T5 的缓存层\n顺便补测试", "kimi: turn.prompt 拼接全部 text 分片（非 text 跳过）");
+        CheckEqual(cmd.SessionId, "session_4d5df5df-3fbf", "kimi: sessionId = session_ 目录名");
+        CheckEqual(cmd.Project, "agent-timeline", "kimi: project = 工作目录名去壳");
+        CheckEqual(cmd.Timestamp.ToUnixTimeMilliseconds(), 1781801007033L, "kimi: time 按毫秒 epoch 解析");
+        CheckEqual(cmd.SourceOffset, 1L, "kimi: 行偏移原样带出");
+
         var done = events.OfType<TaskComplete>().ToList();
-        CheckEqual(done.Count, 1, "kimi: ContentPart 出结果、空 TurnEnd 不出");
-        CheckEqual(done[0].ResultLine, "缓存层已实现。", "kimi: ContentPart 文本取首段作结果行");
+        CheckEqual(done.Count, 1, "kimi: 只有 part.type==text 出结果行（think/step 事件排除）");
+        CheckEqual(done[0].ResultLine, "缓存层已实现。", "kimi: content.part 文本取首段作结果行");
+        CheckEqual(done[0].FullText, "缓存层已实现。\n\n细节见下。", "kimi: 全文保留供代号挖掘");
+        CheckEqual(events.Count, 2, "kimi: 非用户 origin / 注入消息 / 无关类型 / 裸斜杠 / 空白 / 坏行全部跳过");
 
         var longCmd = Cmd(new string('x', 5000), 1_700_000_000);
         var prompt = SummaryJson.BuildPrompt(longCmd);

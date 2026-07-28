@@ -24,7 +24,8 @@ public static class AppPaths
     // Session roots per docs/SESSION-FORMATS.md (~ → %USERPROFILE%).
     public static string ClaudeProjectsRoot => Path.Combine(UserProfile, ".claude", "projects");
     public static string CodexSessionsRoot => Path.Combine(UserProfile, ".codex", "sessions");
-    public static string KimiSessionsRoot => Path.Combine(UserProfile, ".kimi", "sessions");
+    /// <summary>Kimi Code：2026-07-28 起会话落在 `.kimi-code`（旧的 `.kimi` 不再支持）。</summary>
+    public static string KimiSessionsRoot => Path.Combine(UserProfile, ".kimi-code", "sessions");
 
     /// <summary>zcode agent 任务会话默认根（实机确认 2026-07-27）；settings 可覆盖。</summary>
     public static string ZcodeAgentsRootDefault => Path.Combine(UserProfile, ".zcode", "cli", "agents");

@@ -16,18 +16,17 @@ public sealed partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
-        Title = "Agent Timeline 设置";
+        // 版本进标题栏（双端统一：mac 端窗口标题用同一字符串）。
+        // 版本来自仓库根 VERSION（csproj 构建期注入 AssemblyVersion）。
+        var v = typeof(App).Assembly.GetName().Version;
+        Title = $"Agent Timeline 设置 · v{v?.ToString(3) ?? "?"}";
         // unpackaged 下窗口图标不会自动取 exe 图标，需显式指定（标题栏/任务栏用）。
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "TrayIcon.ico"));
-        AppWindow.Resize(new SizeInt32(600, 760));
+        AppWindow.Resize(new SizeInt32(600, 700));
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
             presenter.IsMaximizable = false;
         }
-
-        // 版本来自仓库根 VERSION（csproj 构建期注入 AssemblyVersion）。
-        var v = typeof(App).Assembly.GetName().Version;
-        VersionText.Text = $"Agent Timeline v{v?.ToString(3) ?? "?"}";
 
         LoadFromSettings();
     }
@@ -61,7 +60,8 @@ public sealed partial class SettingsWindow : Window
         EnableCodexCheck.IsChecked = s.EnableCodex;
         EnableKimiCheck.IsChecked = s.EnableKimi;
         EnableZcodeCheck.IsChecked = s.EnableZcode;
-        ZcodeRootBox.Text = s.ZcodeSessionRoot;
+        // NOTE: AppSettings.ZcodeSessionRoot 仍然生效（空 = 自动探测的默认根），只是不再
+        // 出现在 UI 里——默认根实机确认可用，输入框只是噪音。要改仍可编辑 settings.json。
 
         UpdateEnginePanels();
     }
@@ -71,9 +71,9 @@ public sealed partial class SettingsWindow : Window
 
     private void UpdateEnginePanels()
     {
-        // Guard: SelectionChanged can fire before all named panels are realized.
-        if (CliPanel is null || ProviderPanel is null) return;
-        CliPanel.Visibility = EngineRadios.SelectedIndex == 0 ? Visibility.Visible : Visibility.Collapsed;
+        // Guard: SelectionChanged can fire before all named elements are realized.
+        if (CliCommandBox is null || ProviderPanel is null) return;
+        CliCommandBox.Visibility = EngineRadios.SelectedIndex == 0 ? Visibility.Visible : Visibility.Collapsed;
         ProviderPanel.Visibility = EngineRadios.SelectedIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -101,7 +101,7 @@ public sealed partial class SettingsWindow : Window
         s.EnableCodex = EnableCodexCheck.IsChecked == true;
         s.EnableKimi = EnableKimiCheck.IsChecked == true;
         s.EnableZcode = EnableZcodeCheck.IsChecked == true;
-        s.ZcodeSessionRoot = ZcodeRootBox.Text.Trim();
+        // ZcodeSessionRoot 无 UI，保存时原样保留已存的值（默认空 = 自动探测）。
 
         s.Save();
         App.Engine.ReloadSummarizer();

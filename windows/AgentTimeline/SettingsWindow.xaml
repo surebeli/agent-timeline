@@ -15,14 +15,14 @@
                 <RadioButton Content="纯规则（不调用 LLM）" />
             </RadioButtons>
 
-            <StackPanel x:Name="CliPanel" Spacing="8">
-                <TextBlock Opacity="0.7" Text="CLI 选择（auto 时优先 claude，其次 codex）" />
-                <ComboBox x:Name="CliCommandBox" MinWidth="180">
-                    <ComboBoxItem Content="auto" />
-                    <ComboBoxItem Content="claude" />
-                    <ComboBoxItem Content="codex" />
-                </ComboBox>
-            </StackPanel>
+            <ComboBox
+                x:Name="CliCommandBox"
+                MinWidth="180"
+                Header="CLI 选择（auto 时优先 claude，其次 codex）">
+                <ComboBoxItem Content="auto" />
+                <ComboBoxItem Content="claude" />
+                <ComboBoxItem Content="codex" />
+            </ComboBox>
 
             <StackPanel x:Name="ProviderPanel" Spacing="8">
                 <TextBox x:Name="ProviderBaseUrlBox" Header="Base URL" PlaceholderText="https://api.example.com/v1" />
@@ -55,25 +55,16 @@
                 Minimum="0"
                 SpinButtonPlacementMode="Inline" />
             <StackPanel Spacing="4">
-                <CheckBox x:Name="EnableClaudeCheck" Content="Claude Code（~\.claude\projects）" />
-                <CheckBox x:Name="EnableCodexCheck" Content="Codex（~\.codex\sessions）" />
-                <CheckBox x:Name="EnableKimiCheck" Content="Kimi（~\.kimi\sessions）" />
-                <CheckBox x:Name="EnableZcodeCheck" Content="zcode（~\.zcode\cli\agents）" />
+                <CheckBox x:Name="EnableClaudeCheck" Content="Claude Code" ToolTipService.ToolTip="%USERPROFILE%\.claude\projects" />
+                <CheckBox x:Name="EnableCodexCheck" Content="Codex" ToolTipService.ToolTip="%USERPROFILE%\.codex\sessions" />
+                <CheckBox x:Name="EnableKimiCheck" Content="Kimi Code" ToolTipService.ToolTip="%USERPROFILE%\.kimi-code\sessions" />
+                <CheckBox x:Name="EnableZcodeCheck" Content="zcode" ToolTipService.ToolTip="%USERPROFILE%\.zcode\cli\agents" />
             </StackPanel>
-            <TextBox
-                x:Name="ZcodeRootBox"
-                Header="zcode session 根目录（留空 = 默认 ~\.zcode\cli\agents）"
-                PlaceholderText="C:\Users\me\.zcode\cli\agents" />
-
-            <TextBlock Opacity="0.6" TextWrapping="Wrap">
-                提示：摘要引擎与外观改动即时生效；Agent 目录开关在重启应用后生效。
-                摘要结果缓存在本地 SQLite（%LOCALAPPDATA%\AgentTimeline），同一命令不会重复调用 LLM。
-            </TextBlock>
-
             <TextBlock
-                x:Name="VersionText"
-                Opacity="0.5"
-                FontSize="12" />
+                FontSize="12"
+                Opacity="0.6"
+                Text="Agent 目录开关需重启应用后生效；其余设置保存即生效。"
+                TextWrapping="Wrap" />
 
             <!-- ═══════════ actions ═══════════ -->
             <StackPanel

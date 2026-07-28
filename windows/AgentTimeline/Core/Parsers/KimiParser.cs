@@ -4,35 +4,45 @@ using System.Text.Json;
 namespace AgentTimeline.Core.Parsers;
 
 /// <summary>
-/// Kimi (Kimi Code CLI) sessions — docs/SESSION-FORMATS.md §3.
+/// Kimi (Kimi Code CLI) sessions — docs/SESSION-FORMATS.md §3。
 ///
-/// Path:   %USERPROFILE%\.kimi\sessions\&lt;project-hash&gt;\&lt;session-uuid&gt;\wire.jsonl
-///         (sibling state.json may hold custom_title → used as project/session display name;
-///          project-hash → cwd mapping is not public, so fall back to hash[..8])
-/// Format: first line {"type":"metadata","protocol_version":...};
-///         others {timestamp: unix-seconds(float), message: {type, payload}}.
+/// Path:   %USERPROFILE%\.kimi-code\sessions\wd_&lt;project&gt;_&lt;12hex&gt;\
+///         session_&lt;uuid&gt;\agents\main\wire.jsonl
 ///
-///   - user command:  message.type=="TurnBegin" → concat payload.user_input[] items
-///     with type=="text"; short slash commands ("/model", ...) are meta, skipped;
-///   - task complete: message.type=="TurnEnd" (if present) — payload shape is not
-///     fully specified, so a best-effort string is extracted; otherwise skipped.
+/// ⚠ 2026-07-28 换代：目录从 `~\.kimi\sessions` 迁到 `~\.kimi-code\sessions`，且 wire
+/// 协议消息类型全变（旧的 TurnBegin / TurnEnd / ContentPart 已不存在，全部走顶层
+/// `type`）。旧布局不再支持。本机 44 个真实 session 实证。
+///
+/// 新格式的意外收获：项目目录名自带可读项目名（旧版只有不可解的 hash，只能显示前 8 位）。
+///
+/// 每行一个 JSON 对象，顶层 `type`：
+///   - 用户命令: `type=="turn.prompt"` 且 `origin.kind=="user"` → 拼接 `input[]` 中
+///     `type=="text"` 的 `text`；时间戳取顶层 `time`（毫秒 epoch）。
+///     不用 `context.append_message` role=user：那条通道混着注入上下文
+///     （实测 85 条注入 vs 39 条真实 prompt）。
+///   - 回复正文: `type=="context.append_loop_event"` 且 `event.type=="content.part"`
+///     且 `event.part.type=="text"` → `event.part.text`。**排除 `part.type=="think"`**
+///     （模型思考过程，实测 324 条 think vs 49 条 text，不是它给出的答复）。
+///   - 其余 (`metadata` / `config.update` / `tools.*` / `permission.*` /
+///     `context.append_message` / `usage.record` / loop 事件 step.*、tool.*) 全部忽略。
 /// </summary>
 public sealed class KimiParser : IAgentSessionParser
 {
     public AgentKind Agent => AgentKind.Kimi;
 
-    /// <summary>Cached project display name per wire.jsonl path.</summary>
-    private readonly Dictionary<string, string> _projectNames = new();
+    /// <summary>session/project 上下文缓存（key = wire.jsonl 路径）。</summary>
+    private readonly Dictionary<string, (string SessionId, string Project)> _contexts =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public bool CanHandle(string path) =>
         string.Equals(Path.GetFileName(path), "wire.jsonl", StringComparison.OrdinalIgnoreCase) &&
-        path.Contains(Path.Combine(".kimi", "sessions"), StringComparison.OrdinalIgnoreCase);
+        // 分隔符归一：Windows 上是 `\`，冒烟测试跑在 macOS 上会拼出 `/`。
+        path.Replace('\\', '/').Contains(".kimi-code/sessions", StringComparison.OrdinalIgnoreCase);
 
     public IReadOnlyList<SessionEvent> ParseLines(string path, IReadOnlyList<RawLine> lines)
     {
         var events = new List<SessionEvent>();
-        var sessionId = Path.GetFileName(Path.GetDirectoryName(path)) ?? "kimi-session";
-        var project = ProjectNameFor(path);
+        var (sessionId, project) = ContextFor(path);
 
         foreach (var line in lines)
         {
@@ -43,74 +53,60 @@ public sealed class KimiParser : IAgentSessionParser
                 var root = doc.RootElement;
                 if (root.ValueKind != JsonValueKind.Object) continue;
 
-                // First line: {"type":"metadata", ...} — no timestamp/message.
-                if (root.TryGetProperty("type", out var t) &&
-                    t.ValueKind == JsonValueKind.String &&
-                    t.GetString() == "metadata")
+                switch (GetString(root, "type"))
                 {
-                    continue;
-                }
-
-                if (!root.TryGetProperty("message", out var message) ||
-                    message.ValueKind != JsonValueKind.Object)
-                {
-                    continue;
-                }
-
-                var timestamp = ParseUnixSeconds(root);
-                var messageType = GetString(message, "type");
-                message.TryGetProperty("payload", out var payload);
-
-                if (messageType == "TurnBegin")
-                {
-                    var text = ExtractUserInput(payload);
-                    if (string.IsNullOrWhiteSpace(text)) continue;
-                    text = text.Trim();
-
-                    // Short slash commands (e.g. "/model") are meta, not prompts (optional rule).
-                    if (text.StartsWith('/') && text.Length <= 24 && !text.Contains(' ')) continue;
-
-                    events.Add(new UserCommand(
-                        Agent: AgentKind.Kimi,
-                        Project: project,
-                        SessionId: sessionId,
-                        Timestamp: timestamp,
-                        Text: text,
-                        SourceFile: path,
-                        SourceOffset: line.ByteOffset));
-                }
-                else if (messageType == "TurnEnd")
-                {
-                    // 实机语料 40/40 条 TurnEnd 的 payload 都是空对象——保留探测作
-                    // 未来兼容钩子，真正的回复走下面的 ContentPart 通道。
-                    var resultLine = ExtractBestEffortString(payload);
-                    if (!string.IsNullOrWhiteSpace(resultLine))
+                    case "turn.prompt":
                     {
-                        events.Add(new TaskComplete(
+                        // 只认用户发起的 prompt（system_trigger 等是自动续跑，不是人下的命令）。
+                        if (!root.TryGetProperty("origin", out var origin) ||
+                            origin.ValueKind != JsonValueKind.Object ||
+                            GetString(origin, "kind") != "user")
+                        {
+                            continue;
+                        }
+
+                        var text = ExtractPromptText(root);
+                        if (string.IsNullOrWhiteSpace(text)) continue;
+                        text = text.Trim();
+
+                        // Short slash commands (e.g. "/model") are UI actions, not prompts.
+                        if (text.StartsWith('/') && text.Length <= 24 && !text.Contains(' ')) continue;
+
+                        events.Add(new UserCommand(
                             Agent: AgentKind.Kimi,
+                            Project: project,
                             SessionId: sessionId,
-                            Timestamp: timestamp,
-                            ResultLine: ParserUtil.ResultExcerpt(resultLine),
-                            FullText: resultLine)); // untruncated — mined for codenames
+                            Timestamp: ParseEpochMillis(root),
+                            Text: text,
+                            SourceFile: path,
+                            SourceOffset: line.ByteOffset));
+                        break;
                     }
-                }
-                else if (messageType == "ContentPart")
-                {
-                    // Kimi 的回复实际以 ContentPart{type:"text"} 块到达（mac 端既有通道，
-                    // win 此前缺失 → Kimi 结果行永远拿不到）。每块都发；Store 的
-                    // SetResultLine 覆盖 session 最新节点，下一次 TurnBegin 之前的
-                    // 最后一块胜出（SESSION-FORMATS.md §3 备选规则）。
-                    if (payload.ValueKind == JsonValueKind.Object &&
-                        GetString(payload, "type") == "text" &&
-                        GetString(payload, "text") is { } partText &&
-                        !string.IsNullOrWhiteSpace(partText))
+
+                    case "context.append_loop_event":
                     {
+                        if (!root.TryGetProperty("event", out var ev) ||
+                            ev.ValueKind != JsonValueKind.Object ||
+                            GetString(ev, "type") != "content.part" ||
+                            !ev.TryGetProperty("part", out var part) ||
+                            part.ValueKind != JsonValueKind.Object ||
+                            GetString(part, "type") != "text")   // "think" = 思考过程，不是答复
+                        {
+                            continue;
+                        }
+
+                        var partText = GetString(part, "text");
+                        if (string.IsNullOrWhiteSpace(partText)) continue;
+
+                        // 每块都发；Store 的 SetResultLine 覆盖 session 最新节点，下一次
+                        // turn.prompt 之前的最后一块胜出（SESSION-FORMATS.md §3）。
                         events.Add(new TaskComplete(
                             Agent: AgentKind.Kimi,
                             SessionId: sessionId,
-                            Timestamp: timestamp,
+                            Timestamp: ParseEpochMillis(root),
                             ResultLine: ParserUtil.ResultExcerpt(partText),
-                            FullText: partText));
+                            FullText: partText)); // untruncated — mined for codenames
+                        break;
                     }
                 }
             }
@@ -122,22 +118,10 @@ public sealed class KimiParser : IAgentSessionParser
         return events;
     }
 
-    private static DateTimeOffset ParseUnixSeconds(JsonElement root)
+    /// <summary>input[]: concat "text" of items with type=="text".</summary>
+    private static string ExtractPromptText(JsonElement root)
     {
-        if (root.TryGetProperty("timestamp", out var ts) &&
-            ts.ValueKind == JsonValueKind.Number &&
-            ts.TryGetDouble(out var seconds))
-        {
-            return DateTimeOffset.FromUnixTimeMilliseconds((long)(seconds * 1000.0));
-        }
-        return DateTimeOffset.UtcNow;
-    }
-
-    /// <summary>payload.user_input[]: concat "text" of items with type=="text".</summary>
-    private static string ExtractUserInput(JsonElement payload)
-    {
-        if (payload.ValueKind != JsonValueKind.Object) return "";
-        if (!payload.TryGetProperty("user_input", out var input) ||
+        if (!root.TryGetProperty("input", out var input) ||
             input.ValueKind != JsonValueKind.Array)
         {
             return "";
@@ -155,49 +139,62 @@ public sealed class KimiParser : IAgentSessionParser
         return sb.ToString();
     }
 
-    /// <summary>TurnEnd payload shape is unspecified in the format doc — probe common keys.</summary>
-    private static string? ExtractBestEffortString(JsonElement payload)
+    /// <summary>wire 新协议的 `time` 是毫秒 epoch（整数）。</summary>
+    private static DateTimeOffset ParseEpochMillis(JsonElement root)
     {
-        if (payload.ValueKind == JsonValueKind.String) return payload.GetString();
-        if (payload.ValueKind != JsonValueKind.Object) return null;
-        foreach (var key in new[] { "last_agent_message", "message", "text", "summary" })
+        if (root.TryGetProperty("time", out var t) && t.ValueKind == JsonValueKind.Number)
         {
-            var value = GetString(payload, key);
-            if (!string.IsNullOrWhiteSpace(value)) return value;
+            if (t.TryGetInt64(out var ms) && ms > 0) return DateTimeOffset.FromUnixTimeMilliseconds(ms);
+            if (t.TryGetDouble(out var d) && d > 0) return DateTimeOffset.FromUnixTimeMilliseconds((long)d);
         }
-        return null;
+        return DateTimeOffset.UtcNow;
     }
 
     /// <summary>
-    /// Display project name: state.json custom_title next to wire.jsonl when present,
-    /// else the first 8 chars of the project hash directory.
+    /// …\wd_&lt;name&gt;_&lt;hash&gt;\session_&lt;uuid&gt;\agents\&lt;agent&gt;\wire.jsonl
+    /// → sessionId = session_&lt;uuid&gt; 目录名，project = 工作目录名去壳。
+    /// 子 agent（agents\agent-0）与 main 共享同一 sessionId — 与 mac 端一致。
     /// </summary>
-    private string ProjectNameFor(string wirePath)
+    private (string SessionId, string Project) ContextFor(string wirePath)
     {
-        if (_projectNames.TryGetValue(wirePath, out var cached)) return cached;
+        if (_contexts.TryGetValue(wirePath, out var cached)) return cached;
 
-        var sessionDir = Path.GetDirectoryName(wirePath);
-        var hashDir = sessionDir is null ? null : Path.GetDirectoryName(sessionDir);
-        var hash = hashDir is null ? "kimi" : Path.GetFileName(hashDir);
-        var name = hash.Length > 8 ? hash[..8] : hash;
+        var agentDir = Path.GetDirectoryName(wirePath);         // main
+        var agentsDir = Path.GetDirectoryName(agentDir);        // agents
+        var sessionDir = Path.GetDirectoryName(agentsDir);      // session_<uuid>
+        var projectDir = Path.GetDirectoryName(sessionDir);     // wd_<name>_<12hex>
 
-        try
+        var sessionId = Path.GetFileName(sessionDir);
+        if (string.IsNullOrEmpty(sessionId)) sessionId = "kimi-session";
+        var project = ProjectNameFromWorkDir(Path.GetFileName(projectDir) ?? "");
+
+        var context = (sessionId, project);
+        _contexts[wirePath] = context;
+        return context;
+    }
+
+    /// <summary>
+    /// `wd_&lt;name&gt;_&lt;12hex&gt;` → `&lt;name&gt;`。项目名本身可能含下划线
+    /// （`wd_hawk_agent-rs_dd8b1189a258` → `hawk_agent-rs`），所以只剥固定前缀与末段
+    /// hash；剥不掉就原样用目录名。
+    /// </summary>
+    public static string ProjectNameFromWorkDir(string dir)
+    {
+        if (string.IsNullOrEmpty(dir)) return "kimi";
+
+        var name = dir;
+        if (name.StartsWith("wd_", StringComparison.Ordinal)) name = name[3..];
+
+        var sep = name.LastIndexOf('_');
+        if (sep >= 0)
         {
-            var statePath = sessionDir is null ? null : Path.Combine(sessionDir, "state.json");
-            if (statePath is not null && File.Exists(statePath))
-            {
-                using var doc = JsonDocument.Parse(File.ReadAllText(statePath));
-                var title = GetString(doc.RootElement, "custom_title");
-                if (!string.IsNullOrWhiteSpace(title)) name = title;
-            }
+            var tail = name[(sep + 1)..];
+            if (tail.Length >= 8 && tail.All(IsHexDigit)) name = name[..sep];
         }
-        catch
-        {
-            // state.json is advisory only.
-        }
+        return name.Length == 0 ? dir : name;
 
-        _projectNames[wirePath] = name;
-        return name;
+        static bool IsHexDigit(char c) =>
+            (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
     }
 
     private static string? GetString(JsonElement el, string name) =>
