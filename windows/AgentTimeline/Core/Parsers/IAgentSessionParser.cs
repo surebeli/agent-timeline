@@ -75,6 +75,40 @@ internal static class ParserUtil
     }
 
     /// <summary>Last path segment of a cwd recorded with either separator ("/Users/x/foo" or "C:\x\foo").</summary>
+    /// <summary>
+    /// 注入 / 元信息块前缀——绝不能作为用户命令冒出来。与 mac
+    /// `ParserSupport.ignoredPrefixes` **逐条一致**，两端共用同一份语义；
+    /// 各 agent 解析器共用它，避免各自维护一份而慢慢漂移。
+    ///
+    /// ⚠ 一律**裸标签名**（不含 '&gt;'）：harness 会给注入块带属性，带 '&gt;' 的
+    /// 前缀匹配不上（Claude/Codex 两侧都栽过这个跟头）。
+    ///
+    /// NOTE: 斜杠命令回显块（`&lt;command-name&gt;` / `&lt;command-message&gt;`）**故意不在此列**
+    /// ——它们承载真实的用户命令，是转换而非丢弃（见 ClaudeParser.ParseAttachmentLine）。
+    /// </summary>
+    public static readonly string[] IgnoredPrefixes =
+    {
+        "<local-command-caveat", "<local-command-stdout",
+        "<system-reminder", "<user_instructions", "<environment_context", "<task-notification",
+        // `!cmd` 直通 shell 的**输出**（实机 W0 验证时发现的泄漏，本机语料 10 条）：
+        // 输入侧是用户真实操作、由 ClaudeParser.BashInputRegex 转换保留，输出侧不是人说的话。
+        "<bash-stdout", "<bash-stderr",
+        "Caveat:", "[Request interrupted",
+        "This session is being continued from",  // post-compaction continuation blob
+    };
+
+    /// <summary>与 mac `ParserSupport.isIgnoredContent` 同口径（trim 后按前缀判定）。</summary>
+    public static bool IsIgnoredContent(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return true;
+        var t = text.Trim();
+        foreach (var prefix in IgnoredPrefixes)
+        {
+            if (t.StartsWith(prefix, StringComparison.Ordinal)) return true;
+        }
+        return false;
+    }
+
     public static string ProjectNameFromCwd(string? cwd, string fallback)
     {
         if (string.IsNullOrWhiteSpace(cwd)) return fallback;

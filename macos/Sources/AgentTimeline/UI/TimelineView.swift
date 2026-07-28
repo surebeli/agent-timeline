@@ -225,7 +225,7 @@ struct TimelineView: View {
             Image(systemName: "moon.zzz")
                 .font(.system(size: 24))
                 .foregroundStyle(tokens.color.textTertiary.color)
-            Text("暂无记录 — 在 Claude Code / Codex / Kimi 中提交命令后，这里会自动出现时间线")
+            Text("暂无记录 — 在 Claude Code / Codex / Grok Build / Kimi Code / ZCode 中提交命令后，这里会自动出现时间线")
                 .font(.system(size: tokens.typography.size.caption))
                 .foregroundStyle(tokens.color.textTertiary.color)
                 .multilineTextAlignment(.center)

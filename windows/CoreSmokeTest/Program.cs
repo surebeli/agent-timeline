@@ -35,6 +35,8 @@ internal static class Program
         StoreLatestNodeId();
         ReplayRebuildsFromHistory();
         ZcodeParserBasics();
+        GrokParserBasics();
+        AgentKindContract();
         ClaudeParserInjectionFilters();
         ClaudeIgnoredPrefixParity();
         ClaudeAssistantMultiSegment();
@@ -448,6 +450,124 @@ internal static class Program
         finally
         {
             try { Directory.Delete(root, true); } catch { /* best effort */ }
+        }
+    }
+
+    /// <summary>
+    /// Grok Build（docs/SESSION-FORMATS.md §3）。路径与语义均按本机 87 个真实 session
+    /// （27724 行）实证：ACP 流、unix 整秒时间戳、结果行取轮次末条 agent 消息。
+    /// SeedFromPath 只做字符串运算不碰文件，故这里用纯路径构造，跨平台安全。
+    /// </summary>
+    private static void GrokParserBasics()
+    {
+        var parser = new GrokParser();
+        string SessionFile(string encodedCwd, string name) => Path.Combine(
+            Path.GetTempPath(), ".grok", "sessions", encodedCwd,
+            "019fa68b-e14a-7951-ada9-c181552cbd27", name);
+
+        var winCwdDir = "F%3A%5Cworkspace%5Cproject%5Chawk-watcher";
+        var path = SessionFile(winCwdDir, "updates.jsonl");
+        Check(parser.CanHandle(path), "grok: CanHandle updates.jsonl");
+
+        // 同一棵树下并存 6 种 .jsonl（实测 chat_history 91 / events 91 / updates 87 /
+        // rewind_points 81 / hunk_records 4 / prompt_history 3）——只能认 updates.jsonl，
+        // 否则同一轮对话被重复摄取（Kimi A1 同类教训）。
+        foreach (var other in new[]
+                 { "chat_history.jsonl", "events.jsonl", "rewind_points.jsonl",
+                   "hunk_records.jsonl", "prompt_history.jsonl" })
+        {
+            Check(!parser.CanHandle(SessionFile(winCwdDir, other)),
+                $"grok: 同目录 {other} 不接手");
+        }
+
+        // 时间戳是 unix **整秒**（非 ISO8601、非毫秒）：1785205656 → 2026-07-28T02:27:36Z。
+        // 若误当毫秒解会落到 1970 年，误走 ISO 解析则整条丢弃——两种都会被下面这条抓住。
+        var events = parser.ParseLines(path, new List<RawLine>
+        {
+            new(0, """{"timestamp":1785205656,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"user_message_chunk","content":{"type":"text","text":"/harnessloop:harnessloop-status"}}}}"""),
+            new(100, """{"timestamp":1785205657,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"agent_thought_chunk","content":{"type":"text","text":"内心戏不该进时间线"}}}}"""),
+            new(200, """{"timestamp":1785205660,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"正在读取状态…"}}}}"""),
+            new(300, """{"timestamp":1785205670,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"task_completed","task_snapshot":{"task_id":"t1"}}}}"""),
+            new(400, """{"timestamp":1785205680,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Harnessloop status: blocked\n\n详情见下。"}}}}"""),
+            new(500, """{"timestamp":1785205689,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"turn_completed","stop_reason":"end_turn"}}}"""),
+            new(600, "not json at all"),
+        });
+
+        var cmd = events.OfType<UserCommand>().FirstOrDefault();
+        Check(cmd is not null, "grok: user_message_chunk → UserCommand");
+        CheckEqual(cmd!.Text, "/harnessloop:harnessloop-status", "grok: 命令原文原样保留");
+        CheckEqual(cmd.Project, "hawk-watcher", "grok: 项目名由 URL 编码目录名解码取末段");
+        CheckEqual(cmd.SessionId, "sess-real", "grok: sessionId 取 params.sessionId");
+        CheckEqual(cmd.Timestamp.UtcDateTime,
+            new DateTime(2026, 7, 28, 2, 27, 36, DateTimeKind.Utc), "grok: timestamp 按 unix 整秒解析");
+
+        var done = events.OfType<TaskComplete>().FirstOrDefault();
+        Check(done is not null, "grok: turn_completed → TaskComplete");
+        Check(done!.ResultLine.StartsWith("Harnessloop status"),
+            "grok: 结果行取轮次内**最后一条** agent 消息（不是进度旁白）");
+        Check(done.FullText!.Contains("详情见下"), "grok: 全文保留供代号挖掘");
+        CheckEqual(events.Count, 2, "grok: thought/task_completed/坏行全部跳过");
+
+        // task_completed 是子任务完成，单独出现绝不能产出结果行。
+        var subtaskOnly = new GrokParser().ParseLines(SessionFile(winCwdDir, "updates.jsonl"), new List<RawLine>
+        {
+            new(0, """{"timestamp":1785205660,"method":"session/update","params":{"sessionId":"s","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"旁白"}}}}"""),
+            new(100, """{"timestamp":1785205670,"method":"session/update","params":{"sessionId":"s","update":{"sessionUpdate":"task_completed","task_snapshot":{"task_id":"t1"}}}}"""),
+        });
+        CheckEqual(subtaskOnly.Count, 0, "grok: task_completed 不是轮次完成，不产出结果行");
+
+        // L1：<system-reminder> 是后台任务回执（实测 92 条用户消息里 4 条），非人类输入。
+        var filtered = new GrokParser().ParseLines(path, new List<RawLine>
+        {
+            new(0, """{"timestamp":1785205656,"method":"session/update","params":{"sessionId":"s","update":{"sessionUpdate":"user_message_chunk","content":{"type":"text","text":"<system-reminder>\nBackground task \"call-1\" completed (exit code 0)\n</system-reminder>"}}}}"""),
+        });
+        CheckEqual(filtered.Count, 0, "grok/L1: <system-reminder> 后台回执跳过");
+
+        // mac 侧目录形态：%2FUsers%2F… → /Users/…，同一套解码取末段。
+        var posix = new GrokParser().ParseLines(
+            SessionFile("%2FUsers%2Fme%2Fdev%2Fmy-app", "updates.jsonl"), new List<RawLine>
+            {
+                new(0, """{"timestamp":1785205656,"method":"session/update","params":{"sessionId":"s","update":{"sessionUpdate":"user_message_chunk","content":{"type":"text","text":"hi"}}}}"""),
+            });
+        CheckEqual(((UserCommand)posix[0]).Project, "my-app", "grok: POSIX 形态目录名同样解码（mac 侧口径）");
+
+        // §4.2-14 共同规则：缺时间戳顺延本文件上一条，无前值则不产出——绝不回退 UtcNow。
+        var noBaseline = new GrokParser().ParseLines(path, new List<RawLine>
+        {
+            new(0, """{"method":"session/update","params":{"sessionId":"s","update":{"sessionUpdate":"user_message_chunk","content":{"type":"text","text":"无基准"}}}}"""),
+        });
+        CheckEqual(noBaseline.Count, 0, "grok/W-e: 文件里还没有可用时间戳时该行不产出");
+
+        var carried = new GrokParser().ParseLines(path, new List<RawLine>
+        {
+            new(0, """{"timestamp":1785205656,"method":"session/update","params":{"sessionId":"s","update":{"sessionUpdate":"tool_call","content":{}}}}"""),
+            new(100, """{"method":"session/update","params":{"sessionId":"s","update":{"sessionUpdate":"user_message_chunk","content":{"type":"text","text":"顺延上一条"}}}}"""),
+        });
+        Check(carried.Count == 1 && carried[0] is UserCommand c2
+              && c2.Timestamp == DateTimeOffset.FromUnixTimeSeconds(1785205656),
+              "grok/W-e: 缺时间戳顺延本文件上一条（含被忽略事件喂养的基准）");
+    }
+
+    /// <summary>
+    /// 五家 agent 的稳定键 / 徽标 / 展示名契约。Key() 落库且参与 design-token 查找，
+    /// 改动会让历史数据对不上；DisplayName 进摘要 prompt，必须与 mac 端逐字一致。
+    /// </summary>
+    private static void AgentKindContract()
+    {
+        CheckEqual(AgentKind.Grok.Key(), "grok", "agent: Grok 稳定键");
+        CheckEqual(AgentKind.Grok.Monogram(), "GR", "agent: Grok 徽标缩写");
+        CheckEqual(AgentKind.Grok.DisplayName(), "Grok", "agent: Grok 展示名");
+        Check(AgentKindExtensions.FromKey("grok") == AgentKind.Grok, "agent: grok 键回解");
+        CheckEqual(AgentKind.Zcode.DisplayName(), "ZCode", "agent: ZCode 大小写已对齐产品名");
+        CheckEqual(AgentKind.Zcode.Key(), "zcode", "agent: ZCode 稳定键不随展示名变（历史数据兼容）");
+
+        // 五家全覆盖：键唯一、徽标唯一，且每家都能由键回解。
+        var kinds = new[] { AgentKind.Claude, AgentKind.Codex, AgentKind.Grok, AgentKind.Kimi, AgentKind.Zcode };
+        CheckEqual(kinds.Select(k => k.Key()).Distinct().Count(), 5, "agent: 五家稳定键互不相同");
+        CheckEqual(kinds.Select(k => k.Monogram()).Distinct().Count(), 5, "agent: 五家徽标缩写互不相同");
+        foreach (var k in kinds)
+        {
+            Check(AgentKindExtensions.FromKey(k.Key()) == k, $"agent: {k.Key()} 键往返一致");
         }
     }
 

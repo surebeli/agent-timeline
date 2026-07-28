@@ -48,16 +48,9 @@ public sealed partial class ClaudeParser : IAgentSessionParser
     //      带 '>' 的前缀匹配不上，整块 XML 会变成垃圾"用户命令"节点；
     //   ② `<user_instructions>` / `<environment_context>` 是 Claude 侧也会出现的
     //      环境注入（codex 通道已过滤，claude 通道此前整批漏网）。
-    private static readonly string[] IgnoredPrefixes =
-    {
-        "<local-command-caveat", "<local-command-stdout",
-        "<system-reminder", "<user_instructions", "<environment_context", "<task-notification",
-        // `!cmd` 直通 shell 的**输出**（实机 W0 验证时发现的新泄漏，本机语料 10 条）：
-        // 输入侧是用户真实操作、由下面 BashInputRegex 转换保留，输出侧不是人说的话。
-        "<bash-stdout", "<bash-stderr",
-        "Caveat:", "[Request interrupted",
-        "This session is being continued from",  // post-compaction continuation blob
-    };
+    // 清单已提到 ParserUtil.IgnoredPrefixes（与 mac ParserSupport.ignoredPrefixes 同源），
+    // 各 agent 解析器共用，避免各维护一份而漂移。语义与判定顺序不变。
+    private static readonly string[] IgnoredPrefixes = ParserUtil.IgnoredPrefixes;
 
     /// <summary>`!git pull` 直通 shell：命令本身是用户真实操作，转成 "$ cmd" 保留。</summary>
     private static readonly Regex BashInputRegex = new(

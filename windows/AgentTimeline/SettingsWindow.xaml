@@ -57,8 +57,9 @@
             <StackPanel Spacing="4">
                 <CheckBox x:Name="EnableClaudeCheck" Content="Claude Code" ToolTipService.ToolTip="%USERPROFILE%\.claude\projects" />
                 <CheckBox x:Name="EnableCodexCheck" Content="Codex" ToolTipService.ToolTip="%USERPROFILE%\.codex\sessions" />
+                <CheckBox x:Name="EnableGrokCheck" Content="Grok Build" ToolTipService.ToolTip="%USERPROFILE%\.grok\sessions" />
                 <CheckBox x:Name="EnableKimiCheck" Content="Kimi Code" ToolTipService.ToolTip="%USERPROFILE%\.kimi-code\sessions" />
-                <CheckBox x:Name="EnableZcodeCheck" Content="zcode" ToolTipService.ToolTip="%USERPROFILE%\.zcode\cli\agents" />
+                <CheckBox x:Name="EnableZcodeCheck" Content="ZCode" ToolTipService.ToolTip="%USERPROFILE%\.zcode\cli\agents" />
             </StackPanel>
             <TextBlock
                 FontSize="12"

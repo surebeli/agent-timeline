@@ -580,12 +580,113 @@ final class ParserTests: XCTestCase {
     }
 
     func testAgentMonogramsMatchWindows() {
-        // 双端锁定：Windows AgentKind.Monogram() 的映射（CL/CO/KI/ZC）。
+        // 双端锁定：Windows AgentKind.Monogram() 的映射（CL/CO/GR/KI/ZC）。
         XCTAssertEqual(AgentKind.claude.monogram, "CL")
         XCTAssertEqual(AgentKind.codex.monogram, "CO")
+        XCTAssertEqual(AgentKind.grok.monogram, "GR")
         XCTAssertEqual(AgentKind.kimi.monogram, "KI")
         XCTAssertEqual(AgentKind.zcode.monogram, "ZC")
         XCTAssertEqual(Set(AgentKind.allCases.map(\.monogram)).count, AgentKind.allCases.count)
+    }
+
+    /// 五家 agent 的稳定键 / 展示名 / 顺序契约（对应 win `AgentKindContract`）。
+    /// rawValue 落库且参与 design-token 查找，改动会让历史数据对不上；
+    /// displayName 进摘要 prompt，必须与 Windows 逐字一致。
+    func testAgentKindContract() {
+        XCTAssertEqual(AgentKind.allCases.map(\.rawValue),
+                       ["claude", "codex", "grok", "kimi", "zcode"],
+                       "声明顺序即设置页展示顺序")
+        XCTAssertEqual(AgentKind.grok.rawValue, "grok")
+        XCTAssertEqual(AgentKind.grok.displayName, "Grok")
+        XCTAssertEqual(AgentKind.grok.settingsLabel, "Grok Build")
+        XCTAssertEqual(AgentKind.zcode.displayName, "ZCode", "大小写已对齐产品名")
+        XCTAssertEqual(AgentKind.zcode.rawValue, "zcode", "稳定键不随展示名变（历史数据兼容）")
+        XCTAssertEqual(AgentKind.allCases.map(\.settingsLabel),
+                       ["Claude Code", "Codex", "Grok Build", "Kimi Code", "ZCode"])
+    }
+
+    /// Grok Build（docs/SESSION-FORMATS.md §3）。语义按 Windows 侧 87 个真实
+    /// session / 27724 行实证对齐：ACP 流、unix 整秒时间戳、结果行取轮次末条 agent 消息。
+    func testGrokParserTurnEvents() {
+        let parser = GrokParser()
+        let sessions = ParserSupport.home("~/.grok/sessions")
+        let url = sessions.appendingPathComponent("%2FUsers%2Fme%2Fdev%2Fmy-app/019fa68b-e14a/updates.jsonl")
+
+        guard var ctx = parser.makeContext(for: url) else {
+            return XCTFail("updates.jsonl 应被接手")
+        }
+        XCTAssertEqual(ctx.project, "my-app", "项目名由 URL 编码目录名解码取末段")
+        XCTAssertEqual(ctx.sessionId, "019fa68b-e14a", "sessionId 先取目录名")
+
+        // ⚠ 必须锚定 updates.jsonl：同树下并存 6 种 .jsonl，宽松匹配会重复摄取。
+        for other in ["chat_history.jsonl", "events.jsonl", "rewind_points.jsonl",
+                      "hunk_records.jsonl", "prompt_history.jsonl"] {
+            let sibling = url.deletingLastPathComponent().appendingPathComponent(other)
+            XCTAssertNil(parser.makeContext(for: sibling), "同目录 \(other) 不接手")
+        }
+
+        // timestamp 是 unix **整秒**：1785205656 → 2026-07-28T02:27:36Z。
+        // 误当毫秒会落到 1970，误走 ISO 解析则整条丢弃——两种都会被这条抓住。
+        let userLine = #"{"timestamp":1785205656,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"user_message_chunk","content":{"type":"text","text":"/harnessloop:harnessloop-status"}}}}"#
+        guard case .userCommand(let cmd)? = parser.parse(line: userLine, context: &ctx).first else {
+            return XCTFail("user_message_chunk 应产出命令节点")
+        }
+        XCTAssertEqual(cmd.text, "/harnessloop:harnessloop-status")
+        XCTAssertEqual(cmd.agent, .grok)
+        XCTAssertEqual(cmd.sessionId, "sess-real", "sessionId 以 params.sessionId 为准")
+        XCTAssertEqual(cmd.timestamp, Date(timeIntervalSince1970: 1_785_205_656))
+
+        // 思考过程不进时间线。
+        let thought = #"{"timestamp":1785205657,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"agent_thought_chunk","content":{"type":"text","text":"内心戏"}}}}"#
+        XCTAssertTrue(parser.parse(line: thought, context: &ctx).isEmpty)
+
+        // 一轮内多条 agent_message_chunk：前面的是进度旁白，只有末条是答复。
+        let narration = #"{"timestamp":1785205660,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"正在读取状态…"}}}}"#
+        XCTAssertTrue(parser.parse(line: narration, context: &ctx).isEmpty, "旁白不即时产出")
+
+        // task_completed 是子任务完成，不是轮次完成，绝不能当结果行。
+        let subtask = #"{"timestamp":1785205670,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"task_completed","task_snapshot":{"task_id":"t1"}}}}"#
+        XCTAssertTrue(parser.parse(line: subtask, context: &ctx).isEmpty,
+                      "task_completed 不是轮次完成")
+
+        let answer = #"{"timestamp":1785205680,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Harnessloop status: blocked\n\n详情见下。"}}}}"#
+        XCTAssertTrue(parser.parse(line: answer, context: &ctx).isEmpty)
+
+        let turnDone = #"{"timestamp":1785205689,"method":"session/update","params":{"sessionId":"sess-real","update":{"sessionUpdate":"turn_completed","stop_reason":"end_turn"}}}"#
+        guard case .assistantText(_, _, _, let text)? = parser.parse(line: turnDone, context: &ctx).first else {
+            return XCTFail("turn_completed 应产出结果")
+        }
+        XCTAssertTrue(text.hasPrefix("Harnessloop status"), "结果行取轮次内最后一条 agent 消息")
+        XCTAssertTrue(text.contains("详情见下"), "全文不得在解析器里被截断")
+
+        // 轮次已结束，暂存必须清空——否则下一轮没有 agent 消息时会重复挂上一轮的答复。
+        XCTAssertTrue(parser.parse(line: turnDone, context: &ctx).isEmpty, "暂存已清空，不重复产出")
+    }
+
+    /// L1 与时间戳回退（对应 win 同名断言）。
+    func testGrokParserFiltersAndTimestampFallback() {
+        let parser = GrokParser()
+        let url = ParserSupport.home("~/.grok/sessions")
+            .appendingPathComponent("%2FUsers%2Fme%2Fdev%2Fmy-app/sess-1/updates.jsonl")
+        guard var ctx = parser.makeContext(for: url) else { return XCTFail("应被接手") }
+
+        // <system-reminder> 后台任务回执不是人打的字（实测 92 条里 4 条）。
+        let reminder = #"{"timestamp":1785205656,"method":"session/update","params":{"sessionId":"s","update":{"sessionUpdate":"user_message_chunk","content":{"type":"text","text":"<system-reminder>\nBackground task \"call-1\" completed\n</system-reminder>"}}}}"#
+        XCTAssertTrue(parser.parse(line: reminder, context: &ctx).isEmpty, "<system-reminder> 跳过")
+
+        // §4.2-14：缺时间戳顺延本文件上一条；文件里还没有过则该行不产出。
+        var fresh = parser.makeContext(for: url)!
+        let noTs = #"{"method":"session/update","params":{"sessionId":"s","update":{"sessionUpdate":"user_message_chunk","content":{"type":"text","text":"无基准"}}}}"#
+        XCTAssertTrue(parser.parse(line: noTs, context: &fresh).isEmpty,
+                      "还没有可用时间戳时该行不产出（绝不回退当前时间）")
+
+        let toolCall = #"{"timestamp":1785205656,"method":"session/update","params":{"sessionId":"s","update":{"sessionUpdate":"tool_call","content":{}}}}"#
+        _ = parser.parse(line: toolCall, context: &fresh)
+        guard case .userCommand(let carried)? = parser.parse(line: noTs, context: &fresh).first else {
+            return XCTFail("应顺延上一条时间戳后产出")
+        }
+        XCTAssertEqual(carried.timestamp, Date(timeIntervalSince1970: 1_785_205_656),
+                       "缺时间戳顺延本文件上一条（含被忽略事件喂养的基准）")
     }
 
     @MainActor

@@ -18,7 +18,7 @@
 
 ---
 
-跟 Claude Code / Codex / Kimi 这类 agent CLI 跑长周期任务时，你一定遇到过：
+跟 Claude Code / Codex / Grok Build / Kimi Code / ZCode 这类 agent CLI 跑长周期任务时，你一定遇到过：
 
 > 会话里把需求编号成了 N1、N2、N3……几小时后 agent 说 **"N2 完成"** —— N2 是啥来着？
 > 翻几万行 session 记录？算了。
@@ -85,7 +85,7 @@ swift test                                # 21 项单测
 
 ```mermaid
 flowchart LR
-    A[("~/.claude<br/>~/.codex<br/>~/.kimi")] -->|FSEvents 增量 tail| B[解析器<br/>Claude / Codex / Kimi / zcode]
+    A[("~/.claude<br/>~/.codex<br/>~/.grok<br/>~/.kimi-code<br/>~/.zcode")] -->|FSEvents 增量 tail| B[解析器<br/>Claude / Codex / Grok / Kimi / ZCode]
     B -->|用户命令| C[(SQLite)]
     B -->|agent 回复| D[代号词典<br/>定义·状态·出处]
     C --> E[摘要引擎<br/>claude -p / provider / 规则]

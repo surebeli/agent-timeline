@@ -47,6 +47,7 @@ public sealed class TimelineCoordinator : IDisposable
         {
             new ClaudeParser(),
             new CodexParser(),
+            new GrokParser(), // ~\.grok\sessions\<urlencoded-cwd>\<uuid>\updates.jsonl（ACP 流）
             new KimiParser(),
             new ZcodeParser(), // ~\.zcode\cli\agents\**\transcript.jsonl（实机样例逆向实现）
         };

@@ -24,7 +24,47 @@
   - 过滤：以 `<user_instructions>`、`<environment_context>` 开头的为环境注入，跳过。
 - **任务完成**：`payload.type=="task_complete"` → `payload.last_agent_message` 作为 resultLine。
 
-## 3. Kimi Code
+## 3. Grok Build
+
+已在真实数据上验证（2026-07-28，Windows，本机 87 个 session / 27724 行）。
+
+- **路径**：`~/.grok/sessions/<URL 编码的 cwd>/<session-uuid>/updates.jsonl`
+  - 目录名是**百分号编码的工作目录绝对路径**（`F%3A%5Cworkspace%5Cproject%5Chawk-watcher`
+    → `F:\workspace\project\hawk-watcher`）；文件内**没有任何 cwd 字段**，项目名只能由
+    目录名解码后取末段。mac 侧同理（`%2FUsers%2F…` → `/Users/…`）；
+  - `sessionId` 取 `params.sessionId`，回退用目录名——实测 87/87 两者恒等，且
+    **每个文件有且只有一个 sessionId**（无 Kimi 那类子 agent 串台风险）；
+  - ⚠ **必须锚定到 `updates.jsonl`**：同一棵树下并存 6 种 `.jsonl`
+    （`chat_history` 91 / `events` 91 / `updates` 87 / `rewind_points` 81 /
+    `hunk_records` 4 / `prompt_history` 3），宽松匹配会重复摄取。
+- **格式**：每行一条 ACP（Agent Client Protocol）通知
+  `{timestamp, method:"session/update", params:{sessionId, update:{sessionUpdate, …}}}`。
+  - ⚠ `timestamp` 是 **unix 整秒**（int），**不是 ISO8601**——两端的
+    `TryParseIsoTimestamp` / `ParserSupport.timestamp` 都解不了，需专走数值分支。
+- **用户命令提取**：`update.sessionUpdate == "user_message_chunk"` →
+  `update.content.text`。
+  - 名字里虽有 chunk，但**一条即一条完整消息**，不需拼接（实测 92 条各自完整）；
+  - ⚠ **不要依赖 `content._meta.displayText`**：92 条里只有 1 条带该字段；
+  - 该通道里的文本**已经去过壳**——`chat_history.jsonl` 里的 `<user_query>` /
+    `<user_info>` / `<skill_information>` 包装在此不出现（实测各 0 命中）。
+- **agent 回复**（结果行 + 代号挖掘）：取 `turn_completed` 之前**最后一条**
+  `agent_message_chunk` 的 `content.text`。
+  - Grok 在工具调用之间会输出进度旁白，一个轮次内有多条 `agent_message_chunk`
+    （实测 532 条对 57 个 `turn_completed`），只有最后一条是给用户的答复；
+  - `task_completed` 是**子任务/工具**完成，不是轮次完成，不可当结果行。
+- **全部忽略**：`tool_call` / `tool_call_update` / `hook_execution` /
+  `agent_thought_chunk`（思考过程）/ `plan` / `task_backgrounded` /
+  `task_completed` / `session_recap`。
+- **L1 过滤**：`<system-reminder>` 开头的是后台任务回执（实测 4 条），非人类输入，
+  按与 Claude 侧同一规则跳过。
+- ⚠ **已知未决**：本机 92 条用户消息中 85 条是编排器派发的子 agent 任务书
+  （`# ⚠ EXECUTION MODE … You were dispatched by …`），只有 3 条是真人手打。
+  真人会话与被派发会话在 `updates.jsonl` 里**结构完全一致**，无协议级判据可区分
+  （唯一差异是模型不同：Composer vs Grok，不可作依据）。当前**不做过滤**，详见
+  `docs/TEXT-NORMALIZATION.md §4.2c`。
+- 状态：**双端均已实现**（2026-07-28），语义按本节对齐。
+
+## 4. Kimi Code
 
 > ⚠ **2026-07-28 换代**：目录从 `~/.kimi/sessions` 迁到 `~/.kimi-code/sessions`
 > （旧目录留有 `.migrated-to-kimi-code` 标记），且 wire 协议 **1.10 → 1.4**，
@@ -54,7 +94,7 @@
   `context.append_message` / `usage.record`，以及 `step.begin`/`step.end`/
   `tool.call`/`tool.result` 等其余 loop 事件。
 
-## 4. zcode（Z Code CLI）
+## 5. ZCode（Z Code CLI）
 
 已在真实数据上验证（2026-07-27，Windows，ZCode 3.5.2）。
 

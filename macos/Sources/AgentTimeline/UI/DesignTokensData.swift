@@ -63,6 +63,7 @@ enum DesignTokensData {
     "agentBadge": {
       "claude": "#D97757",
       "codex": "#10A37F",
+      "grok": "#64748B",
       "kimi": "#4F8BFF",
       "zcode": "#9B59B6"
     },

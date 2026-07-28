@@ -15,6 +15,7 @@ enum SettingsKey {
     static let backfillDays = "backfillDays"
     static let agentClaudeEnabled = "agentClaudeEnabled"
     static let agentCodexEnabled = "agentCodexEnabled"
+    static let agentGrokEnabled = "agentGrokEnabled"
     static let agentKimiEnabled = "agentKimiEnabled"
     static let agentZcodeEnabled = "agentZcodeEnabled"
 }
@@ -33,6 +34,7 @@ struct AppSettings: Sendable {
             SettingsKey.backfillDays: 7,
             SettingsKey.agentClaudeEnabled: true,
             SettingsKey.agentCodexEnabled: true,
+            SettingsKey.agentGrokEnabled: true,
             SettingsKey.agentKimiEnabled: true,
             SettingsKey.agentZcodeEnabled: true,
         ])
@@ -55,6 +57,7 @@ struct AppSettings: Sendable {
         switch agent {
         case .claude: key = SettingsKey.agentClaudeEnabled
         case .codex: key = SettingsKey.agentCodexEnabled
+        case .grok: key = SettingsKey.agentGrokEnabled
         case .kimi: key = SettingsKey.agentKimiEnabled
         case .zcode: key = SettingsKey.agentZcodeEnabled
         }

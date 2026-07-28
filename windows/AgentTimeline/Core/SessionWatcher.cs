@@ -92,6 +92,7 @@ public sealed class SessionWatcher : IDisposable
     {
         if (_settings.EnableClaude) yield return AppPaths.ClaudeProjectsRoot;
         if (_settings.EnableCodex) yield return AppPaths.CodexSessionsRoot;
+        if (_settings.EnableGrok) yield return AppPaths.GrokSessionsRoot;
         if (_settings.EnableKimi) yield return AppPaths.KimiSessionsRoot;
         if (_settings.EnableZcode)
         {
@@ -106,6 +107,7 @@ public sealed class SessionWatcher : IDisposable
     private static bool IsBuiltinRoot(string root) =>
         root == AppPaths.ClaudeProjectsRoot ||
         root == AppPaths.CodexSessionsRoot ||
+        root == AppPaths.GrokSessionsRoot ||
         root == AppPaths.KimiSessionsRoot ||
         root == AppPaths.ZcodeAgentsRootDefault;
 

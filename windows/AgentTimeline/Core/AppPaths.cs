@@ -43,6 +43,11 @@ public static class AppPaths
     // Session roots per docs/SESSION-FORMATS.md (~ → %USERPROFILE%).
     public static string ClaudeProjectsRoot => Path.Combine(UserProfile, ".claude", "projects");
     public static string CodexSessionsRoot => Path.Combine(UserProfile, ".codex", "sessions");
+    /// <summary>
+    /// Grok Build：`~\.grok\sessions\&lt;URL 编码的 cwd&gt;\&lt;uuid&gt;\updates.jsonl`。
+    /// 目录名是百分号编码的工作目录，项目名只能由它解码得到（文件内无 cwd 字段）。
+    /// </summary>
+    public static string GrokSessionsRoot => Path.Combine(UserProfile, ".grok", "sessions");
     /// <summary>Kimi Code：2026-07-28 起会话落在 `.kimi-code`（旧的 `.kimi` 不再支持）。</summary>
     public static string KimiSessionsRoot => Path.Combine(UserProfile, ".kimi-code", "sessions");
 

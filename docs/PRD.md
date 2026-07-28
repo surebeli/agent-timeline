@@ -4,7 +4,7 @@
 
 ## 1. 背景与核心诉求
 
-长周期使用 agent CLI（Claude Code / Codex / Kimi / zcode）时：
+长周期使用 agent CLI（Claude Code / Codex / Grok Build / Kimi Code / ZCode）时：
 
 - 一个任务跑几小时甚至几天，期间提交过的命令里出现的**任务代号 / 需求代号**（如 `T-PLUGIN-00`）会被遗忘其原始含义；
 - 回翻 session 记录（jsonl 数万行）很难定位当初定义这些代号的那条命令；
@@ -27,6 +27,7 @@
 
 - 监听以下目录（FSEvents / ReadDirectoryChangesW），增量 tail 解析（记录每文件字节偏移，不重读全文件）：
   - Claude Code：`~/.claude/projects/<project-slug>/<session-uuid>.jsonl`
+  - Grok Build：`~/.grok/sessions/<URL 编码的 cwd>/<session-uuid>/updates.jsonl`
   - Codex：`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`
   - Kimi：`~/.kimi/sessions/<project-hash>/<session-uuid>/wire.jsonl`
   - zcode：路径待定，设置中可配置（预留适配器）
@@ -102,7 +103,7 @@
 
 - 摘要引擎：CLI（自动探测本机可用 CLI）/ 自定义 provider（base URL、API key、model）/ 纯规则；
 - 透明度两档数值、always-on-top、Dock 图标显隐、回填天数；
-- Agent 开关：Claude / Codex / Kimi / zcode（zcode 需填 session 路径）。
+- Agent 开关：Claude Code / Codex / Grok Build / Kimi Code / ZCode（顺序即设置页顺序）。
 
 ## 4. 非功能需求
 

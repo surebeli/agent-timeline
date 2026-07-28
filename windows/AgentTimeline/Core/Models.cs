@@ -4,10 +4,15 @@
 namespace AgentTimeline.Core;
 
 /// <summary>Which agent CLI produced a session file.</summary>
+/// <summary>
+/// 声明顺序 = 设置页与下拉里的展示顺序（Claude Code / Codex / Grok Build /
+/// Kimi Code / ZCode）。`Key()` 是落库与 token 查找的稳定串，**不随展示名变动**。
+/// </summary>
 public enum AgentKind
 {
     Claude,
     Codex,
+    Grok,
     Kimi,
     Zcode,
 }
@@ -19,17 +24,25 @@ public static class AgentKindExtensions
     {
         AgentKind.Claude => "claude",
         AgentKind.Codex => "codex",
+        AgentKind.Grok => "grok",
         AgentKind.Kimi => "kimi",
         AgentKind.Zcode => "zcode",
         _ => "unknown",
     };
 
+    /// <summary>
+    /// 时间线行内的短名。该行里项目名是 `*` 列、agent 名是 `Auto` 列，agent 名每长
+    /// 一个字符都直接吃掉项目名的显示宽度，故这里用短名；设置页用完整产品名
+    /// （「Claude Code」「Grok Build」…），两级命名是既有约定。
+    /// ⚠ 摘要 prompt 也用它，改动必须双端同步，否则两端 prompt 不再逐字一致。
+    /// </summary>
     public static string DisplayName(this AgentKind kind) => kind switch
     {
         AgentKind.Claude => "Claude",
         AgentKind.Codex => "Codex",
+        AgentKind.Grok => "Grok",
         AgentKind.Kimi => "Kimi",
-        AgentKind.Zcode => "zcode",
+        AgentKind.Zcode => "ZCode",
         _ => "?",
     };
 
@@ -38,6 +51,7 @@ public static class AgentKindExtensions
     {
         AgentKind.Claude => "CL",
         AgentKind.Codex => "CO",
+        AgentKind.Grok => "GR",
         AgentKind.Kimi => "KI",
         AgentKind.Zcode => "ZC",
         _ => "?",
@@ -47,6 +61,7 @@ public static class AgentKindExtensions
     {
         "claude" => AgentKind.Claude,
         "codex" => AgentKind.Codex,
+        "grok" => AgentKind.Grok,
         "kimi" => AgentKind.Kimi,
         "zcode" => AgentKind.Zcode,
         _ => AgentKind.Claude,

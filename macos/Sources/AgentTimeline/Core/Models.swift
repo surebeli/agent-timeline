@@ -1,17 +1,35 @@
 import CryptoKit
 import Foundation
 
+/// 声明顺序 = 设置页与下拉里的展示顺序（`allCases` 直接驱动）：
+/// Claude Code / Codex / Grok Build / Kimi Code / ZCode。
+/// `rawValue` 是落库与 design-token 查找的稳定串，**不随展示名变动**。
 enum AgentKind: String, Codable, CaseIterable, Identifiable, Sendable {
-    case claude, codex, kimi, zcode
+    case claude, codex, grok, kimi, zcode
 
     var id: String { rawValue }
 
+    /// 时间线行内短名。设置页用完整产品名（`settingsLabel`），两级命名是既有约定。
+    /// ⚠ 摘要 prompt 也用它，改动必须与 Windows `AgentKindExtensions.DisplayName()`
+    /// 逐字一致，否则两端 prompt 不再同源。
     var displayName: String {
         switch self {
         case .claude: return "Claude"
         case .codex: return "Codex"
+        case .grok: return "Grok"
         case .kimi: return "Kimi"
-        case .zcode: return "zcode"
+        case .zcode: return "ZCode"
+        }
+    }
+
+    /// 设置页里的完整产品名（与 Windows SettingsWindow.xaml 的 CheckBox Content 一致）。
+    var settingsLabel: String {
+        switch self {
+        case .claude: return "Claude Code"
+        case .codex: return "Codex"
+        case .grok: return "Grok Build"
+        case .kimi: return "Kimi Code"
+        case .zcode: return "ZCode"
         }
     }
 
@@ -21,6 +39,7 @@ enum AgentKind: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .claude: return "CL"
         case .codex: return "CO"
+        case .grok: return "GR"
         case .kimi: return "KI"
         case .zcode: return "ZC"
         }

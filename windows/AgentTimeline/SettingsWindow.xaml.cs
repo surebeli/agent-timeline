@@ -58,6 +58,7 @@ public sealed partial class SettingsWindow : Window
         BackfillDaysBox.Value = s.BackfillDays;
         EnableClaudeCheck.IsChecked = s.EnableClaude;
         EnableCodexCheck.IsChecked = s.EnableCodex;
+        EnableGrokCheck.IsChecked = s.EnableGrok;
         EnableKimiCheck.IsChecked = s.EnableKimi;
         EnableZcodeCheck.IsChecked = s.EnableZcode;
         // NOTE: AppSettings.ZcodeSessionRoot 仍然生效（空 = 自动探测的默认根），只是不再
@@ -99,6 +100,7 @@ public sealed partial class SettingsWindow : Window
         s.BackfillDays = double.IsNaN(BackfillDaysBox.Value) ? 7 : (int)BackfillDaysBox.Value;
         s.EnableClaude = EnableClaudeCheck.IsChecked == true;
         s.EnableCodex = EnableCodexCheck.IsChecked == true;
+        s.EnableGrok = EnableGrokCheck.IsChecked == true;
         s.EnableKimi = EnableKimiCheck.IsChecked == true;
         s.EnableZcode = EnableZcodeCheck.IsChecked == true;
 

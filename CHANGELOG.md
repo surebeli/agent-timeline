@@ -9,6 +9,44 @@
 
 ## [未发布]
 
+### 新增（双端）
+
+- **接入第五家 agent：Grok Build**（`~/.grok/sessions/<URL 编码的 cwd>/<uuid>/updates.jsonl`）。
+  会话流是 ACP（Agent Client Protocol）通知，与既有四家都不同的三处，按本机
+  **87 个真实 session / 27724 行**实证定规则并写进 `docs/SESSION-FORMATS.md §3`：
+  - `timestamp` 是 **unix 整秒**（非 ISO8601），两端时间戳解析各走数值分支；
+  - **文件内无任何 cwd 字段**，项目名只能由目录名百分号解码后取末段
+    （`F%3A%5C…%5Chawk-watcher` → `hawk-watcher`；mac 的 `%2FUsers%2F…` 同理），
+    两端都先把 `\` 归一成 `/` 再取末段，保证同一份语料解出同一个项目名；
+  - 结果行取 `turn_completed` 之前**最后一条** `agent_message_chunk`——一轮内有多条
+    （实测 532 条对 57 个轮次），前面的都是工具调用之间的进度旁白；`task_completed`
+    是子任务完成，**不是**轮次完成，不可当结果行。
+  - `CanHandle` 锚定到 `updates.jsonl`：同一棵会话树下并存 6 种 `.jsonl`
+    （chat_history 91 / events 91 / updates 87 / rewind_points 81 / hunk_records 4 /
+    prompt_history 3），宽松匹配会把同一轮对话重复摄取（Kimi A1 同类教训）。
+  - 实机验证：357 个 `.jsonl` 中精确命中 87 个、其余 5 种零误匹配；88 条命令 /
+    57 条结果行，时间戳零越界、结果行零空串；本机时间线已点亮 12 个 grok 节点。
+- **设置页 agent 顺序与命名统一**为 Claude Code / Codex / Grok Build / Kimi Code / ZCode
+  （`AgentKind` 声明顺序即展示顺序，mac 侧由 `allCases` 直接驱动）。`zcode` → `ZCode`
+  大小写对齐产品名；**落库用的稳定键不变**（仍是 `zcode`），历史数据不受影响。
+  mac 侧新增 `AgentKind.settingsLabel`，设置页标签统一取它，避免两端各写字面量而漂移。
+- Grok 徽标色 `#64748B`（design tokens 三份同源副本已同步）：xAI 品牌本身是单色，
+  四个饱和色里插一个中性石板色在 7px 徽标尺度最易区分，白字对比度 4.76 落在现有
+  3.1–4.7 同一档。
+
+### 变更（内部）
+
+- Windows 侧注入块前缀清单从 `ClaudeParser` 私有字段提升为
+  `ParserUtil.IgnoredPrefixes` / `IsIgnoredContent`（与 mac `ParserSupport` 同源），
+  各 agent 解析器共用一份，避免两端 L1 过滤集各自漂移。Claude 行为完全中性。
+
+### 已知未决
+
+- **Grok 的编排器派发任务书当前不做过滤**：本机 92 条用户消息中 85 条是子 agent
+  任务书，只有 3 条真人手打，且**无协议级判据**可与真人会话区分（结构逐字段相同）；
+  其骨架是用户自有插件的私有约定，硬编码即过拟合。代价与三个可选项见
+  `docs/TEXT-NORMALIZATION.md §4.2c`，需用户拍板。
+
 ### 修复（Windows）
 
 - **托盘右键菜单中文被截断**——菜单项「显示 / 隐藏」实机渲染成「显示 / 隐」，

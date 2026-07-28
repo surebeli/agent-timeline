@@ -42,6 +42,7 @@ public sealed class AppSettings
     public int BackfillDays { get; set; } = 7;
     public bool EnableClaude { get; set; } = true;
     public bool EnableCodex { get; set; } = true;
+    public bool EnableGrok { get; set; } = true;
     public bool EnableKimi { get; set; } = true;
     public bool EnableZcode { get; set; } = true;
 

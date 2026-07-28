@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.backfillDays) private var backfillDays = 7
     @AppStorage(SettingsKey.agentClaudeEnabled) private var claudeEnabled = true
     @AppStorage(SettingsKey.agentCodexEnabled) private var codexEnabled = true
+    @AppStorage(SettingsKey.agentGrokEnabled) private var grokEnabled = true
     @AppStorage(SettingsKey.agentKimiEnabled) private var kimiEnabled = true
     @AppStorage(SettingsKey.agentZcodeEnabled) private var zcodeEnabled = false
 
@@ -50,10 +51,15 @@ struct SettingsView: View {
             // Session 路径是产品事实（各 agent 自己定的），不是可配项——
             // 全部内建自动发现，故这里只留开关不留路径输入。
             Section("Session 来源") {
-                Toggle("Claude Code", isOn: $claudeEnabled)
-                Toggle("Codex", isOn: $codexEnabled)
-                Toggle("Kimi Code", isOn: $kimiEnabled)
-                Toggle("zcode", isOn: $zcodeEnabled)
+                // 标签一律取 AgentKind.settingsLabel，保证与 Windows
+                // SettingsWindow.xaml 的 CheckBox Content 不会各自漂移；
+                // 顺序 = AgentKind 声明顺序（Claude Code / Codex / Grok Build /
+                // Kimi Code / ZCode）。
+                Toggle(AgentKind.claude.settingsLabel, isOn: $claudeEnabled)
+                Toggle(AgentKind.codex.settingsLabel, isOn: $codexEnabled)
+                Toggle(AgentKind.grok.settingsLabel, isOn: $grokEnabled)
+                Toggle(AgentKind.kimi.settingsLabel, isOn: $kimiEnabled)
+                Toggle(AgentKind.zcode.settingsLabel, isOn: $zcodeEnabled)
                 Stepper("启动回填最近 \(backfillDays) 天", value: $backfillDays, in: 0...90)
             }
 

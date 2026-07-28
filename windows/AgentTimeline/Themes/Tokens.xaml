@@ -184,10 +184,14 @@
     <!-- agentBadge (theme-invariant) -->
     <Color x:Key="AgentClaudeColor">#FFD97757</Color>
     <Color x:Key="AgentCodexColor">#FF10A37F</Color>
+    <!-- Grok Build：xAI 品牌本身是单色，四个饱和色里插一个中性石板色在 7px 徽标
+         尺度上最易区分；白字对比度 4.76，落在现有 3.1–4.7 的同一档。 -->
+    <Color x:Key="AgentGrokColor">#FF64748B</Color>
     <Color x:Key="AgentKimiColor">#FF4F8BFF</Color>
     <Color x:Key="AgentZcodeColor">#FF9B59B6</Color>
     <SolidColorBrush x:Key="AgentClaudeBrush" Color="{StaticResource AgentClaudeColor}" />
     <SolidColorBrush x:Key="AgentCodexBrush" Color="{StaticResource AgentCodexColor}" />
+    <SolidColorBrush x:Key="AgentGrokBrush" Color="{StaticResource AgentGrokColor}" />
     <SolidColorBrush x:Key="AgentKimiBrush" Color="{StaticResource AgentKimiColor}" />
     <SolidColorBrush x:Key="AgentZcodeBrush" Color="{StaticResource AgentZcodeColor}" />
 

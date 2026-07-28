@@ -104,7 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let rule = RuleSummarizer()
         watcher = SessionWatcher(
             store: store,
-            parsers: [ClaudeParser(), CodexParser(), KimiParser(), ZcodeParser()]
+            parsers: [ClaudeParser(), CodexParser(), GrokParser(), KimiParser(), ZcodeParser()]
         ) { events in
             var newCommands: [UserCommand] = []
             for event in events {
