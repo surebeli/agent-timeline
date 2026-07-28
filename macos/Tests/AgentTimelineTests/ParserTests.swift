@@ -370,6 +370,90 @@ final class ParserTests: XCTestCase {
         XCTAssertEqual(KimiParser.projectName(fromWorkDir: "legacy-dir"), "legacy-dir")
     }
 
+    // MARK: - zcode（M4 实现，对齐 win CoreSmokeTest.ZcodeParserBasics）
+
+    /// 造一棵真实形状的 zcode 目录树：sess_<uuid>/agent_<uuid>/{transcript.jsonl,metadata.json}
+    private func makeZcodeTree(sess: String, agent: String, cwd: String?) throws -> URL {
+        let base = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("zc-\(UUID().uuidString)")
+        let agentDir = base.appendingPathComponent("\(sess)/\(agent)")
+        try FileManager.default.createDirectory(at: agentDir, withIntermediateDirectories: true)
+        if let cwd {
+            let meta = try JSONSerialization.data(withJSONObject: ["cwd": cwd, "status": "done"])
+            try meta.write(to: agentDir.appendingPathComponent("metadata.json"))
+        }
+        let transcript = agentDir.appendingPathComponent("transcript.jsonl")
+        FileManager.default.createFile(atPath: transcript.path, contents: nil)
+        return transcript
+    }
+
+    /// makeContext 的派生：sessionId 取 agent_ 目录、项目名取 sidecar cwd 末段。
+    /// （内建根前缀校验在真实路径上生效，这里直接构造 context 验派生逻辑。）
+    func testZcodeProjectDerivation() throws {
+        // 有 sidecar：cwd 末段（win 断言用 Windows 盘符路径，这里一并验归一化）
+        XCTAssertEqual(
+            ParserSupport.projectName(fromCwd: "F:\\work\\hawk-watcher", fallback: "sess_abc12345"),
+            "hawk-watcher")
+        XCTAssertEqual(
+            ParserSupport.projectName(fromCwd: "/Users/me/proj/", fallback: "fb"), "proj")
+        // 无 cwd / 空白 → 回退
+        XCTAssertEqual(ParserSupport.projectName(fromCwd: nil, fallback: "sess_abc12345"), "sess_abc12345")
+        XCTAssertEqual(ParserSupport.projectName(fromCwd: "  ", fallback: "fb"), "fb")
+
+        // 无 sidecar 时项目名回退 sess_ 目录名前 13 字符（"sess_"+8 位 uuid）
+        let long = "sess_abc12345-6789-0000"
+        XCTAssertEqual(String(long.prefix(13)), "sess_abc12345")
+    }
+
+    /// turn_started → 任务节点；turn_complete → 结果行（全文供代号挖掘）；过程事件忽略。
+    func testZcodeTurnEvents() {
+        let parser = ZcodeParser()
+        let url = ParserSupport.home(ZcodeParser.defaultRoot)
+            .appendingPathComponent("sess_abc12345/agent_test1/transcript.jsonl")
+        var ctx = ParsedFileContext(
+            url: url, agent: .zcode, sessionId: "agent_test1", project: "hawk-watcher", cwd: nil)
+
+        let started = #"{"id":"1","type":"turn_started","timestamp":"2026-07-27T10:00:00.000Z","payload":{"input":"  排查启动闪退  "}}"#
+        guard case .userCommand(let cmd)? = parser.parse(line: started, context: &ctx).first else {
+            return XCTFail("turn_started 应产出任务节点")
+        }
+        XCTAssertEqual(cmd.text, "排查启动闪退", "与 win 一致：input 先 trim")
+        XCTAssertEqual(cmd.sessionId, "agent_test1")
+        XCTAssertEqual(cmd.project, "hawk-watcher")
+        XCTAssertEqual(cmd.agent, .zcode)
+
+        let complete = #"{"id":"2","type":"turn_complete","timestamp":"2026-07-27T10:05:00.000Z","payload":{"response":"NPE 在冷启动路径。\n\n细节见附件。"}}"#
+        guard case .assistantText(_, _, _, let text)? = parser.parse(line: complete, context: &ctx).first else {
+            return XCTFail("turn_complete 应产出结果")
+        }
+        // 解析器发未截断全文（代号挖掘吃它）；结果行由 resultExcerpt 取首段
+        XCTAssertTrue(text.contains("细节见附件"), "全文不得在解析器里被截断")
+        XCTAssertEqual(ParserSupport.resultExcerpt(text), "NPE 在冷启动路径。")
+
+        // 空 input / 空 response / 过程事件都不产出
+        for noise in [
+            #"{"type":"turn_started","timestamp":"2026-07-27T10:00:00.000Z","payload":{"input":"   "}}"#,
+            #"{"type":"turn_complete","timestamp":"2026-07-27T10:00:00.000Z","payload":{"response":""}}"#,
+            #"{"type":"model_streaming","timestamp":"2026-07-27T10:00:00.000Z","payload":{"delta":"x"}}"#,
+            #"{"type":"tool_call_scheduled","timestamp":"2026-07-27T10:00:00.000Z","payload":{}}"#,
+        ] {
+            XCTAssertTrue(parser.parse(line: noise, context: &ctx).isEmpty, "应忽略：\(noise.prefix(40))")
+        }
+    }
+
+    /// 文件匹配：只认内建根下的 transcript.jsonl。
+    func testZcodeFileMatching() throws {
+        let parser = ZcodeParser()
+        let root = ParserSupport.home(ZcodeParser.defaultRoot)
+        XCTAssertNotNil(parser.makeContext(
+            for: root.appendingPathComponent("sess_a/agent_b/transcript.jsonl")))
+        XCTAssertNil(parser.makeContext(
+            for: root.appendingPathComponent("sess_a/agent_b/metadata.json")))
+        XCTAssertNil(parser.makeContext(
+            for: URL(fileURLWithPath: NSHomeDirectory() + "/elsewhere/transcript.jsonl")))
+        XCTAssertEqual(parser.watchRoots().map(\.lastPathComponent), ["agents"])
+    }
+
     // MARK: - Codename lifecycle（用户场景回归）
 
     /// 场景1：会话中把需求编号成 N1/N2/N3，后续出现 "N2完成" "N3变更"。

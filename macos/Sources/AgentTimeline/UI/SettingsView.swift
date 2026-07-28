@@ -54,8 +54,6 @@ struct SettingsView: View {
                 Toggle("Codex", isOn: $codexEnabled)
                 Toggle("Kimi Code", isOn: $kimiEnabled)
                 Toggle("zcode", isOn: $zcodeEnabled)
-                    .disabled(true)
-                    .help("mac 端解析器实现中（Roadmap M4）；Windows 端已可用")
                 Stepper("启动回填最近 \(backfillDays) 天", value: $backfillDays, in: 0...90)
             }
 

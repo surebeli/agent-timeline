@@ -34,7 +34,7 @@ struct AppSettings: Sendable {
             SettingsKey.agentClaudeEnabled: true,
             SettingsKey.agentCodexEnabled: true,
             SettingsKey.agentKimiEnabled: true,
-            SettingsKey.agentZcodeEnabled: false,
+            SettingsKey.agentZcodeEnabled: true,
         ])
     }
 

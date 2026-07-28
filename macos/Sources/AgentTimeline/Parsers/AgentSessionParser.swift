@@ -176,6 +176,16 @@ enum ParserSupport {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// cwd 末段作项目名（镜像 win `ParserUtil.ProjectNameFromCwd`）：
+    /// `\` 归一为 `/`、去尾斜杠、取末段，空白则回退。
+    static func projectName(fromCwd cwd: String?, fallback: String) -> String {
+        guard let cwd else { return fallback }
+        var normalized = cwd.replacingOccurrences(of: "\\", with: "/")
+        while normalized.hasSuffix("/") { normalized.removeLast() }
+        let leaf = normalized.split(separator: "/").last.map(String.init) ?? ""
+        return leaf.trimmingCharacters(in: .whitespaces).isEmpty ? fallback : leaf
+    }
+
     static func home(_ path: String) -> URL {
         URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
     }
