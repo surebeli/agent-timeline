@@ -31,6 +31,9 @@ public sealed class ZcodeParser : IAgentSessionParser
     public bool CanHandle(string path) =>
         string.Equals(Path.GetFileName(path), "transcript.jsonl", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>每路径的回退基准：本文件最近一次成功解析的时间戳（§4.2-14 共同规则）。</summary>
+    private readonly Dictionary<string, DateTimeOffset?> _lastTimestamps = new(StringComparer.OrdinalIgnoreCase);
+
     public IReadOnlyList<SessionEvent> ParseLines(string path, IReadOnlyList<RawLine> lines)
     {
         var events = new List<SessionEvent>();
@@ -47,6 +50,11 @@ public sealed class ZcodeParser : IAgentSessionParser
                 var root = doc.RootElement;
                 if (root.ValueKind != JsonValueKind.Object) continue;
 
+                // 回退基准由**任意**带可解析时间戳的行喂养（含被类型过滤掉的过程
+                // 事件）——与 Claude/Codex 同口径，越近的锚点越贴近真实邻居。
+                var parsed = ParserUtil.TryParseIsoTimestamp(GetString(root, "timestamp"));
+                if (parsed is not null) _lastTimestamps[path] = parsed;
+
                 var type = GetString(root, "type");
                 if (type != "turn_started" && type != "turn_complete") continue;
                 if (!root.TryGetProperty("payload", out var payload) ||
@@ -55,7 +63,11 @@ public sealed class ZcodeParser : IAgentSessionParser
                     continue;
                 }
 
-                var timestamp = ParseTimestamp(root);
+                // §4.2-14 共同规则：顺延本文件上一条；文件里还没有任何成功时间戳
+                // 才跳过该行。不再用 UtcNow——那会让节点跳顶，且 ts 参与唯一键，
+                // 文件重建后重扫会插出重复行。
+                _lastTimestamps.TryGetValue(path, out var carried);
+                if (carried is not { } timestamp) continue;
                 if (type == "turn_started")
                 {
                     var input = GetString(payload, "input")?.Trim();
@@ -96,9 +108,6 @@ public sealed class ZcodeParser : IAgentSessionParser
     /// 它是 Windows 单端解析器（mac 侧还是惰性桩，§4.2 第 8 条），没有对拍约束；
     /// mac 实现 zcode 时应连同此处一起按共同规则统一。
     /// </summary>
-    private static DateTimeOffset ParseTimestamp(JsonElement root) =>
-        ParserUtil.TryParseIsoTimestamp(GetString(root, "timestamp")) ?? DateTimeOffset.UtcNow;
-
     /// <summary>
     /// 项目显示名：同目录 metadata.json 的 cwd 末段；缺 sidecar 时回退 sess_ 目录名截断。
     /// </summary>

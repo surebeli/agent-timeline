@@ -393,6 +393,25 @@ internal static class Program
             var transcript = Path.Combine(dir, "transcript.jsonl");
             var parser = new ZcodeParser();
             Check(parser.CanHandle(transcript), "zcode: CanHandle transcript.jsonl");
+
+            // §4.2-14 共同规则：不再用 UtcNow 回退——缺/坏时间戳顺延本文件上一条，
+            // 无前值则该行不产出（与 mac、与本端 Claude/Codex 同口径）。
+            var tsPath = Path.Combine(dir, "transcript.jsonl");
+            var noBaseline = parser.ParseLines(tsPath, new[]
+            {
+                new RawLine(0, """{"type":"turn_started","payload":{"input":"无基准"}}"""),
+            });
+            Check(noBaseline.Count == 0, "zcode/W-e: 文件里还没有可用时间戳时该行不产出");
+
+            var carried = parser.ParseLines(tsPath, new[]
+            {
+                // 过程事件也喂养基准（任意行口径）
+                new RawLine(0, """{"type":"model_streaming","timestamp":"2026-07-27T10:00:00.000Z","payload":{}}"""),
+                new RawLine(1, """{"type":"turn_started","payload":{"input":"顺延上一条"}}"""),
+            });
+            Check(carried.Count == 1 && carried[0] is UserCommand u2
+                  && u2.Timestamp == DateTimeOffset.Parse("2026-07-27T10:00:00.000Z"),
+                  "zcode/W-e: 缺时间戳顺延本文件上一条（含过程事件喂养的基准）");
             Check(!parser.CanHandle(Path.Combine(dir, "wire.jsonl")), "zcode: 其他文件名不接手");
 
             var lines = new List<RawLine>
