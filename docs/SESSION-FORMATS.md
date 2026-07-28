@@ -24,16 +24,35 @@
   - 过滤：以 `<user_instructions>`、`<environment_context>` 开头的为环境注入，跳过。
 - **任务完成**：`payload.type=="task_complete"` → `payload.last_agent_message` 作为 resultLine。
 
-## 3. Kimi (Kimi Code CLI)
+## 3. Kimi Code
 
-- **路径**：`~/.kimi/sessions/<project-hash>/<session-uuid>/wire.jsonl`
-  - 同目录 `state.json`：`custom_title` 可作 session 标题；
-  - `~/.kimi/user-history/<project-hash>.jsonl` 为纯用户输入流水（`{"content": "..."}` 每行），可作交叉校验；
-  - `project-hash` 与 cwd 的映射无公开规则；项目名显示取 wire.jsonl 内容推断或 hash 前 8 位。
-- **格式**（wire.jsonl）：首行 `{"type":"metadata","protocol_version":...}`；其余 `{timestamp(unix秒.小数), message:{type, payload}}`。
-- **用户命令提取**：`message.type=="TurnBegin"` → `payload.user_input[]` 中 `type=="text"` 的 `text` 拼接。
-  - 过滤：以 `/` 开头且长度短（如 `/model`）的斜杠命令可标记为 meta 节点（可选展示）。
-- **任务完成**：`message.type=="TurnEnd"`（若存在）或下一次 TurnBegin 之前的最后 assistant 输出。
+> ⚠ **2026-07-28 换代**：目录从 `~/.kimi/sessions` 迁到 `~/.kimi-code/sessions`
+> （旧目录留有 `.migrated-to-kimi-code` 标记），且 wire 协议 **1.10 → 1.4**，
+> 消息类型全部重写——旧的 `TurnBegin` / `ContentPart` 已不存在。
+> 本节据本机 44 个真实 session 实证重写；**旧布局不再支持**。
+
+- **路径**：`~/.kimi-code/sessions/wd_<项目>_<12hex>/session_<uuid>/agents/main/wire.jsonl`
+  - `sessionId` 取 `session_<uuid>` 目录名；
+  - **项目名直接取自目录名**（新格式的关键改进：旧版 project-hash 无公开映射规则，
+    只能显示 `kimi:1a2b3c4d`）——剥掉 `wd_` 前缀与末段 `_<12hex>`；项目名本身可能
+    含下划线（`wd_hawk_agent-rs_dd8b1189a258` → `hawk_agent-rs`），故只剥固定的
+    前缀与末段 hash，剥不掉就原样用目录名；
+  - `agents/` 下当前只见 `main`（44/44）；未来若出现子 agent 目录，按 Claude
+    sidechain 同理处理（子 agent 输出不是主会话的结果）。
+- **格式**：每行一个 JSON 对象，**顶层 `type`**（不再有嵌套的 `message.type`）；
+  `time` 为**毫秒** epoch。
+- **用户命令提取**：`type == "turn.prompt"` 且 `origin.kind == "user"` →
+  `input[]` 中 `type == "text"` 的 `text` 拼接。
+  - ⚠ **不要用** `context.append_message` role=user：那条通道混着注入上下文
+    （实测 85 条 vs 真实 prompt 39 条）；
+  - 过滤：裸斜杠命令（如 `/model`）是 UI 动作，跳过。
+- **agent 回复**（结果行 + 代号挖掘）：`type == "context.append_loop_event"` 且
+  `event.type == "content.part"` 且 **`event.part.type == "text"`** → `event.part.text`。
+  - ⚠ **必须排除 `part.type == "think"`**：那是模型思考过程不是答复
+    （实测 324 条 think vs 49 条 text）。
+- **全部忽略**：`metadata` / `config.update` / `tools.*` / `permission.*` /
+  `context.append_message` / `usage.record`，以及 `step.begin`/`step.end`/
+  `tool.call`/`tool.result` 等其余 loop 事件。
 
 ## 4. zcode（Z Code CLI）
 

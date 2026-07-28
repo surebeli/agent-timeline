@@ -14,7 +14,6 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.agentCodexEnabled) private var codexEnabled = true
     @AppStorage(SettingsKey.agentKimiEnabled) private var kimiEnabled = true
     @AppStorage(SettingsKey.agentZcodeEnabled) private var zcodeEnabled = false
-    @AppStorage(SettingsKey.zcodeSessionPath) private var zcodePath = ""
 
     let onApply: () -> Void
 
@@ -29,8 +28,7 @@ struct SettingsView: View {
                 .pickerStyle(.radioGroup)
 
                 if engineMode == SummaryEngineKind.cli.rawValue {
-                    TextField("CLI 模型（claude --model）", text: $cliModel)
-                        .help("传给 claude -p 的 --model，例如 haiku；留空用 CLI 默认")
+                    TextField("模型", text: $cliModel, prompt: Text("haiku"))
                 }
                 if engineMode == SummaryEngineKind.provider.rawValue {
                     TextField("Base URL", text: $providerBaseURL, prompt: Text("https://api.example.com/v1"))
@@ -40,35 +38,33 @@ struct SettingsView: View {
             }
 
             Section("窗口") {
-                Toggle("窗口置顶（always on top）", isOn: $alwaysOnTop)
+                Toggle("窗口置顶", isOn: $alwaysOnTop)
                 LabeledContent("hover 不透明度 \(hoverOpacity, format: .number.precision(.fractionLength(2)))") {
                     Slider(value: $hoverOpacity, in: 0.5...1.0)
                 }
                 LabeledContent("失焦不透明度 \(idleOpacity, format: .number.precision(.fractionLength(2)))") {
-                    Slider(value: $idleOpacity, in: 0.05...0.8)
+                    Slider(value: $idleOpacity, in: 0.05...1.0)   // 1.0 = 不淡出（win 已支持）
                 }
             }
 
+            // Session 路径是产品事实（各 agent 自己定的），不是可配项——
+            // 全部内建自动发现，故这里只留开关不留路径输入。
             Section("Session 来源") {
-                Toggle("Claude Code（~/.claude/projects）", isOn: $claudeEnabled)
-                Toggle("Codex（~/.codex/sessions）", isOn: $codexEnabled)
-                Toggle("Kimi（~/.kimi/sessions）", isOn: $kimiEnabled)
-                Toggle("zcode（需配置路径）", isOn: $zcodeEnabled)
-                if zcodeEnabled {
-                    TextField("zcode session 根目录", text: $zcodePath, prompt: Text("~/.zcode/sessions"))
-                    Text("zcode 解析器为预留实现：拿到样例 session 文件后在 ZcodeParser 中补齐格式即可。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Stepper("启动回填最近 \(backfillDays) 天", value: $backfillDays, in: 1...60)
+                Toggle("Claude Code", isOn: $claudeEnabled)
+                Toggle("Codex", isOn: $codexEnabled)
+                Toggle("Kimi Code", isOn: $kimiEnabled)
+                Toggle("zcode", isOn: $zcodeEnabled)
+                    .disabled(true)
+                    .help("mac 端解析器实现中（Roadmap M4）；Windows 端已可用")
+                Stepper("启动回填最近 \(backfillDays) 天", value: $backfillDays, in: 0...90)
             }
 
             Section {
-                Button("应用（重启监听与摘要队列）") { onApply() }
+                Button("应用") { onApply() }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440)
+        .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
     }
 }

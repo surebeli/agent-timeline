@@ -1,42 +1,64 @@
 import Foundation
 
-/// ~/.kimi/sessions/<project-hash>/<session-uuid>/wire.jsonl
-/// Lines are {timestamp: unixSeconds, message: {type, payload}}; user prompts
-/// are TurnBegin payload.user_input text segments.
+/// Kimi Code：`~/.kimi-code/sessions/wd_<项目>_<hash>/session_<uuid>/agents/main/wire.jsonl`
+///
+/// ⚠ 2026-07-28 换代：目录从 `~/.kimi/sessions` 迁到 `~/.kimi-code/sessions`，
+/// 且 wire 协议 1.10 → 1.4 消息类型全变（旧的 TurnBegin/ContentPart 已不存在）。
+/// 规范见 docs/SESSION-FORMATS.md §3，本机 44 个真实 session 实证。
+///
+/// 新格式的意外收获：项目目录名自带可读项目名（旧版只有不可解的 hash，
+/// 只能显示 `kimi:1a2b3c4d`）。
 struct KimiParser: AgentSessionParser {
     let agent = AgentKind.kimi
-    let root = ParserSupport.home("~/.kimi/sessions")
+    let root = ParserSupport.home("~/.kimi-code/sessions")
 
     func watchRoots() -> [URL] { [root] }
 
     func makeContext(for url: URL) -> ParsedFileContext? {
         guard url.lastPathComponent == "wire.jsonl",
               url.path.hasPrefix(root.path) else { return nil }
-        let sessionDir = url.deletingLastPathComponent()
-        let sessionId = sessionDir.lastPathComponent
-        let projectHash = sessionDir.deletingLastPathComponent().lastPathComponent
-        // No public hash→cwd mapping; prefer the session's custom title, else hash prefix.
-        var project = "kimi:" + String(projectHash.prefix(8))
-        let stateURL = sessionDir.appendingPathComponent("state.json")
-        if let data = try? Data(contentsOf: stateURL),
-           let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-           let title = obj["custom_title"] as? String, !title.isEmpty {
-            project = ParserSupport.truncate(title, to: 24)
+        // …/<project>/session_<uuid>/agents/main/wire.jsonl
+        let agentDir = url.deletingLastPathComponent()          // main
+        let agentsDir = agentDir.deletingLastPathComponent()    // agents
+        let sessionDir = agentsDir.deletingLastPathComponent()  // session_<uuid>
+        let projectDir = sessionDir.deletingLastPathComponent() // wd_<name>_<hash>
+        guard agentsDir.lastPathComponent == "agents" else { return nil }
+
+        return ParsedFileContext(
+            url: url,
+            agent: .kimi,
+            sessionId: sessionDir.lastPathComponent,
+            project: Self.projectName(fromWorkDir: projectDir.lastPathComponent),
+            cwd: nil)
+    }
+
+    /// `wd_<name>_<12hex>` → `<name>`。项目名本身可能含下划线
+    /// （`wd_hawk_agent-rs_dd8b1189a258` → `hawk_agent-rs`），所以只剥
+    /// 固定的前缀与末段 hash，剥不掉就原样用目录名。
+    static func projectName(fromWorkDir dir: String) -> String {
+        var name = dir
+        if name.hasPrefix("wd_") { name.removeFirst(3) }
+        if let sep = name.lastIndex(of: "_") {
+            let tail = name[name.index(after: sep)...]
+            if tail.count >= 8, tail.allSatisfy({ $0.isHexDigit }) {
+                name = String(name[name.startIndex..<sep])
+            }
         }
-        return ParsedFileContext(url: url, agent: .kimi, sessionId: sessionId, project: project, cwd: nil)
+        return name.isEmpty ? dir : name
     }
 
     func parse(line: String, context: inout ParsedFileContext) -> [SessionEvent] {
-        guard let obj = ParserSupport.json(line),
-              let message = obj["message"] as? [String: Any],
-              let type = message["type"] as? String else { return [] }
-        let payload = message["payload"] as? [String: Any] ?? [:]
-        let ts = (obj["timestamp"] as? Double).map { Date(timeIntervalSince1970: $0) } ?? Date()
+        guard let obj = ParserSupport.json(line), let type = obj["type"] as? String else { return [] }
 
         switch type {
-        case "TurnBegin":
-            guard let inputs = payload["user_input"] as? [[String: Any]] else { return [] }
-            let text = inputs
+        case "turn.prompt":
+            // 只认用户发起的 prompt（origin.kind == "user"）。不用
+            // context.append_message：那条通道混着注入上下文（实测 85 条 vs
+            // 真实 prompt 39 条）。
+            guard let origin = obj["origin"] as? [String: Any],
+                  origin["kind"] as? String == "user",
+                  let input = obj["input"] as? [[String: Any]] else { return [] }
+            let text = input
                 .filter { $0["type"] as? String == "text" }
                 .compactMap { $0["text"] as? String }
                 .joined(separator: "\n")
@@ -46,38 +68,44 @@ struct KimiParser: AgentSessionParser {
                 project: context.project,
                 cwd: context.cwd,
                 sessionId: context.sessionId,
-                timestamp: ts,
+                timestamp: Self.timestamp(obj["time"]),
                 text: text,
                 sourceFile: context.url.path)
             return [.userCommand(cmd)]
 
-        case "TurnEnd":
-            // Real sessions carry an empty payload here; kept as a future-proof hook.
-            if let text = payload["text"] as? String, !text.isEmpty {
-                return [.assistantText(agent: .kimi, sessionId: context.sessionId, timestamp: ts, text: text)]
-            }
-            return []
-
-        case "ContentPart":
-            // The reply actually arrives as ContentPart {type:"text"} blocks.
-            // Emit each one — setResultLine overwrites the newest node in the
-            // session, so the last block before the next TurnBegin wins
-            // (SESSION-FORMATS.md §3 fallback rule).
-            if payload["type"] as? String == "text",
-               let text = payload["text"] as? String,
-               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return [.assistantText(agent: .kimi, sessionId: context.sessionId, timestamp: ts, text: text)]
-            }
-            return []
+        case "context.append_loop_event":
+            // 回复正文只取 part.type == "text"；"think" 是模型思考过程
+            // （实测 324 条 think vs 49 条 text），不是它给出的答复。
+            guard let event = obj["event"] as? [String: Any],
+                  event["type"] as? String == "content.part",
+                  let part = event["part"] as? [String: Any],
+                  part["type"] as? String == "text",
+                  let text = part["text"] as? String,
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { return [] }
+            return [.assistantText(
+                agent: .kimi,
+                sessionId: context.sessionId,
+                timestamp: Self.timestamp(obj["time"]),
+                text: text)]
 
         default:
+            // metadata / config.update / tools.* / permission.* /
+            // context.append_message / usage.record / 其余 loop 事件
             return []
         }
     }
 
-    /// Bare slash commands like "/model" are UI actions, not prompts.
+    /// wire 1.4 的 `time` 是毫秒 epoch。
+    private static func timestamp(_ raw: Any?) -> Date {
+        guard let ms = (raw as? NSNumber)?.doubleValue, ms > 0 else { return Date() }
+        return Date(timeIntervalSince1970: ms / 1000)
+    }
+
+    /// 裸斜杠命令（`/model`）是 UI 动作不是 prompt；**带参数的**（`/compact 全部`）
+    /// 承载真实用户意图要保留——口径与 win KimiParser 一致（含空格即保留）。
     private func isSlashCommand(_ text: String) -> Bool {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return t.hasPrefix("/") && !t.contains("\n") && t.count < 40
+        return t.hasPrefix("/") && !t.contains(" ") && !t.contains("\n") && t.count <= 24
     }
 }

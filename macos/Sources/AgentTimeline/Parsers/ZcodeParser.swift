@@ -1,23 +1,20 @@
 import Foundation
 
-/// Placeholder adapter for zcode. The CLI is not installed on this machine and
-/// no session sample exists yet (docs/SESSION-FORMATS.md §4). The session root
-/// is user-configurable; once a sample is available, fill in `parse` following
-/// the same pattern as the other parsers — the protocol will not change.
+/// zcode 适配器（mac 端待实现，Roadmap M4）。格式规范已定稿见
+/// docs/SESSION-FORMATS.md §4，Windows 端已按该规范实现并实机验证；
+/// 根目录内建为 `~/.zcode/cli/agents`（不再作为可配项——路径是产品事实不是偏好）。
+/// 填 `parse` 时照其他解析器的模式即可，协议不变。
 struct ZcodeParser: AgentSessionParser {
     let agent = AgentKind.zcode
 
-    func watchRoots() -> [URL] {
-        let path = AppSettings.zcodeSessionPath
-        guard !path.isEmpty else { return [] }
-        return [ParserSupport.home(path)]
-    }
+    /// 内建默认根（与 win 一致）；mac 端 parse 未实现前不挂 watcher。
+    static let defaultRoot = "~/.zcode/cli/agents"
+
+    func watchRoots() -> [URL] { [] }
 
     func makeContext(for url: URL) -> ParsedFileContext? {
-        let path = AppSettings.zcodeSessionPath
-        guard !path.isEmpty,
-              url.pathExtension == "jsonl",
-              url.path.hasPrefix(ParserSupport.home(path).path) else { return nil }
+        guard url.lastPathComponent == "transcript.jsonl",
+              url.path.hasPrefix(ParserSupport.home(Self.defaultRoot).path) else { return nil }
         return ParsedFileContext(
             url: url, agent: .zcode,
             sessionId: url.deletingPathExtension().lastPathComponent,

@@ -207,7 +207,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settingsWindow == nil {
             let view = SettingsView { [weak self] in self?.applySettings() }
             let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-            window.title = "Agent Timeline 设置"
+            // 版本信息统一放在设置窗 caption（双端同文案）
+            let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+            window.title = "Agent Timeline 设置 · v\(version)"
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
             settingsWindow = window

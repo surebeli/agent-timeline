@@ -17,7 +17,6 @@ enum SettingsKey {
     static let agentCodexEnabled = "agentCodexEnabled"
     static let agentKimiEnabled = "agentKimiEnabled"
     static let agentZcodeEnabled = "agentZcodeEnabled"
-    static let zcodeSessionPath = "zcodeSessionPath"
 }
 
 struct AppSettings: Sendable {
@@ -36,7 +35,6 @@ struct AppSettings: Sendable {
             SettingsKey.agentCodexEnabled: true,
             SettingsKey.agentKimiEnabled: true,
             SettingsKey.agentZcodeEnabled: false,
-            SettingsKey.zcodeSessionPath: "",
         ])
     }
 
@@ -51,7 +49,6 @@ struct AppSettings: Sendable {
     static var idleOpacity: Double { UserDefaults.standard.double(forKey: SettingsKey.idleOpacity) }
     static var alwaysOnTop: Bool { UserDefaults.standard.bool(forKey: SettingsKey.alwaysOnTop) }
     static var backfillDays: Int { UserDefaults.standard.integer(forKey: SettingsKey.backfillDays) }
-    static var zcodeSessionPath: String { UserDefaults.standard.string(forKey: SettingsKey.zcodeSessionPath) ?? "" }
 
     static func isAgentEnabled(_ agent: AgentKind) -> Bool {
         let key: String

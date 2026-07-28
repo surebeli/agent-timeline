@@ -231,35 +231,74 @@ final class ParserTests: XCTestCase {
         XCTAssertTrue(parser.parse(line: line, context: &ctx).isEmpty)
     }
 
-    // MARK: - Kimi
+    // MARK: - Kimi Code（2026-07-28 换代：~/.kimi-code + wire 1.4）
 
-    func testKimiTurnBegin() {
-        let parser = KimiParser()
-        let url = URL(fileURLWithPath: NSHomeDirectory() + "/.kimi/sessions/hash1/sess-uuid/wire.jsonl")
-        var ctx = ParsedFileContext(url: url, agent: .kimi, sessionId: "sess-uuid", project: "kimi:hash1", cwd: nil)
-
-        XCTAssertTrue(parser.parse(line: #"{"type": "metadata", "protocol_version": "1.10"}"#, context: &ctx).isEmpty)
-
-        let turn = #"{"timestamp": 1779551316.59918, "message": {"type": "TurnBegin", "payload": {"user_input": [{"type": "text", "text": "生成一个 HTML 页面"}]}}}"#
-        guard case .userCommand(let cmd)? = parser.parse(line: turn, context: &ctx).first else {
-            return XCTFail("expected userCommand")
-        }
-        XCTAssertEqual(cmd.text, "生成一个 HTML 页面")
-        XCTAssertEqual(cmd.sessionId, "sess-uuid")
-
-        let slash = #"{"timestamp": 1779551316.0, "message": {"type": "TurnBegin", "payload": {"user_input": [{"type": "text", "text": "/model"}]}}}"#
-        XCTAssertTrue(parser.parse(line: slash, context: &ctx).isEmpty, "slash commands are UI actions")
+    private func kimiContext(project: String = "translate-the-damn") -> ParsedFileContext {
+        let url = URL(fileURLWithPath: NSHomeDirectory()
+            + "/.kimi-code/sessions/wd_\(project)_483fb8b43fb8/session_7c34b3b2/agents/main/wire.jsonl")
+        return ParsedFileContext(
+            url: url, agent: .kimi, sessionId: "session_7c34b3b2", project: project, cwd: nil)
     }
 
-    func testKimiContentPartBecomesResult() {
+    /// 用户命令走 turn.prompt（且 origin.kind == user），不是 append_message。
+    func testKimiTurnPrompt() {
         let parser = KimiParser()
-        let url = URL(fileURLWithPath: NSHomeDirectory() + "/.kimi/sessions/hash1/sess-uuid/wire.jsonl")
-        var ctx = ParsedFileContext(url: url, agent: .kimi, sessionId: "sess-uuid", project: "kimi:hash1", cwd: nil)
-        let line = #"{"timestamp": 1779551320.0, "message": {"type": "ContentPart", "payload": {"type": "text", "text": "已生成 HTML 文件"}}}"#
-        guard case .assistantText(_, _, _, let text)? = parser.parse(line: line, context: &ctx).first else {
-            return XCTFail("ContentPart text should surface as assistantText")
+        var ctx = kimiContext()
+
+        XCTAssertTrue(parser.parse(
+            line: #"{"type":"metadata","protocol_version":"1.4","created_at":1781760567681}"#,
+            context: &ctx).isEmpty)
+
+        let prompt = #"{"type":"turn.prompt","input":[{"type":"text","text":"生成一个 HTML 页面"}],"origin":{"kind":"user"},"time":1781760567681}"#
+        guard case .userCommand(let cmd)? = parser.parse(line: prompt, context: &ctx).first else {
+            return XCTFail("turn.prompt 应产出用户命令")
         }
-        XCTAssertEqual(text, "已生成 HTML 文件")
+        XCTAssertEqual(cmd.text, "生成一个 HTML 页面")
+        XCTAssertEqual(cmd.sessionId, "session_7c34b3b2")
+        XCTAssertEqual(cmd.project, "translate-the-damn")
+        // time 是毫秒 epoch
+        XCTAssertEqual(cmd.timestamp.timeIntervalSince1970, 1781760567.681, accuracy: 0.01)
+
+        // 非 user 发起的 prompt 不算用户命令
+        let injected = #"{"type":"turn.prompt","input":[{"type":"text","text":"x"}],"origin":{"kind":"compact"},"time":1781760567681}"#
+        XCTAssertTrue(parser.parse(line: injected, context: &ctx).isEmpty)
+
+        // 注入上下文走的是 append_message 通道，必须无视（实测 85 条 vs 39 条真 prompt）
+        let appended = #"{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"注入的上下文"}]}}"#
+        XCTAssertTrue(parser.parse(line: appended, context: &ctx).isEmpty)
+
+        // 裸斜杠命令是 UI 动作
+        let slash = #"{"type":"turn.prompt","input":[{"type":"text","text":"/model"}],"origin":{"kind":"user"},"time":1781760567681}"#
+        XCTAssertTrue(parser.parse(line: slash, context: &ctx).isEmpty)
+    }
+
+    /// 回复取 content.part 的 text；think 是思考过程必须排除。
+    func testKimiContentPartTextOnly() {
+        let parser = KimiParser()
+        var ctx = kimiContext()
+
+        let text = #"{"type":"context.append_loop_event","event":{"type":"content.part","part":{"type":"text","text":"已生成 HTML 文件"}},"time":1781760809581}"#
+        guard case .assistantText(_, _, _, let out)? = parser.parse(line: text, context: &ctx).first else {
+            return XCTFail("content.part 的 text 应产出结果行")
+        }
+        XCTAssertEqual(out, "已生成 HTML 文件")
+
+        let think = #"{"type":"context.append_loop_event","event":{"type":"content.part","part":{"type":"think","text":"我先想想"}},"time":1781760809581}"#
+        XCTAssertTrue(parser.parse(line: think, context: &ctx).isEmpty, "think 是思考过程不是答复")
+
+        for other in [#"{"type":"context.append_loop_event","event":{"type":"tool.call"},"time":1}"#,
+                      #"{"type":"usage.record","time":1}"#] {
+            XCTAssertTrue(parser.parse(line: other, context: &ctx).isEmpty)
+        }
+    }
+
+    /// 项目名取自目录名——新格式的关键改进（旧版只能显示 kimi:hash8）。
+    func testKimiProjectNameFromWorkDir() {
+        XCTAssertEqual(KimiParser.projectName(fromWorkDir: "wd_edit-the-damn_4e1ceee19e2e"), "edit-the-damn")
+        // 项目名自身含下划线：只剥固定前缀与末段 hash
+        XCTAssertEqual(KimiParser.projectName(fromWorkDir: "wd_hawk_agent-rs_dd8b1189a258"), "hawk_agent-rs")
+        // 不符合模式时原样使用
+        XCTAssertEqual(KimiParser.projectName(fromWorkDir: "legacy-dir"), "legacy-dir")
     }
 
     // MARK: - Codename lifecycle（用户场景回归）
