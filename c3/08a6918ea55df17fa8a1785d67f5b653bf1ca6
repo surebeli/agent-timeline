@@ -1,0 +1,38 @@
+docs/TEXT-NORMALIZATION.md
+  s_5b0458546b11e2::t_c339ff0dfe88f1 1-302
+macos/SYNC-KICKOFF-PROMPT.md
+  s_5b0458546b11e2::t_b610301e6383e7 1-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c308a6918ea55df17fa8a1785d67f5b653bf1ca6",
+  "prompts": {
+    "s_5b0458546b11e2::t_c339ff0dfe88f1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 302,
+      "total_deletions": 0,
+      "accepted_lines": 302,
+      "overriden_lines": 0
+    },
+    "s_5b0458546b11e2::t_b610301e6383e7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 47,
+      "total_deletions": 0,
+      "accepted_lines": 47,
+      "overriden_lines": 0
+    }
+  }
+}
