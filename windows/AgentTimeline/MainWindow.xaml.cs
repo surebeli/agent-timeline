@@ -86,6 +86,7 @@ public sealed partial class MainWindow : Window
         TrayIcon.ForceCreate(enablesEfficiencyMode: false);
         TrayIcon.LeftClickCommand = new RelayCommand(TogglePanelVisible);
         TrayAlwaysOnTopItem.IsChecked = App.Settings.AlwaysOnTop;
+        WireTrayCommands();
 
         // 头部过滤菜单也是面板内弹层，参与 hover 抑制（见 RegisterPanelFlyout）。
         if (ProjectFilterButton.Flyout is { } pf) RegisterPanelFlyout(pf);
@@ -953,18 +954,27 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void TrayShowHide_Click(object sender, RoutedEventArgs e) => TogglePanelVisible();
-
-    private void TrayAlwaysOnTop_Click(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// 托盘菜单走 Command 而非 Click —— 原因见 MainWindow.xaml 里 MenuFlyout 上的注释。
+    /// </summary>
+    private void WireTrayCommands()
     {
-        App.Settings.AlwaysOnTop = TrayAlwaysOnTopItem.IsChecked;
-        App.Settings.Save();
-        ApplyWindowSettings();
+        TrayShowHideItem.Command = new RelayCommand(TogglePanelVisible);
+        TraySettingsItem.Command = new RelayCommand(OpenSettings);
+        TrayExitItem.Command = new RelayCommand(App.Shutdown);
+        TrayAlwaysOnTopItem.Command = new RelayCommand(() =>
+        {
+            // 取反的基准是 App.Settings 而不是 IsChecked：原生菜单只把 IsChecked 读出去
+            // 画勾（库里是 PopupMenuItem.Checked = toggleItem.IsChecked 的单向），不回写，
+            // 读 IsChecked 会永远取到旧值、开关一次也翻不动。回写 IsChecked 是为了下次
+            // 打开菜单时勾选态正确。
+            var next = !App.Settings.AlwaysOnTop;
+            App.Settings.AlwaysOnTop = next;
+            TrayAlwaysOnTopItem.IsChecked = next;
+            App.Settings.Save();
+            ApplyWindowSettings();
+        });
     }
-
-    private void TraySettings_Click(object sender, RoutedEventArgs e) => OpenSettings();
-
-    private void TrayExit_Click(object sender, RoutedEventArgs e) => App.Shutdown();
 }
 
 /// <summary>Minimal ICommand for the tray icon's LeftClickCommand.</summary>

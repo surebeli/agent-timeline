@@ -7,6 +7,24 @@
 > tag↔VERSION↔CHANGELOG 一致性、跑双端测试、出 macOS `.app` zip 与 Windows x64 zip
 > 并挂到 GitHub Release。
 
+## [未发布]
+
+### 修复（Windows）
+
+- **托盘右键菜单中文被截断**——菜单项「显示 / 隐藏」实机渲染成「显示 / 隐」，
+  文字直接贴死右边框、无右内边距。根因不在内容测量而在宿主窗尺寸：
+  `ContextMenuMode=SecondWindow` 把 MenuFlyout 放进 H.NotifyIcon 自建的
+  ~145px 宽窗口，而 XAML flyout 无法超出所在 XamlRoot 的边界（GDI 实测该串
+  在菜单字号 14px 下自然宽 78px，项内可用文本区仅 85px 且还要扣快捷键列），
+  调 `MinWidth`/`Padding` 均无效。改用 `ContextMenuMode=PopupMenu`（原生
+  Win32 `TrackPopupMenu`），按文本自动定宽，CJK 不再截断（菜单 145→161px）。
+- **随之修复：托盘菜单点击全无反应**——原生模式下 H.NotifyIcon 只执行菜单项的
+  `ICommand`，无法触发 XAML 的 `Click` 路由事件（程序集里只有 ICommand/CanExecute
+  通路），四个菜单项原先全绑 `Click=` 故集体失效。改为绑 `Command`；「总在最前」
+  取反基准从 `IsChecked` 改为 `App.Settings`（原生菜单只单向读 `IsChecked` 画勾、
+  不回写，读它会永远取到旧值），并回写 `IsChecked` 保证下次开菜单勾选态正确。
+  实机四项逐一验证：显隐双向、开关双向 + 勾选同步、设置窗打开、退出且无残留图标。
+
 ## [0.4.1] - 2026-07-28
 
 > 双端拉平轮：Windows 端补完 Phase C' 的 W0–W6（含一处丢命令缺陷），

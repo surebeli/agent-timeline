@@ -33,19 +33,35 @@
         </Grid.RowDefinitions>
 
         <!-- ═══════════════ System tray (H.NotifyIcon) ═══════════════ -->
+        <!--
+            ContextMenuMode：必须是 PopupMenu（原生 Win32 TrackPopupMenu），不能用 SecondWindow。
+            SecondWindow 把 MenuFlyout 放进 H.NotifyIcon 自建的宿主窗口里，而 XAML flyout
+            无法超出所在 XamlRoot 的边界——宿主窗只有 ~145px 宽，中文菜单项被夹掉右侧：
+            实机「显示 / 隐藏」渲染成「显示 / 隐」，文字直接贴死右边框（无右内边距）。
+            GDI 实测该串在菜单字号 14px 下自然宽 78px，而项内可用文本区仅 85px 且还要
+            扣掉快捷键列——调 MinWidth/Padding 都治不了，因为瓶颈在宿主窗尺寸不在内容测量。
+            原生菜单按文本自动定宽，CJK 不会截断；ToggleMenuFlyoutItem 的勾选态由
+            H.NotifyIcon 映射为原生 checked 项，行为不变。
+        -->
         <tb:TaskbarIcon
             x:Name="TrayIcon"
-            ContextMenuMode="SecondWindow"
+            ContextMenuMode="PopupMenu"
             IconSource="ms-appx:///Assets/TrayIcon.ico"
             NoLeftClickDelay="True"
             ToolTipText="Agent Timeline">
             <tb:TaskbarIcon.ContextFlyout>
+                <!--
+                    菜单项一律绑 Command，不要用 Click：PopupMenu 模式下 H.NotifyIcon 只会
+                    执行菜单项的 ICommand，无法触发 XAML 的 Click 路由事件（程序集里只有
+                    ICommand/CanExecute 通路，没有 OnClick/RaiseEvent）——用 Click 的话
+                    菜单画得出来、点击却全无反应（实机验证）。接线见 WireTrayCommands()。
+                -->
                 <MenuFlyout AreOpenCloseAnimationsEnabled="False">
-                    <MenuFlyoutItem x:Name="TrayShowHideItem" Click="TrayShowHide_Click" Text="显示 / 隐藏" />
-                    <ToggleMenuFlyoutItem x:Name="TrayAlwaysOnTopItem" Click="TrayAlwaysOnTop_Click" Text="总在最前" />
-                    <MenuFlyoutItem Click="TraySettings_Click" Text="设置…" />
+                    <MenuFlyoutItem x:Name="TrayShowHideItem" Text="显示 / 隐藏" />
+                    <ToggleMenuFlyoutItem x:Name="TrayAlwaysOnTopItem" Text="总在最前" />
+                    <MenuFlyoutItem x:Name="TraySettingsItem" Text="设置…" />
                     <MenuFlyoutSeparator />
-                    <MenuFlyoutItem Click="TrayExit_Click" Text="退出" />
+                    <MenuFlyoutItem x:Name="TrayExitItem" Text="退出" />
                 </MenuFlyout>
             </tb:TaskbarIcon.ContextFlyout>
         </tb:TaskbarIcon>
