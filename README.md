@@ -29,6 +29,7 @@
 
 | | |
 |---|---|
+| 🤝 **五家 agent 一条时间线** | Claude Code · Codex · Grok Build · Kimi Code · ZCode 混排，来源徽标（CL/CO/GR/KI/ZC）+ 项目过滤；**两端解析器逐条同语义**，同一份语料解出同一批节点 |
 | 🕰 **命令时间线** | 每条你的原话 = 一个节点（最新在上），LLM 提炼标题 / 关键点 / 执行结果一句话；按 需求·任务·调研·学习·决策·修复 归类过滤 |
 | 📖 **代号词典** | `N1: 登录改版` 式定义自动登记（命令与 agent 回复双通道）；`N2完成`、`T1 完成接下去执行T2` 自动流转状态（✓完成 / ▶进行中 / △变更）；点击回看定义与出处 |
 | 🫧 **双墨线台账** | `❯ + 实线彩墨线 + 纸面块` = 你的话，`✦ + 虚线灰墨线` = 机器话 —— 失焦半透明时，屏幕上唯一清晰的就是你说过的话 |
@@ -55,13 +56,13 @@ cd macos
 scripts/build-app.sh release              # 产出 macos/dist/AgentTimeline.app
 cp -R dist/AgentTimeline.app /Applications/
 open /Applications/AgentTimeline.app      # menu bar 时钟图标 ⏱
-swift test                                # 21 项单测
+swift test                                # 48 项单测
 ```
 
 ### Windows（WinUI 3 / .NET 8）
 
 完整源码在 [`windows/`](windows/)，**已完成实机运行验证（M3，2026-07-26）**：Core 解析层跨平台
-冒烟 112 断言，WinUI 层过 CI 的 VS msbuild 硬门禁，分层验证清单全项注记见
+冒烟 348 断言，WinUI 层过 CI 的 VS msbuild 硬门禁，分层验证清单全项注记见
 [windows/DEBUG-PLAYBOOK.md](windows/DEBUG-PLAYBOOK.md)。开发构建用 Visual Studio 2022 打开
 `windows/AgentTimeline.sln`，详见 [windows/README.md](windows/README.md)。
 
@@ -80,6 +81,8 @@ swift test                                # 21 项单测
 | <img src="docs/assets/screenshot-macos-timeline.png" width="250" alt="macOS 台账时间线：四家 agent 混排、kind 彩标、N2✓/N3△ 状态徽章、决策菱形锚点" /> | <img src="docs/assets/screenshot-macos-projects.png" width="230" alt="项目下拉：CL/CO/KI/ZC 来源徽标（跟随最近活跃 agent）" /> | <img src="docs/assets/screenshot-macos-dictionary.png" width="250" alt="代号词典面板：定义/进行中/完成/变更 状态与出处" /> |
 
 设置界面：[screenshot-macos-settings.png](docs/assets/screenshot-macos-settings.png)。两端同一演示数据集拍摄（[docs/DEMO-DATASET.md](docs/DEMO-DATASET.md)），视觉规范同源 `design/design-tokens.json`。
+
+> 截图摄于四家 agent 时期（v0.4.x）；Grok Build 于 v0.5.0 接入，界面结构不变、仅多一枚 `GR` 徽标。
 
 ## 工作原理
 
@@ -100,7 +103,7 @@ flowchart LR
 
 ## 设置
 
-菜单栏图标 → 设置：摘要引擎（CLI 模型 / 自定义 provider）、透明度两档、置顶、回填天数、agent 开关（zcode 默认监听 `~/.zcode/cli/agents`，可自定义路径；格式规范见 [SESSION-FORMATS §4](docs/SESSION-FORMATS.md)，Windows 解析器已实现、mac 待同步）。
+菜单栏图标 → 设置：摘要引擎（CLI 模型 / 自定义 provider）、透明度两档、置顶、回填天数、五家 agent 开关。各家 session 路径均**内建自动发现**（不是可配项——路径是产品事实不是用户偏好），格式规范见 [docs/SESSION-FORMATS.md](docs/SESSION-FORMATS.md)。
 
 ## Roadmap
 

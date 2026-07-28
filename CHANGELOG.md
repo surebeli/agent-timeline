@@ -7,7 +7,7 @@
 > tag↔VERSION↔CHANGELOG 一致性、跑双端测试、出 macOS `.app` zip 与 Windows x64 zip
 > 并挂到 GitHub Release。
 
-## [未发布]
+## [0.5.0] - 2026-07-28
 
 ### 新增（双端）
 
@@ -46,6 +46,40 @@
   任务书，只有 3 条真人手打，且**无协议级判据**可与真人会话区分（结构逐字段相同）；
   其骨架是用户自有插件的私有约定，硬编码即过拟合。代价与三个可选项见
   `docs/TEXT-NORMALIZATION.md §4.2c`，需用户拍板。
+
+### 修复（双端解析一致性）
+
+> 起因：四路解析器逐行对拍（每家 agent 一路 + 对抗验证 + 真实语料差分执行）与
+> Windows 侧跨端合并审计。共确认 17 处分叉/缺陷，全部修复。
+
+- **Kimi 子 agent 结果行串台**（A1，正在污染时间线）：`agents/agent-N/wire.jsonl` 与
+  `main` 共用 `session_<uuid>` 目录名即共用 sessionId，而子 agent 的「问」是
+  `system_trigger`（已过滤）、「答」是普通 `content.part` → 结果行被挂到主会话的命令
+  节点上，代号词典也混入只源自子 agent 的条目。**子 agent 整文件排除**（与 Claude 侧
+  `isSidechain` 同语义），并锚定完整路径形状。
+- **codex 会话身份不稳定**（B1）：被 resume/fork 的 rollout 在文件中途还会写入**原会话**
+  的 `session_meta`，流式路径逐条重设、重启续扫却只读第 0 行 → 两条路径判出不同
+  sessionId；它参与节点 id/唯一键，于是重扫插出重复行（用户库里已有 38 组 / 41 行），
+  结果行还会挂到**另一个 rollout 文件**的命令上。改为**只应用本文件第一条** meta；
+  mac 261 个 rollout（含 55 个多 meta 文件）两路径不一致数 55 → **0**。
+- **codex 首行重读截断在 16 KB**：`session_meta` 首行常大于此（本机 260 个 rollout 里
+  169 个 >16 KB），读不到换行就整条放弃 → 重启续扫时项目名退化成 `codex`。改分块读到
+  首个换行；真实语料 **261/261 恢复真实项目名**（修前 108 个文件退化）。
+- **codex 摘要器自摄取回路**（Windows）：摘要引擎解析到 `codex exec` 时，win 把自己发出
+  的每条摘要 prompt 当用户命令收进时间线（其 rollout 写在 `~/.codex/sessions` 下，
+  路径匹配永远拦不住）。补整文件禁用，流式与重启续扫两条路径共用判定。
+- **codex 注入块泄漏**（A2）：`<task>` 是编排器给用户真实任务加的壳 → 去壳保留正文
+  （Windows 修前 37 个节点标题字面是 `<task>`）；`<heartbeat>` 等 11 个标签整条跳过。
+- **结果行退化成光秃秃的标题**（A3）：先剥前导标题行再取首段，剥后为空回退含标题原文
+  （永不写空串）。
+- **时间戳容错两端都不对**：mac 解析失败丢整行（丢命令）、win 回退「当前时间」（节点跳
+  顶且 ts 参与唯一键 → 重扫出重复行）。改共同规则：形态放宽 → 顺延**本文件最近见到的**
+  时间戳（任意行喂养基准）→ 无前值才丢弃。
+- Claude 侧：L1 忽略前缀表两端统一（win 补 2 条并改不含 `>` 匹配，此前
+  `<user_instructions>` 等会变垃圾节点）、assistant 多段文本改为全拼接、无 `cwd` 行沿用
+  上下文项目名、`queued_command` 与 codex `user_message` 补 trim（不 trim 会让同一条命令
+  两端连节点 id 都不同）。
+- Codex 技能回显 `[$plugin:skill](本机…SKILL.md)` 双端都剥本机路径（跨机无效且泄漏用户名）。
 
 ### 修复（Windows）
 
