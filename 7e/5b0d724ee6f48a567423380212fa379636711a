@@ -1,0 +1,327 @@
+windows/AgentTimeline/Core/AppPaths.cs
+  s_b85ad4e83942fb::t_e8d05d9ace5cfe 24-42
+windows/AgentTimeline/Core/Parsers/IAgentSessionParser.cs
+  s_b85ad4e83942fb::t_8580b9fb3d4460 54-66,74-74
+windows/AgentTimeline/Core/Parsers/ClaudeParser.cs
+  s_b85ad4e83942fb::t_0e6d1fbdc69b5e 22-27
+  s_b85ad4e83942fb::t_e46c4d8d42cf86 43-50,58-59
+  s_b85ad4e83942fb::t_007b9d1f3b6bbc 53-54,57-57
+  s_b85ad4e83942fb::t_8c5c3134fb606d 67-87,95-101,110-122,124-131,134-134,144-144,157-158
+  s_b85ad4e83942fb::t_daa52f0ff4a6cf 139-139
+  s_b85ad4e83942fb::t_0064acd61f4425 178-178
+  s_b85ad4e83942fb::t_68120006c32583 193-193,197-198,200-200,202-202,206-209
+  s_b85ad4e83942fb::t_90f0833e1dd8b2 224-225
+  s_b85ad4e83942fb::t_a751881af18a0c 243-243,251-254,260-262,265-271,278-278,282-283,285-285
+  s_b85ad4e83942fb::t_a973e80adce266 246-246
+windows/AgentTimeline/Core/Parsers/CodexParser.cs
+  s_b85ad4e83942fb::t_7b4ff214f7b1f8 20-22
+  s_b85ad4e83942fb::t_c6affd4a6c24bb 38-51
+  s_b85ad4e83942fb::t_5421da20b10afb 76-76,88-94,104-105,109-109
+  s_b85ad4e83942fb::t_4d5bd535eb3645 128-128,141-141
+  s_b85ad4e83942fb::t_739b8617a45030 162-170,172-173
+  s_b85ad4e83942fb::t_007b9d1f3b6bbc 171-171
+  s_b85ad4e83942fb::t_22dece08ad17b2 187-188,190-190
+windows/AgentTimeline/Core/Parsers/ZcodeParser.cs
+  s_b85ad4e83942fb::t_c45b12a5903733 92-98,100-100
+windows/CoreSmokeTest/Program.cs
+  s_b85ad4e83942fb::t_c6882c849f4eb8 39-43
+  s_b85ad4e83942fb::t_4db821569c0ecb 469-729,737-738
+  s_b85ad4e83942fb::t_df30322c291e24 730-736
+windows/README.md
+  s_b85ad4e83942fb::t_03a70d7ad1bbc9 20-47
+macos/Sources/AgentTimeline/Parsers/ClaudeParser.swift
+  s_b85ad4e83942fb::t_4950bb341ea21e 33-35,47-47,75-75,94-94
+macos/Sources/AgentTimeline/Parsers/CodexParser.swift
+  s_b85ad4e83942fb::t_4950bb341ea21e 62-63,80-80
+macos/Tests/AgentTimelineTests/ParserTests.swift
+  0000019fa6c9dac9 1-534
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "7e5b0d724ee6f48a567423380212fa379636711a",
+  "prompts": {
+    "s_b85ad4e83942fb::t_e8d05d9ace5cfe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 19,
+      "total_deletions": 0,
+      "accepted_lines": 19,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_8580b9fb3d4460": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 14,
+      "total_deletions": 0,
+      "accepted_lines": 14,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_e46c4d8d42cf86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 0,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_0e6d1fbdc69b5e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 0,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_c6affd4a6c24bb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 14,
+      "total_deletions": 0,
+      "accepted_lines": 14,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_7b4ff214f7b1f8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_c45b12a5903733": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 0,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_c6882c849f4eb8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 0,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_03a70d7ad1bbc9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 28,
+      "total_deletions": 0,
+      "accepted_lines": 28,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_4950bb341ea21e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 0,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    },
+    "s_63e85edd60f5a7::t_b0266ec907a599": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785209674129061000",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019fa6c9dac9": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785209674441"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 534,
+      "total_deletions": 0,
+      "accepted_lines": 534,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_007b9d1f3b6bbc": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 0,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_8c5c3134fb606d": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 53,
+      "total_deletions": 0,
+      "accepted_lines": 53,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_daa52f0ff4a6cf": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_0064acd61f4425": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_68120006c32583": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 0,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_90f0833e1dd8b2": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 0,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_a751881af18a0c": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 19,
+      "total_deletions": 0,
+      "accepted_lines": 19,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_a973e80adce266": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_5421da20b10afb": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 0,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_4d5bd535eb3645": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 0,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_739b8617a45030": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 0,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_22dece08ad17b2": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_4db821569c0ecb": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 263,
+      "total_deletions": 0,
+      "accepted_lines": 263,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_df30322c291e24": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 0,
+      "accepted_lines": 7,
+      "overriden_lines": 0
+    }
+  }
+}
