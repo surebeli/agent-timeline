@@ -1,0 +1,36 @@
+CHANGELOG.md
+  0000019fa674cb67 1-152
+VERSION
+  0000019fa674cb67 1-1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ed5944b260eba9e798758bcc3c906f3571bf0e8a",
+  "prompts": {
+    "0000019fa674cb67": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ai-thread-claude-claude-opus-5-1785204099943",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi",
+      "total_additions": 153,
+      "total_deletions": 0,
+      "accepted_lines": 153,
+      "overriden_lines": 0
+    },
+    "s_57243ab196e1e6::t_30a0bd711e8479": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785204099550369000",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}
