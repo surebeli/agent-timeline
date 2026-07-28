@@ -1,0 +1,45 @@
+macos/Sources/AgentTimeline/App/AppDelegate.swift
+  s_b85ad4e83942fb::t_ab36d6be176014 210-212
+macos/Sources/AgentTimeline/Parsers/ZcodeParser.swift
+  s_b85ad4e83942fb::t_80373878073416 3-6,10-13,16-17
+windows/AgentTimeline/Core/AppPaths.cs
+  s_b85ad4e83942fb::t_dd22f10bf0da97 27-28
+windows/AgentTimeline/SettingsWindow.xaml
+  s_b85ad4e83942fb::t_66a0e973caf392 18-22
+  s_b85ad4e83942fb::t_f5a5d05a8e0396 62
+  s_b85ad4e83942fb::t_61d3c6790a0cb4 66-69
+docs/SESSION-FORMATS.md
+  s_b85ad4e83942fb::t_1669f9175d6b7f 27-55
+windows/CoreSmokeTest/Program.cs
+  s_b85ad4e83942fb::t_bb168d6c304832 43
+  s_b85ad4e83942fb::t_aac5b7be4a5146 465-469,471,474-491,495-505,507,509-514,516-519
+macos/Tests/AgentTimelineTests/ParserTests.swift
+  s_b85ad4e83942fb::t_b7717f3cbd56fa 234,236-244,246,248-250,252-254,257-272,275-276,278-282,284-301
+macos/Sources/AgentTimeline/Parsers/KimiParser.swift
+  s_b85ad4e83942fb::t_8a4c83c44e343e 3-10,13,20-45,47,51,54-61,71,76-90,93-94,99-103
+  s_b85ad4e83942fb::t_4070f25fe026be 104
+windows/AgentTimeline/SettingsWindow.xaml.cs
+  s_b85ad4e83942fb::t_7dd3e9bdb1a244 63-64
+  s_b85ad4e83942fb::t_b4336ac04f7087 104
+  s_b85ad4e83942fb::t_fe505c6937a907 19-22,25
+windows/AgentTimeline/Core/Parsers/KimiParser.cs
+  s_b85ad4e83942fb::t_a728be3b3d83a2 7,9-10,12-27,33-35,39-40,45,56,58,60-75,77,79-83,85-86,88-102,106,108-109,121-122,124,142-143,145,147-148,150,154-156,158,160,162-165,167-189,191-192,194,196-197
+macos/Sources/AgentTimeline/UI/SettingsView.swift
+  s_b85ad4e83942fb::t_ad39ce51403f25 31,41,50-51,53-58,63,67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "d6c9e882f4d6c69055101e1e5a9ce88d17d2dc58",
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}

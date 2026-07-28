@@ -1,0 +1,102 @@
+macos/Sources/AgentTimeline/Parsers/ZcodeParser.swift
+  s_b85ad4e83942fb::t_3aa878cbdeb5c6 3-8,12-12,15-15,20-34,36-40,44-75
+macos/Sources/AgentTimeline/App/AppSettings.swift
+  s_b85ad4e83942fb::t_2a98b77b4d2cc6 37-37
+macos/Sources/AgentTimeline/Parsers/AgentSessionParser.swift
+  s_b85ad4e83942fb::t_2a98b77b4d2cc6 179-188
+macos/Tests/AgentTimelineTests/ParserTests.swift
+  s_b85ad4e83942fb::t_1d9a0d4e94c058 373-456
+macos/Tests/AgentTimelineTests/ZcodeE2E.swift
+  s_b85ad4e83942fb::t_b456180d018d47 1-32
+README.md
+  0000019fa6e7e1bf 1-118
+docs/SESSION-FORMATS.md
+  0000019fa6e7e1bf 1-86
+docs/TEXT-NORMALIZATION.md
+  0000019fa6e7e1bf 1-258
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "40d2d5478eda404313cfbff9c31ede4bbcad0218",
+  "prompts": {
+    "s_b85ad4e83942fb::t_3aa878cbdeb5c6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 60,
+      "total_deletions": 0,
+      "accepted_lines": 60,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_2a98b77b4d2cc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 0,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_1d9a0d4e94c058": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 84,
+      "total_deletions": 0,
+      "accepted_lines": 84,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_b456180d018d47": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 32,
+      "total_deletions": 0,
+      "accepted_lines": 32,
+      "overriden_lines": 0
+    },
+    "s_dae2647fa0b5d5::t_7364859cd23076": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785211641950946000",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019fa6e7e1bf": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785211642303"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 462,
+      "total_deletions": 0,
+      "accepted_lines": 462,
+      "overriden_lines": 0
+    }
+  }
+}

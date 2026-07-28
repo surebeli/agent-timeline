@@ -1,0 +1,23 @@
+macos/Sources/AgentTimeline/App/AppSettings.swift
+  0000019fa68ed0db 1-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c0ae57ce19c47a55f2c1eab4f37e77c38a5bf20b",
+  "prompts": {
+    "0000019fa68ed0db": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785205805275"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 74,
+      "total_deletions": 0,
+      "accepted_lines": 74,
+      "overriden_lines": 0
+    }
+  }
+}

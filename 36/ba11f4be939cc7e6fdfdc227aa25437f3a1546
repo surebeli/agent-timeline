@@ -1,0 +1,46 @@
+windows/AgentTimeline/Core/AppPaths.cs
+  0000019fa68ed7b7 1-67
+windows/AgentTimeline/Core/Parsers/KimiParser.cs
+  0000019fa68ed7b7 1-202
+windows/AgentTimeline/SettingsWindow.xaml
+  0000019fa68ed7b7 1-83
+windows/AgentTimeline/SettingsWindow.xaml.cs
+  0000019fa68ed7b7 1-117
+windows/CoreSmokeTest/Program.cs
+  0000019fa68ed7b7 1-917
+windows/README.md
+  0000019fa68ed7b7 1-292
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "36ba11f4be939cc7e6fdfdc227aa25437f3a1546",
+  "prompts": {
+    "s_39dc271a4948ef::t_439d7bad0b3e65": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785205806639089000",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019fa68ed7b7": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785205807031"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 1678,
+      "total_deletions": 0,
+      "accepted_lines": 1678,
+      "overriden_lines": 0
+    }
+  }
+}
