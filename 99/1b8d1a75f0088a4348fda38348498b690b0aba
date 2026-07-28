@@ -1,0 +1,81 @@
+windows/AgentTimeline/Core/Parsers/ClaudeParser.cs
+  s_5b0458546b11e2::t_0016677a5a1358 51-53
+windows/AgentTimeline/Core/Models.cs
+  s_5b0458546b11e2::t_0b0d40b895f19d 7-10,15,27,33-38,43,45,54,64
+windows/AgentTimeline/Core/AppPaths.cs
+  s_5b0458546b11e2::t_29ab69b4b603be 46-50
+windows/AgentTimeline/Themes/Tokens.xaml
+  s_5b0458546b11e2::t_01d79368456413 187-189,194
+macos/Sources/AgentTimeline/Core/Models.swift
+  s_5b0458546b11e2::t_6ff0f2ae287d35 4-6,8,12-14,19,21-32,42
+macos/Sources/AgentTimeline/Parsers/AgentSessionParser.swift
+  s_5b0458546b11e2::t_442f0ea8d84eea 18-21
+design/design-tokens.json
+  s_5b0458546b11e2::t_4b5fa17192d680 63
+windows/CoreSmokeTest/Program.cs
+  s_5b0458546b11e2::t_c28a58e7d260da 456-573
+  s_5b0458546b11e2::t_9c9da94d8884aa 38-39
+macos/Sources/AgentTimeline/App/AppSettings.swift
+  s_5b0458546b11e2::t_a61f32fbcdbe19 18
+  s_5b0458546b11e2::t_a592e439745f29 60
+  s_5b0458546b11e2::t_05d4fdbfb26f2b 37
+windows/AgentTimeline/Core/TimelineCoordinator.cs
+  s_5b0458546b11e2::t_7fc4c42a41fd87 50
+macos/Sources/AgentTimeline/UI/SettingsView.swift
+  s_5b0458546b11e2::t_5014b94fcfe5fa 54-62
+  s_5b0458546b11e2::t_0d9e984723148a 15
+macos/Sources/AgentTimeline/UI/TimelineView.swift
+  s_5b0458546b11e2::t_b32e1865bcce4a 228
+windows/AgentTimeline/Core/SessionWatcher.cs
+  s_5b0458546b11e2::t_610daf0a5d7f61 95
+  s_5b0458546b11e2::t_4ba35f11c4c847 110
+windows/AgentTimeline/SettingsWindow.xaml.cs
+  s_5b0458546b11e2::t_7862417c979e9c 61
+  s_5b0458546b11e2::t_fb7dfb05849d69 103
+macos/Sources/AgentTimeline/Parsers/GrokParser.swift
+  s_5b0458546b11e2::t_0a292695d69384 1-135
+windows/AgentTimeline/SettingsWindow.xaml
+  s_5b0458546b11e2::t_dcab0533a1d1ae 60,62
+macos/Tests/AgentTimelineTests/ParserTests.swift
+  s_5b0458546b11e2::t_b162ec9c49cf80 583,586,592-691
+CHANGELOG.md
+  s_5b0458546b11e2::t_fee706448dae24 12-49
+windows/AgentTimeline/Core/Parsers/IAgentSessionParser.cs
+  s_5b0458546b11e2::t_68a4a3b10f107d 78-111
+README.md
+  s_5b0458546b11e2::t_bf3327e178eeaf 21,88
+windows/AgentTimeline/Assets/design-tokens.json
+  s_5b0458546b11e2::t_a08dec5320909a 63
+windows/AgentTimeline/Core/Parsers/GrokParser.cs
+  s_5b0458546b11e2::t_e8d8fff377e9e1 1-103,109-224
+  s_5b0458546b11e2::t_69b1d4e8bf911c 104-108
+docs/PRD.md
+  s_5b0458546b11e2::t_bf3327e178eeaf 7,30,106
+macos/Sources/AgentTimeline/UI/DesignTokensData.swift
+  s_5b0458546b11e2::t_a08dec5320909a 66
+windows/AgentTimeline/Core/AppSettings.cs
+  s_5b0458546b11e2::t_4b60df1ad22583 45
+docs/SESSION-FORMATS.md
+  s_5b0458546b11e2::t_06384381c88f08 27-67
+  s_5b0458546b11e2::t_db6c820ff8fbd4 97
+macos/Sources/AgentTimeline/App/AppDelegate.swift
+  s_5b0458546b11e2::t_17a76a0783cb82 107
+docs/TEXT-NORMALIZATION.md
+  s_5b0458546b11e2::t_c46ed940399053 220-252
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "991b8d1a75f0088a4348fda38348498b690b0aba",
+  "prompts": {},
+  "sessions": {
+    "s_5b0458546b11e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
