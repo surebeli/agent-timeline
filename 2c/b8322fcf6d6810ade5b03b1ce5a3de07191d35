@@ -1,0 +1,22 @@
+windows/DEBUG-PLAYBOOK.md
+  s_5f812b192ad64b::t_475bdac468a705 72-75
+windows/README.md
+  s_5f812b192ad64b::t_5f42928767f70e 313-332
+  s_5f812b192ad64b::t_8baeb56e2e6e56 1,6,8-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "2cb8322fcf6d6810ade5b03b1ce5a3de07191d35",
+  "prompts": {},
+  "sessions": {
+    "s_5f812b192ad64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
