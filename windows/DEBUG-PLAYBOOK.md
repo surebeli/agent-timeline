@@ -164,7 +164,26 @@ README「实机一览」当前 Windows 那三张仍是四家 agent 时期（v0.4
 2. **自动化 helper 先编译成二进制**：mac 上 `swift file.swift` 每次都重新编译，
    几个交互步骤串起来就超两分钟。Windows 侧同理，别在循环里反复起 PowerShell 编译。
 
-拍摄脚本与合成器留在 mac 端会话的 scratchpad，未入仓（一次性工具）；上表参数即可复现。
+### mac 端参考实现（已入仓，可直接读）
+
+```
+macos/scripts/shots/shoot-readme.sh    # 编排：备份 → 灌演示数据 → 三态拍摄 → 合成 → 还原 → 核验
+macos/scripts/shots/window-tool.swift  # 窗口枚举 / 合成点击 / 移动指针
+macos/scripts/shots/compose.swift      # 合成到统一画布（背板 + 光晕 + 投影）
+```
+
+`shoot-readme.sh` 默认只写临时目录便于目验，加 `--install` 才覆盖 `docs/assets/`，
+`--hero` 额外拍首图。上表的几何常量就在脚本头部，Windows 侧照抄即可。
+两处值得移植的防呆：
+
+1. **落点校验 + 重试**：`FloatingPanel.restoreFrame()` 读不到 `panelFrame` 时会贴主屏右缘，
+   而面板贴右缘时词典弹层没地方展开、会被系统挤回面板内，产出尺寸随之改变。
+   脚本写完 pref 立刻回读逼 cfprefsd 落盘，并校验实际落点，最多重试 3 次；
+2. **不变式拦截**：词典态抓取宽度必须**大于**时间线态——否则说明弹层没能向右溢出，
+   直接失败并提示调小 `PANEL_X`，而不是默默产出一套尺寸不一致的图。
+
+已知不可复现处：代号词典按 `updated` 排序，**并列项行序不稳定**（演示数据里 N2/N3、
+T1/T2 的 updated 完全相同），两次拍摄的字典图可能行序对调、字节不同。属正常。
 
 ## 4. 修复回路（推荐工作流）
 
