@@ -22,6 +22,8 @@ internal static class Program
         DefinitionFormats();
         StopListBlocksTechVocabulary();
         NegatedStatusKeywords();
+        ClauseWindowBoundaries();
+        CompatibilityFold();
         DefinitionIsNotSelfMention();
         ShortCodeWordBoundaryAndUnknown();
         DefinitionRestatementFlipsToChanged();
@@ -170,6 +172,97 @@ internal static class Program
             "negation: 尚未完成 / 不执行 produce no status");
         // 无否定语境仍然正常推进
         CheckEqual(CodenameDetector.InferStatus("N2完成"), CodenameStatus.Completed, "negation: plain 完成 still fires");
+
+        // ── 日/韩：否定在关键词**之后**，中文那套"前两字符"完全够不着（术语调研实测）
+        CheckEqual(CodenameDetector.InferStatus("N2 完成していない"), null,
+            "negation ja: 後置「していない」も否定と判定");
+        CheckEqual(CodenameDetector.InferStatus("N2 完成できていません"), null,
+            "negation ja: 敬体後置否定");
+        CheckEqual(CodenameDetector.InferStatus("N2 완성하지 않았다"), null,
+            "negation ko: 후치 부정 -지 않-");
+        // 后置窗口遇子句边界即止：句号后的否定说的是另一件事。
+        // 这一条的 ない 落在 8 字窗口**之内**、但在句号之外——只有子句截断能拦住它
+        CheckEqual(CodenameDetector.InferStatus("N2 完了。残りはない"), CodenameStatus.Completed,
+            "negation ja: 句点で打ち切る——次の文の否定は無関係");
+        // 这一条的否定则纯粹是超距离
+        CheckEqual(CodenameDetector.InferStatus("N2 完成したが、ほかの点で問題がないか確認"), CodenameStatus.Completed,
+            "negation ja: 遠すぎる否定は無関係");
+        // 白名单：「問題ない」整体是肯定评审语（本例无子句边界，走的确实是白名单）
+        CheckEqual(CodenameDetector.InferStatus("N2 完了で問題ないです"), CodenameStatus.Completed,
+            "negation ja: 「問題ない」は肯定——ホワイトリスト");
+
+        // ── 韩语前置否定必须按**词边界**判，不能按字符
+        CheckEqual(CodenameDetector.InferStatus("N2 미완성"), null,
+            "negation ko: 미- 접두사는 부정");
+        // 这三条是真实语料里的高频**肯定**句，按字符判会被误杀（이미 완료 实测 11,265 次）
+        CheckEqual(CodenameDetector.InferStatus("N2 이미 완성"), CodenameStatus.Completed,
+            "negation ko: '이미 완성'(already done) must NOT be negated");
+        CheckEqual(CodenameDetector.InferStatus("N2 제안 완성"), CodenameStatus.Completed,
+            "negation ko: '제안'(안 in word) must NOT be negated");
+        CheckEqual(CodenameDetector.InferStatus("N2 잘못 완성"), CodenameStatus.Completed,
+            "negation ko: '잘못'(못 in word) must NOT be negated");
+        CheckEqual(CodenameDetector.InferStatus("N2 안 완성"), null,
+            "negation ko: standalone 안 IS negation");
+
+        // ── 兼容折叠：全角/半角形态不该让匹配失效
+        CheckEqual(CodenameDetector.InferStatus("N2 ｉｎ　ｐｒｏｇｒｅｓｓ"), CodenameStatus.Active,
+            "fold: 全角英数と表意スペースも in progress として一致");
+        CheckEqual(CodenameDetector.InferStatus("N2 対応中"), CodenameStatus.Active, "ja: 対応中 → Active");
+        CheckEqual(CodenameDetector.InferStatus("N2 대응 완료"), CodenameStatus.Completed, "ko: 완료 → Completed");
+        CheckEqual(CodenameDetector.InferStatus("N2 진행 중"), CodenameStatus.Active, "ko: 진행 중 → Active");
+        CheckEqual(CodenameDetector.InferStatus("N2 변경했습니다"), CodenameStatus.Changed, "ko: 변경 → Changed");
+        // 日韩的「修正/수정」两义兼有，不能进 Changed——否则会盖住后面的完成义
+        CheckEqual(CodenameDetector.InferStatus("N2 バグを修正済みです"), CodenameStatus.Completed,
+            "ja: 修正済 → Completed（Changed に横取りされない）");
+
+        // ── 拉丁关键词的词边界：纯子串匹配会误命中一批常见词
+        CheckEqual(CodenameDetector.InferStatus("N2 networking layer"), null,
+            "boundary: networking 不得命中 working");
+        CheckEqual(CodenameDetector.InferStatus("N2 disclosed the plan"), null,
+            "boundary: disclosed 不得命中 closed");
+        CheckEqual(CodenameDetector.InferStatus("N2 swipe gesture"), null,
+            "boundary: swipe 不得命中 wip");
+        CheckEqual(CodenameDetector.InferStatus("N2 working on it"), CodenameStatus.Active,
+            "boundary: 真正的 working 仍然命中");
+        CheckEqual(CodenameDetector.InferStatus("N2 is done."), CodenameStatus.Completed,
+            "boundary: 句末标点不算词边界失败");
+    }
+
+    private static void CompatibilityFold()
+    {
+        // 半角片假名 + 分离浊点/半浊点 → 全角合成形。分类词表里 デプロイ/バグ/リリース
+        // 这类关键词全是浊音，不合成就整条匹配不上。
+        CheckEqual(TextNormalizer.FoldForMatch("ﾃﾞﾌﾟﾛｲ"), "デプロイ", "fold: 半角カナ＋濁点/半濁点");
+        CheckEqual(TextNormalizer.FoldForMatch("ﾊﾞｸﾞ"), "バグ", "fold: 半角カナ濁点");
+        CheckEqual(TextNormalizer.FoldForMatch("ＷＩＰ"), "WIP", "fold: 全角英字");
+        CheckEqual(TextNormalizer.FoldForMatch("Ａ　Ｂ"), "A B", "fold: 表意スペース");
+        // 合不成的浊点原样保留，不得吞字
+        CheckEqual(TextNormalizer.FoldForMatch("ｱﾞ"), "ア゛", "fold: 合成できない濁点は残す");
+        // 无兼容字符时必须原样返回（展示文本共用同一函数的前提）
+        CheckEqual(TextNormalizer.FoldForMatch("完了 done 완료"), "完了 done 완료", "fold: 通常文字は不変");
+    }
+
+    private static void ClauseWindowBoundaries()
+    {
+        var known = new HashSet<string> { "N1", "N2" };
+        // 韩语句子用 ASCII 句点收尾——不认它的话，邻句的状态词会串味进来
+        var bleed = CodenameDetector.DetectMentions("N1 작업 시작. N2 완성.", known)
+            .ToDictionary(u => u.Name, u => u.Status);
+        CheckEqual(bleed["N1"], CodenameStatus.Active, "clause: ASCII 句点分句——N1 只吃到自己那句");
+        CheckEqual(bleed["N2"], CodenameStatus.Completed, "clause: ASCII 句点分句——N2 同理");
+
+        // 但版本号/文件名里的点不能当分句：窗口被截断会丢掉后面的状态词
+        CheckEqual(
+            CodenameDetector.DetectMentions("N1 在 v0.6.0 完成", known).First(u => u.Name == "N1").Status,
+            CodenameStatus.Completed,
+            "clause: v0.6.0 里的点不是分句点");
+
+        // 韩语是 SOV，谓语在句末——向后窗口太窄会把状态词截掉
+        CheckEqual(
+            CodenameDetector.DetectMentions("N2 관련해서 어제 말씀드린 부분은 전부 구현 완성했습니다", known)
+                .First(u => u.Name == "N2").Status,
+            CodenameStatus.Completed,
+            "clause: SOV 语序——向后窗口要够宽才够得着句末谓语");
     }
 
     private static void DefinitionIsNotSelfMention()
@@ -287,6 +380,29 @@ internal static class Program
         CheckEqual(RuleSummarizer.GuessKind("帮我调研一下两种方案的对比"), "调研", "guessKind: 调研");
         CheckEqual(RuleSummarizer.GuessKind("讲解什么是 WAL 模式"), "学习", "guessKind: 学习");
         CheckEqual(RuleSummarizer.GuessKind("随便聊聊"), null, "guessKind: 无关键词 → null");
+
+        // 四语常开：会话语言与界面语言无关，四张表必须同时生效
+        CheckEqual(RuleSummarizer.GuessKind("ログイン画面の不具合を修正して"), "修复", "guessKind ja: 不具合 → 修复");
+        CheckEqual(RuleSummarizer.GuessKind("二つの方式を比較して評価したい"), "调研", "guessKind ja: 比較 → 调研");
+        CheckEqual(RuleSummarizer.GuessKind("この API の仕様を説明して"), "学习", "guessKind ja: 説明 → 学习");
+        CheckEqual(RuleSummarizer.GuessKind("認証まわりを実装してデプロイ"), "任务", "guessKind ja: 実装 → 任务");
+        CheckEqual(RuleSummarizer.GuessKind("로그인 버그를 수정해줘"), "修复", "guessKind ko: 버그 → 修复");
+        CheckEqual(RuleSummarizer.GuessKind("두 방식을 비교 검토해줘"), "调研", "guessKind ko: 비교 → 调研");
+        CheckEqual(RuleSummarizer.GuessKind("이 API 가 무엇인가 설명해줘"), "学习", "guessKind ko: 설명 → 学习");
+        CheckEqual(RuleSummarizer.GuessKind("인증 모듈을 구현하고 배포"), "任务", "guessKind ko: 구현 → 任务");
+        CheckEqual(RuleSummarizer.GuessKind("write the PRD for search"), "需求", "guessKind en: prd → 需求");
+
+        // 词边界：这两个词在开发语料里到处都是，不设边界会把一切命令判成 Fix
+        CheckEqual(RuleSummarizer.GuessKind("rename the prefix of these files"), null,
+            "guessKind boundary: prefix 不得命中 fix");
+        CheckEqual(RuleSummarizer.GuessKind("add a suffix to the output"), null,
+            "guessKind boundary: suffix 不得命中 fix");
+        CheckEqual(RuleSummarizer.GuessKind("fix the login flow"), "修复",
+            "guessKind boundary: 真正的 fix 仍然命中");
+
+        // 折叠：全角/半角形态不该让分类失效
+        CheckEqual(RuleSummarizer.GuessKind("本番へﾃﾞﾌﾟﾛｲする"), "任务", "guessKind fold: 半角カナ デプロイ");
+        CheckEqual(RuleSummarizer.GuessKind("ＰＲＤ を書く"), "需求", "guessKind fold: 全角 PRD");
     }
 
     private static void RegistryProcessTextEndToEnd()

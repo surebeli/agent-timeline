@@ -258,6 +258,109 @@ public static class TextNormalizer
         return t.Length > 2 && char.IsLetter(t[0]) && t[1] == ':' && (t[2] == '\\' || t[2] == '/');
     }
 
+    // ── 匹配态兼容折叠（docs/TEXT-NORMALIZATION.md §3.6）
+    //
+    // 只服务**关键词子串匹配**（状态推断、分类词表），不作用于任何展示文本。
+    //
+    // 为什么不用平台 NFKC：
+    //   1. `String.Normalize(FormKC)` 在 `InvariantGlobalization=true` 下**静默原样返回**
+    //      ——不抛异常。CoreSmokeTest 正是这个配置，主程序不是；照搬会让"门禁跑的语义"
+    //      和"线上跑的语义"不同，而且是无声的；
+    //   2. 平台 NFKC 各自绑 ICU 版本，mac 与 Windows 的 ICU 并不同版。双端对齐靠
+    //      "各自调各自的 NFKC" 反而不牢，靠这张写死的表才逐字节可复现。
+    //
+    // 覆盖面按真实需要划定（日语语料实测）：全角英数、表意空格、半角片假名、
+    // 分离浊点/半浊点。圈号数字、合字、上下标这些 NFKC 也管的，与关键词匹配无关，不做。
+
+    /// <summary>半角片假名 U+FF61..U+FF9F → 全角，按 <c>c - 0xFF61</c> 直接索引。</summary>
+    private const string HalfwidthKatakana =
+        "。「」、・ヲァィゥェォャュョッーアイウエオカキクケコサシスセソタチツテト" +
+        "ナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン゛゜";
+
+    /// <summary>浊点可合成的假名（片/平假名同表；值为 base + 1）。</summary>
+    private const string Voiceable = "カキクケコサシスセソタチツテトハヒフヘホかきくけこさしすせそたちつてとはひふへほ";
+
+    /// <summary>半浊点可合成的假名（值为 base + 2）。</summary>
+    private const string SemiVoiceable = "ハヒフヘホはひふへほ";
+
+    /// <summary>
+    /// 关键词匹配前的兼容折叠。<c>ＷＩＰ</c>→<c>WIP</c>、<c>ﾃﾞﾌﾟﾛｲ</c>→<c>デプロイ</c>、
+    /// 表意空格→半角空格。纯函数，输入不含上述形态时原样返回。
+    /// mac 端按同一张表移植——**不要**改用 <c>precomposedStringWithCompatibilityMapping</c>。
+    /// </summary>
+    public static string FoldForMatch(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text ?? "";
+
+        var sb = new StringBuilder(text.Length);
+        foreach (var c in text)
+        {
+            char folded;
+            if (c == '　') folded = ' ';                                  // 表意空格
+            else if (c >= '！' && c <= '～') folded = (char)(c - 0xFEE0); // 全角英数记号
+            else if (c >= '｡' && c <= 'ﾟ') folded = HalfwidthKatakana[c - 0xFF61];
+            else folded = c;
+
+            // 浊点/半浊点跟在可合成假名后面时就地合成；合不成就原样留着（保持可见）。
+            // U+3099/U+309A 是 NFD 的组合记号，゛/゜(U+309B/309C) 是独立字符，
+            // 半角 ﾞ/ﾟ 上一步已折成后者——三种形态在这里统一处理。
+            if (folded is '゙' or '゛' or 'ﾞ' && sb.Length > 0)
+            {
+                var prev = sb[^1];
+                if (prev == 'ウ') { sb[^1] = 'ヴ'; continue; }
+                if (Voiceable.IndexOf(prev) >= 0) { sb[^1] = (char)(prev + 1); continue; }
+            }
+            else if (folded is '゚' or '゜' or 'ﾟ' && sb.Length > 0)
+            {
+                var prev = sb[^1];
+                if (SemiVoiceable.IndexOf(prev) >= 0) { sb[^1] = (char)(prev + 2); continue; }
+            }
+
+            sb.Append(folded);
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 折叠 + 小写，关键词匹配的统一入口态。状态词表与分类词表共用，
+    /// 保证两处对同一段文本看到的是同一个形态。
+    /// </summary>
+    public static string ForMatch(string text) => FoldForMatch(text).ToLowerInvariant();
+
+    internal static bool IsAsciiAlnum(char c) =>
+        (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+
+    /// <summary>
+    /// 拉丁关键词必须落在**词边界**上；CJK 关键词不设边界（"N2完成"、"バグ修正" 是自然写法）。
+    ///
+    /// 不加这条，纯子串匹配会误命中一批极常见的词：<c>prefix</c>/<c>suffix</c> 含 fix、
+    /// <c>networking</c> 含 working、<c>disclosed</c> 含 closed、<c>swipe</c> 含 wip。
+    /// 判据只看关键词两端**是否紧邻拉丁字母/数字**——"in progress." 这类带标点的照常命中。
+    /// </summary>
+    public static bool HasWordBoundary(string text, string keyword, int hit, int hitEnd)
+    {
+        if (keyword.Length == 0) return false;
+        if (!IsAsciiAlnum(keyword[0]) && !IsAsciiAlnum(keyword[^1])) return true;
+        if (hit > 0 && IsAsciiAlnum(text[hit - 1])) return false;
+        if (hitEnd < text.Length && IsAsciiAlnum(text[hitEnd])) return false;
+        return true;
+    }
+
+    /// <summary>词边界意义上的包含判定。<paramref name="text"/> 需已过 <see cref="ForMatch"/>。</summary>
+    public static bool ContainsKeyword(string text, string keyword)
+    {
+        var from = 0;
+        while (from <= text.Length - keyword.Length)
+        {
+            var hit = text.IndexOf(keyword, from, StringComparison.Ordinal);
+            if (hit < 0) return false;
+            var hitEnd = hit + keyword.Length;
+            if (HasWordBoundary(text, keyword, hit, hitEnd)) return true;
+            from = hit + 1;
+        }
+        return false;
+    }
+
     private static string CollapseBlankLines(string s)
     {
         var sb = new StringBuilder(s.Length);

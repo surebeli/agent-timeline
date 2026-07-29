@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-      - name: Core smoke test (85 assertions)
+      - name: Core smoke test（跨端共享逻辑断言）
         run: dotnet run --project windows/CoreSmokeTest -c Release
 
   winui:

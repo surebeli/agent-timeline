@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace AgentTimeline.Core;
@@ -135,7 +136,26 @@ public static class CodenameDetector
     private static bool IsAsciiAlnum(char c) =>
         (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 
-    private static readonly HashSet<char> ClauseSeparators = new("，。；;,、\n！？");
+    private static readonly HashSet<char> ClauseSeparators = new("，。；;,、\n！？·");
+
+    /// <summary>
+    /// 该位置是否是分句点。
+    ///
+    /// ASCII <c>. ! ?</c> 只在**句末形态**（后面是空白或串尾）时才算——韩语句子 100% 用
+    /// ASCII 句点收尾，不认它的话子句窗口永远不会在句号处切断、只会撞上长度上限，
+    /// 邻句的状态词会大量串味（日/韩术语调研实测发现）。但不能无条件认：
+    /// <c>v0.6.0</c> / <c>a.txt</c> / <c>1.5</c> 里的点会把窗口从中间截断。
+    /// </summary>
+    private static bool IsClauseBreak(string text, int index)
+    {
+        var c = text[index];
+        if (ClauseSeparators.Contains(c)) return true;
+        if (c is '.' or '!' or '?')
+        {
+            return index + 1 >= text.Length || char.IsWhiteSpace(text[index + 1]);
+        }
+        return false;
+    }
 
     /// <summary>
     /// The clause containing the hit — status keywords from neighbouring clauses
@@ -148,15 +168,18 @@ public static class CodenameDetector
         var steps = 0;
         while (start > 0 && steps < 20)
         {
-            if (ClauseSeparators.Contains(text[start - 1])) break;
+            if (IsClauseBreak(text, start - 1)) break;
             start--;
             steps++;
         }
         var end = hitEnd;
         steps = 0;
-        while (end < text.Length && steps < 24)
+        // 向后窗口比向前宽：中文是 SVO（"N1 完成了"，谓语紧跟代号），日/韩是 SOV，
+        // 谓语在**句末**——"N1 관련해서 … 전부 구현 완료했습니다" 里 완료 离代号很远。
+        // 24 字符在中文≈12 个字，在韩语只≈3~4 个어절，状态词常常正好被截掉。
+        while (end < text.Length && steps < 48)
         {
-            if (ClauseSeparators.Contains(text[end])) break;
+            if (IsClauseBreak(text, end)) break;
             end++;
             steps++;
         }
@@ -166,14 +189,79 @@ public static class CodenameDetector
         return Text.TextNormalizer.Normalize(text[start..end], Text.NormalizeProfile.Mining);
     }
 
-    private static readonly string[] ChangedKeywords =
-        { "变更", "调整", "改动", "修改", "重新设计", "rework" };
-    private static readonly string[] CompletedKeywords =
-        { "完成", "收口", "验收", "已实现", "done", "closed", "finished", "搞定", "修复了" };
-    private static readonly string[] ActiveKeywords =
-        { "开始", "执行", "推进", "继续", "进行中", "启动", "开展", "接下去", "接下来", "in progress", "working" };
+    // ── 状态识别词表（四语常开）
+    //
+    // 这些是**识别**词、不是展示文案，所以不进 design/strings.json：会话里出现哪种语言
+    // 与界面语言无关（中文界面照样会读到日文 agent 输出），四张表必须同时生效。
+    // mac 端 CodenameDetector 逐条镜像同一份表。
+    //
+    // 分档取舍：日/韩的「修正 / 수정」同时涵盖中文的"修改"与"修复"两义，而 Changed 档
+    // 先于 Completed 判——放进 Changed 会让「バグを修正しました」「수정 완료」被记成"变更"。
+    // 故日韩侧 Changed 只收无歧义的变更词，修复义归 Completed 的「修正済 / 수정 완료」。
 
+    private static readonly string[] ChangedKeywords =
+    {
+        "变更", "调整", "改动", "修改", "重新设计",                        // zh
+        "rework", "revised", "redesign",                                  // en
+        "変更", "調整", "見直し", "差し替え", "方針転換",                   // ja
+        "변경", "조정", "재설계", "개편",                                  // ko
+    };
+
+    private static readonly string[] CompletedKeywords =
+    {
+        "完成", "收口", "验收", "已实现", "搞定", "修复了",                 // zh
+        "done", "closed", "finished", "resolved",                         // en
+        "完了", "対応済", "実装済", "修正済", "解決",                       // ja（「完成」zh 表已覆盖）
+        "완료", "완성", "해결", "마무리",                                  // ko
+    };
+
+    private static readonly string[] ActiveKeywords =
+    {
+        "开始", "执行", "推进", "继续", "进行中", "启动", "开展", "接下去", "接下来",  // zh
+        "in progress", "working", "wip", "ongoing",                       // en
+        "進行中", "対応中", "作業中", "実装中", "着手", "開始", "継続",     // ja
+        "진행 중", "진행중", "작업 중", "작업중", "착수", "시작", "계속",   // ko
+    };
+
+    /// <summary>
+    /// 中文前置否定：关键词**前两字符**内出现即忽略这次命中（"尚未完成"/"不执行"）。
+    ///
+    /// ⚠ 只对中文成立，**不要往里加日/韩的字**：
+    /// · 韩语 <c>미</c>（未）看似同义，但 <c>이미 완료</c>（已经完成，真实语料 11,265 次）
+    ///   里 <c>미</c> 正好落在窗口内——加进来会把最强的肯定句杀掉；韩语前置否定只能
+    ///   按**词边界**判，见 <see cref="HasKoreanPrefixNegation"/>；
+    /// · 日语里 <c>不/非/无/没</c> 是普通构词汉字（不具合 / 非表示）。实测这两例的
+    ///   否定字都够不着两字窗口，所以现状不误伤——但也正因如此，别再往里加字。
+    /// </summary>
     private static readonly HashSet<char> NegationChars = new("未没不别无非");
+
+    /// <summary>
+    /// 日/韩后置否定标记。日语谓语在句末、否定是词尾（完了して**いない**），
+    /// 韩语同理（완료하**지 않**았다）——现有"前两字符"逻辑对它们完全够不着，
+    /// 不补这条，「完了していない」会被当成"完成"记进词典。
+    /// </summary>
+    private static readonly string[] SuffixNegations =
+    {
+        "ない", "ありません", "ません", "なかった", "なし", "無い", "ず",   // ja
+        "않", "못하", "못했", "없",                                       // ko
+    };
+
+    /// <summary>
+    /// 后置否定的搜索窗口（字符上限）。日语侧实测的精度拐点：距离 1~8 字精度 85~100%，
+    /// 再往后骤降——「かもしれない」「問題がない」这类与关键词无关的否定会大量涌入。
+    /// 宁可漏，不可误杀。实际窗口还会被**子句边界**截断（见 <see cref="SuffixNegationEnd"/>），
+    /// 邻句的否定与本次命中无关。
+    /// </summary>
+    private const int SuffixNegationWindow = 8;
+
+    /// <summary>
+    /// 整体是肯定语的固定搭配，含否定词但**不是**在否定关键词。
+    /// 「問題ない」是评审通过、不是"没完成"。
+    /// </summary>
+    private static readonly string[] NegationWhitelist =
+    {
+        "問題ない", "問題ありません", "問題なし", "支障ない", "なくはない", "문제없", "문제 없",
+    };
 
     public static CodenameStatus? InferStatus(string window)
     {
@@ -184,12 +272,20 @@ public static class CodenameDetector
     }
 
     /// <summary>
-    /// Keyword hit that is NOT negated — "尚未完成"/"不执行" must not record 完成/进行中.
-    /// Negation = one of 未没不别无非 within the two characters immediately before the keyword.
+    /// 命中了关键词、且这次命中**没有被否定**。
+    ///
+    /// 否定的**位置随语言不同**，所以三条判据并行（会话语言与界面语言无关，
+    /// 故一律全开，不按设置切换）：
+    ///   · 中文/英文前置——关键词前两字符内的 <see cref="NegationChars"/>；
+    ///   · 韩语前置——按**词边界**判的 <c>안/못/미</c>，不能按字符（见 NegationChars 注释）；
+    ///   · 日/韩后置——关键词后 <see cref="SuffixNegationWindow"/> 字符内的词尾否定。
+    ///
+    /// 匹配前做 NFKC 归一：日语全角英数（<c>ＷＩＰ</c>）、半角片假名、分离浊点
+    /// 会让子串匹配整个失效，而这类输入在日语语料里很常见。
     /// </summary>
     private static bool ContainsKeyword(string window, string[] keywords)
     {
-        var lower = window.ToLowerInvariant();
+        var lower = Text.TextNormalizer.ForMatch(window);
         foreach (var keyword in keywords)
         {
             var searchStart = 0;
@@ -197,19 +293,91 @@ public static class CodenameDetector
             {
                 var hit = lower.IndexOf(keyword, searchStart, StringComparison.Ordinal);
                 if (hit < 0) break;
-                searchStart = hit + keyword.Length;
-                var negated = false;
-                for (var back = 1; back <= 2 && hit - back >= 0; back++)
-                {
-                    if (NegationChars.Contains(lower[hit - back]))
-                    {
-                        negated = true;
-                        break;
-                    }
-                }
-                if (!negated) return true;
+                var hitEnd = hit + keyword.Length;
+                searchStart = hitEnd;
+                if (!Text.TextNormalizer.HasWordBoundary(lower, keyword, hit, hitEnd)) continue;
+                if (!IsNegated(lower, hit, hitEnd)) return true;
             }
         }
         return false;
     }
+
+    /// <summary>
+    /// 匹配态兼容折叠（不影响展示文本）。见
+    /// <see cref="Text.TextNormalizer.FoldForMatch"/> —— 那里写了为什么不用平台 NFKC。
+    /// </summary>
+    internal static string NormalizeForMatch(string text) => Text.TextNormalizer.FoldForMatch(text);
+
+    private static bool IsNegated(string text, int hit, int hitEnd)
+    {
+        var tailEnd = SuffixNegationEnd(text, hitEnd);
+
+        // 白名单优先：「問題ない」整体是肯定语，别被后置否定误杀。
+        // 搜索范围要**覆盖整个待检区间**（前置窗口 ~ 后置窗口），只在关键词紧邻处找
+        // 会够不着——「完成、問題ないです」里的 ない 落在关键词之后 4 字。
+        foreach (var ok in NegationWhitelist)
+        {
+            var from = Math.Max(0, hit - 4 - ok.Length);
+            var to = Math.Min(text.Length, tailEnd + ok.Length);
+            if (text.AsSpan(from, to - from).Contains(ok, StringComparison.Ordinal)) return false;
+        }
+
+        for (var back = 1; back <= 2 && hit - back >= 0; back++)
+        {
+            if (NegationChars.Contains(text[hit - back])) return true;
+        }
+        if (HasKoreanPrefixNegation(text, hit)) return true;
+
+        if (tailEnd > hitEnd)
+        {
+            var tail = text.AsSpan(hitEnd, tailEnd - hitEnd);
+            foreach (var neg in SuffixNegations)
+            {
+                if (tail.Contains(neg, StringComparison.Ordinal)) return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 后置否定窗口的右界：<see cref="SuffixNegationWindow"/> 字符，且**遇子句边界即止**。
+    /// 「完了した。ほかに問題がないか確認」——句号后的否定说的是另一件事。
+    /// </summary>
+    private static int SuffixNegationEnd(string text, int hitEnd)
+    {
+        var limit = Math.Min(text.Length, hitEnd + SuffixNegationWindow);
+        for (var i = hitEnd; i < limit; i++)
+        {
+            if (IsClauseBreak(text, i)) return i;
+        }
+        return limit;
+    }
+
+    /// <summary>
+    /// 韩语前置否定：<c>안</c>/<c>못</c> 必须是**独立어절**（两侧是空白或串界），
+    /// <c>미</c> 必须**紧贴关键词且自身在词首**。
+    ///
+    /// 为什么不能按字符：真实语料里 <c>이미 완료</c>（已经完成，11,265 次）、
+    /// <c>제안 완료</c>（提案完成，3,261 次）、<c>잘못</c>（84,805 次）都含这些字，
+    /// 按字符判会把大量肯定句误杀。词边界一加，这三类全部正确放行。
+    /// </summary>
+    private static bool HasKoreanPrefixNegation(string text, int hit)
+    {
+        // 미완료 / 미적용 / 미반영：미 紧贴关键词，且它左边是词界
+        if (hit >= 1 && text[hit - 1] == '미' && (hit == 1 || IsWordBoundary(text[hit - 2])))
+        {
+            return true;
+        }
+        // 안 / 못：独立어절，允许与关键词之间隔若干空白
+        var i = hit - 1;
+        while (i >= 0 && char.IsWhiteSpace(text[i])) i--;
+        if (i < 0) return false;
+        var end = i + 1;
+        while (i >= 0 && !char.IsWhiteSpace(text[i])) i--;
+        var token = text[(i + 1)..end];
+        return token is "안" or "못";
+    }
+
+    private static bool IsWordBoundary(char c) =>
+        char.IsWhiteSpace(c) || char.IsPunctuation(c) || char.IsSymbol(c);
 }
