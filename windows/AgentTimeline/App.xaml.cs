@@ -33,6 +33,14 @@ public partial class App : Application
         AppPaths.EnsureDataDirs();
         Settings = AppSettings.Load();
         Tokens = DesignTokens.Load();
+        // 文案表要在任何界面构建之前载入：托盘菜单与代码构建的弹层都在 MainWindow
+        // 构造期取文案，晚一步就会拿到键名。
+        AppStrings.Load(Enum.TryParse<AppLanguage>(Settings.Language, out var lang)
+            ? lang
+            : AppLanguage.System);
+        // Core 不该反过来依赖应用层，故解析结果由这里推给它；摘要 prompt 语言与
+        // 摘要缓存键都取这个值（见 SummaryEngine.CacheKey）。
+        Core.Summarize.SummaryEngine.Locale = AppStrings.Current.Language;
         // Code-built UI (chip badges, flyouts) picks dual-token variants by app theme.
         Tokens.DarkTheme = RequestedTheme == ApplicationTheme.Dark;
 

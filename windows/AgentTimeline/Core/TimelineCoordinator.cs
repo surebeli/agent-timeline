@@ -158,7 +158,9 @@ public sealed class TimelineCoordinator : IDisposable
         var hash = SummaryEngine.ComputeHash(cmd);
 
         // Cache hit (same command seen before) → final summary immediately, no LLM call.
-        var cached = _store.GetCachedSummary(hash);
+        // 键带语言：否则切成英文后重复命令会命中旧的中文摘要，界面语言与内容对不上，
+        // 而且**没有任何报错**——这类静默不一致最难发现。hash 本身不能动，见 CacheKey。
+        var cached = _store.GetCachedSummary(SummaryEngine.CacheKey(hash));
         var summary = cached ?? _rule.Summarize(cmd);
         var pending = cached is null && _engine.HasLlm;
 
@@ -190,7 +192,8 @@ public sealed class TimelineCoordinator : IDisposable
     private void OnLlmSummarized(long nodeId, string hash, Summary summary)
     {
         _store.UpdateSummary(nodeId, summary, pending: false);
-        _store.CacheSummary(hash, summary);
+        // 写缓存与读缓存必须用同一个派生键，否则每次都 miss、等于缓存整个失效。
+        _store.CacheSummary(SummaryEngine.CacheKey(hash), summary);
 
         var node = _store.GetNode(nodeId);
         if (node is not null &&

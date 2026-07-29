@@ -78,6 +78,26 @@ public sealed class SummaryEngine : IDisposable
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
+    /// <summary>
+    /// 当前生效的语言标签（"zh-Hans"/"en"/"ja"/"ko"，已解析过「跟随系统」）。
+    /// 由应用层在启动与语言切换时设置；影响 prompt 语言与摘要缓存键。
+    /// </summary>
+    public static string Locale { get; set; } = "zh-Hans";
+
+    /// <summary>
+    /// 摘要缓存键 = 命令 hash + 语言。
+    ///
+    /// ⚠ **绝不能把语言直接混进 <see cref="ComputeHash"/>**：那个 hash 同时落进
+    /// <c>nodes.command_hash</c>，参与 <c>UNIQUE(agent, session_id, ts, command_hash)</c>
+    /// ——改了它，重扫同一份 session 会算出不同的键、唯一约束失效、必产生重复行
+    /// （2026-07-28 W-e 那轮刚踩过同类坑）。所以只在**查缓存**这一处派生新键。
+    ///
+    /// zh-Hans 不加后缀：存量缓存行本来就是中文 prompt 生成的，保持不加后缀即等价于
+    /// 「历史行 = 中文行」，切回中文仍能命中，不会白白重跑一遍 LLM。
+    /// </summary>
+    public static string CacheKey(string commandHash) =>
+        Locale == "zh-Hans" ? commandHash : commandHash + ":" + Locale;
+
     public void Enqueue(long nodeId, UserCommand command, string hash)
     {
         if (!HasLlm) return;

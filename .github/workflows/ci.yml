@@ -58,6 +58,16 @@ jobs:
         shell: pwsh
         run: msbuild windows\AgentTimeline\AgentTimeline.csproj /restore /p:Configuration=Release /p:Platform=x64 /m /v:minimal
 
+  strings-sync:
+    # 文案表同源关。建表时实测两端在**单中文**下就已漂移 8 处以上，四语各端各译必然更糟；
+    # 漂移不报错、只是越走越远，只能靠机器守。
+    name: Strings · 文案表同源与完整性
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 四语齐全 · 占位符一致 · 副本同源
+        run: python3 scripts/check-strings.py .
+
   tokens-sync:
     name: Design tokens · 双端同源校验
     runs-on: ubuntu-latest

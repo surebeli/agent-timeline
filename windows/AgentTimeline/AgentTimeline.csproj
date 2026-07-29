@@ -60,6 +60,10 @@
     <Content Include="Assets\design-tokens.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Assets/strings.json 同理，是 design/strings.json 的字节一致副本（CI 硬校验）。 -->
+    <Content Include="Assets\strings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Assets\TrayIcon.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
