@@ -1,5 +1,28 @@
 # macOS 同步开工 Prompt（对齐 Windows 侧跨端合并审计发现）
 
+> ## ✅ 本轮已完成（2026-07-28，随 v0.5.0 发布）
+>
+> A1–A4 + B1 全部收口，逐条状态见 `docs/TEXT-NORMALIZATION.md §4.2b`：
+>
+> | 项 | 结果 |
+> |---|---|
+> | **A1** Kimi 子 agent 结果行串台 | ✅ 已修——`KimiParser` 要求 `agentDir == "main"`、`agentsDir == "agents"`、目录名 `session_` 前缀；本机语料 55 处路径错配归零 |
+> | **A2** codex 注入块泄漏 | ✅ 已修——`unwrapInjectedBlock`：`<task>` 去壳保留正文，其余 11 类标签整条跳过 |
+> | **A3** 结果行退化成光秃秃的标题 | ✅ 已修——`dropLeadingHeadings` 先剥前导标题行再取首段，剥后为空则回退含标题原文（永不写空串）。**本机无 `## Summary` 式开头，故 Windows 报的 7 条退化在 mac 不复现**，修法正确但此处收益小 |
+> | **A4** 无 UI 字段被静默覆盖 | ✅ **mac 不适用**——UserDefaults + 各键独立写入，不存在「内存快照整体覆盖」模型 |
+> | **B1** codex resume/fork 的 session_meta | ✅ 已双端落地——只应用本文件第一条 `session_meta`（mac `CodexParser` guard `!context.metaApplied`）。方案与语义影响评估已写入 §4.2b 并经确认后才落地 |
+>
+> ⚠️ **一处自我更正已留档**：B1 落地时我先报「mac 库里 38 组 / 41 行重复节点」，
+> 授权清理后严格复测（同文件 + 同正文 + **同时间戳** + 不同 session_id）实为 **0 组**——
+> 那 54 行是用户真实重复输入的命令（"继续" ×10 等）。mac 的 `nodes` 表没有 Windows 那个
+> `source_offset` 列，两端判据本就不同。**没有删除任何数据**，并已核验库未被改动
+> （nodes/codenames 计数与文件 md5 前后一致）；CHANGELOG、§4.2b 与已发布的 GitHub Release
+> 正文均已订正（Release 用追加可见更正的方式，不做静默编辑）。
+>
+> 下一轮 Windows 侧任务见 `windows/SYNC-KICKOFF-PROMPT.md`。以下为本轮原始 prompt，存档备查。
+
+---
+
 > 用法：在 mac 机器的仓库根目录启动 agent 会话，把下面整段粘贴为首条指令。
 > 清单来源见 `docs/TEXT-NORMALIZATION.md §4.2b`（每条都在 Windows 本机实跑实证）。
 
