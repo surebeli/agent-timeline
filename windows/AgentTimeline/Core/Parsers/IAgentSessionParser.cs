@@ -130,16 +130,82 @@ internal static class ParserUtil
     {
         var body = DropLeadingHeadings(text.ReplaceLineEndings("\n"));
         var normalized = Text.TextNormalizer.Normalize(body, Text.NormalizeProfile.Excerpt);
-        var excerpt = FirstParagraph(normalized);
+        var excerpt = LeadInJoined(normalized, maxLength);
         // 兜底链：剥标题后为空 → 用原文（含标题）再规整；仍为空 → 未规整原文。
         // 永不返回空串（§3.4-1）。
         if (excerpt.Length == 0)
         {
-            excerpt = FirstParagraph(
-                Text.TextNormalizer.Normalize(text, Text.NormalizeProfile.Excerpt));
+            excerpt = LeadInJoined(
+                Text.TextNormalizer.Normalize(text, Text.NormalizeProfile.Excerpt), maxLength);
         }
+        // 末级兜底走**未规整**原文：此时围栏/表格都还在，续接会把表格行拼进来，
+        // 故这一级只取首段（§3.4-1 只要求「不为空」）。
         if (excerpt.Length == 0) excerpt = FirstParagraph(text.ReplaceLineEndings("\n"));
         return Clip(excerpt, maxLength);
+    }
+
+    /// <summary>
+    /// 续接段数上限：真实语料里引子链最多两层，给到 4 段是防病态输入的兜底，
+    /// 与 §3.4-2「凑够即停」的扫描预算同源。
+    /// </summary>
+    private const int LeadInMaxParagraphs = 4;
+
+    /// <summary>「引子」判据：去尾空白后以 <c>:</c> / <c>：</c> 收尾——正文在冒号之后的下一段。</summary>
+    private static bool IsLeadIn(string paragraph)
+    {
+        var t = paragraph.Trim();
+        return t.EndsWith(':') || t.EndsWith('：');
+    }
+
+    /// <summary>
+    /// 引子续接（§3.3「引子续接」）：首段是引子时正文在下一段，继续吃到第一个
+    /// 非引子段为止，段间以空格拼接。与 mac <c>ParserSupport.leadInJoined</c> 同语义。
+    ///
+    /// 实证：用户库 357 条结果行里 14 条冒号结尾、10 条不足 60 字，典型如
+    /// <c>TH-0025 是一条安全类 issue,核心是一句话:</c>——正文在下一段的引用块里。
+    ///
+    /// **首段一字不动**：只对被续接进来的段落剥行首 <c>&gt; </c> / <c>- </c> 标记
+    /// （规整层在 Excerpt 档只剥全文首行），保证非引子回复的产出与本次修改前逐字节一致。
+    /// </summary>
+    private static string LeadInJoined(string text, int maxLength)
+    {
+        var parts = new List<string>();
+        var length = 0;
+        var paragraphs = Paragraphs(text);
+        for (var index = 0; index < paragraphs.Count; index++)
+        {
+            var piece = index == 0
+                ? paragraphs[index]
+                : Text.TextNormalizer.StripLeadingMarkers(paragraphs[index]);
+            parts.Add(piece);
+            length += piece.Length + (index == 0 ? 0 : 1);   // +1 = 拼接空格
+            if (!IsLeadIn(piece)) break;
+            if (parts.Count > LeadInMaxParagraphs || length >= maxLength) break;
+        }
+        return string.Join(" ", parts);
+    }
+
+    /// <summary>
+    /// 按空行切段：规整层把表格/围栏整块删掉却保留其两侧空行，故连续空行只算
+    /// 一个分隔。各段已 Trim，不含空段。
+    /// </summary>
+    private static List<string> Paragraphs(string text)
+    {
+        var result = new List<string>();
+        var current = new List<string>();
+        void Flush()
+        {
+            if (current.Count == 0) return;
+            var p = string.Join("\n", current).Trim();
+            if (p.Length > 0) result.Add(p);
+            current.Clear();
+        }
+        foreach (var line in text.ReplaceLineEndings("\n").Split('\n'))
+        {
+            if (line.Trim().Length == 0) Flush(); else current.Add(line);
+        }
+        Flush();
+        return result;
     }
 
     /// <summary>

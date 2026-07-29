@@ -159,8 +159,8 @@ enum ParserSupport {
     }
 
     /// 结果摘录（docs/TEXT-NORMALIZATION.md §3，与 win `ParserUtil.ResultExcerpt`
-    /// 同语义）：规整（Excerpt 档）→ 取首个非空段落（空行分隔）→ 上限 maxLength。
-    /// 折叠态 UI 仍按单行钳制显示；展开态用户可读到完整首段。
+    /// 同语义）：规整（Excerpt 档）→ 取首个非空段落（空行分隔）+ 引子续接
+    /// → 上限 maxLength。折叠态 UI 仍按单行钳制显示；展开态可读到完整摘录。
     ///
     /// 永不返回空串（§3.4-1）：规整后为空（整段是围栏/表格）时回退未规整文本，
     /// 否则会把已显示的结果行抹掉——审查确认的唯一 UI 可见回归。
@@ -169,17 +169,70 @@ enum ParserSupport {
         // 一个词（用户库里 7 条结果行字面就是 "Summary"；≤12 字符占比 kimi 38.9%
         // vs codex 4.0%）。先剥掉前导标题行，让首段落在真正的内容上。
         let normalized = TextNormalizer.normalize(dropLeadingHeadings(text), profile: .excerpt)
-        var excerpt = firstParagraph(normalized)
+        var excerpt = leadInJoined(normalized, maxLength: maxLength)
         if excerpt.isEmpty {
             // 剥标题后为空 → 用含标题的原文再规整（标题总比空好）
-            excerpt = firstParagraph(TextNormalizer.normalize(text, profile: .excerpt))
+            excerpt = leadInJoined(TextNormalizer.normalize(text, profile: .excerpt), maxLength: maxLength)
         }
         if excerpt.isEmpty {
+            // 末级兜底走**未规整**原文：此时围栏/表格都还在，续接会把表格行拼进来，
+            // 故这一级只取首段（§3.4-1 只要求"不为空"）。
             excerpt = firstParagraph(
                 text.replacingOccurrences(of: "\r\n", with: "\n")
                     .replacingOccurrences(of: "\r", with: "\n"))
         }
         return truncate(excerpt, to: maxLength)
+    }
+
+    /// 续接段数上限：真实语料里引子链最多两层，给到 4 段是防病态输入的兜底，
+    /// 与 §3.4-2「凑够即停」的扫描预算同源。
+    private static let leadInMaxParagraphs = 4
+
+    /// 「引子」判据：去尾空白后以 `:` / `：` 收尾——正文在冒号之后的下一段。
+    private static func isLeadIn(_ paragraph: String) -> Bool {
+        let t = paragraph.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.hasSuffix(":") || t.hasSuffix("：")
+    }
+
+    /// 引子续接（§3.3「引子续接」）：首段是引子时正文在下一段，继续吃到第一个
+    /// 非引子段为止，段间以空格拼接。
+    ///
+    /// 实证：用户库 357 条结果行里 14 条冒号结尾、10 条不足 60 字，典型如
+    /// `TH-0025 是一条安全类 issue,核心是一句话:`——正文在下一段的引用块里。
+    ///
+    /// **首段一字不动**：只对被续接进来的段落剥行首 `> ` / `- ` 标记（规整层在
+    /// excerpt 档只剥全文首行），保证非引子回复的产出与本次修改前逐字节一致。
+    private static func leadInJoined(_ text: String, maxLength: Int) -> String {
+        var parts: [String] = []
+        var length = 0
+        for (index, raw) in paragraphs(text).enumerated() {
+            let piece = index == 0 ? raw : TextNormalizer.stripLeadingMarkers(raw)
+            parts.append(piece)
+            length += piece.count + (index == 0 ? 0 : 1)   // +1 = 拼接空格
+            if !isLeadIn(piece) { break }
+            if parts.count > leadInMaxParagraphs || length >= maxLength { break }
+        }
+        return parts.joined(separator: " ")
+    }
+
+    /// 按空行切段：规整层把表格/围栏整块删掉却保留其两侧空行，故连续空行只算
+    /// 一个分隔。各段已 trim，不含空段。
+    private static func paragraphs(_ text: String) -> [String] {
+        var result: [String] = []
+        var current: [String] = []
+        func flush() {
+            guard !current.isEmpty else { return }
+            result.append(current.joined(separator: "\n")
+                .trimmingCharacters(in: .whitespacesAndNewlines))
+            current = []
+        }
+        for line in text.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .components(separatedBy: "\n") {
+            if line.trimmingCharacters(in: .whitespaces).isEmpty { flush() } else { current.append(line) }
+        }
+        flush()
+        return result.filter { !$0.isEmpty }
     }
 
     /// 剥掉开头连续的 markdown 标题行（`## Summary` 之类）与其后空行。

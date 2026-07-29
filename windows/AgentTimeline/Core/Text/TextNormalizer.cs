@@ -173,11 +173,7 @@ public static class TextNormalizer
 
             // Excerpt: 首行剥前缀（结果行已有 "→ " 渲染前缀）；Summary: 全剥
             var stripPrefix = profile == NormalizeProfile.Summary || first;
-            if (stripPrefix)
-            {
-                line = QuotePrefix.Replace(line, "", 1);
-                line = ListPrefix.Replace(line, "", 1);
-            }
+            if (stripPrefix) line = StripLeadingMarkers(line);
 
             if (!first) sb.Append('\n');
             sb.Append(line);
@@ -194,6 +190,17 @@ public static class TextNormalizer
     /// 链接正则的 `[^\]\n]*` 仍能匹配（哨兵是普通字符），故顺序安全；
     /// 但哨兵必须不含 `]`/`)`——私用区字符满足。
     /// </summary>
+    /// <summary>
+    /// 剥掉**串首**的引用/列表标记（<c>&gt; </c> / <c>- </c> / <c>1. </c>），只作用于第一行
+    /// （正则未开 Multiline，<c>^</c> 只锚定串首）。
+    ///
+    /// 规整管线内部与 <c>ParserUtil.ResultExcerpt</c> 的引子续接共用同一判据：
+    /// 续接进来的段落首行还带着标记，规整层在 Excerpt 档只剥全文首行。
+    /// 与 mac <c>TextNormalizer.stripLeadingMarkers</c> 同语义。
+    /// </summary>
+    public static string StripLeadingMarkers(string line)
+        => ListPrefix.Replace(QuotePrefix.Replace(line, "", 1), "", 1);
+
     private static string ProcessInline(string s)
     {
         var protectedSpans = new List<string>();

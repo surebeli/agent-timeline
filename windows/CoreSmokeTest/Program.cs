@@ -53,6 +53,7 @@ internal static class Program
         ResultExcerptFallback();
         ResultExcerptSkipsHeadings();
         ResultExcerptParagraph();
+        ResultExcerptLeadIn();
         ClipSurrogateSafety();
 
         Console.WriteLine();
@@ -1236,6 +1237,32 @@ internal static class Program
             "excerpt: 超长按 500 截断加省略号");
         CheckEqual(ParserUtil.ResultExcerpt("  \n\n正文段  \n\n尾段"),
             "正文段", "excerpt: 首尾空白剥离后取段");
+    }
+
+    /// <summary>
+    /// §3.3 引子续接：首段以冒号收尾时正文在下一段，只取首段会只剩引子。
+    ///
+    /// 回归来源：用户库 `TH-0025 是一条安全类 issue,核心是一句话:`——28 字，
+    /// 正文（引用块）整段丢失。库内 357 条结果行有 14 条是这个形态。
+    /// </summary>
+    private static void ResultExcerptLeadIn()
+    {
+        CheckEqual(
+            ParserUtil.ResultExcerpt("TH-0025 是一条**安全**类 issue,核心是一句话:\n\n> **正文在这里。**\n\n## 事实核对"),
+            "TH-0025 是一条安全类 issue,核心是一句话: 正文在这里。",
+            "excerpt: 引子续接下一段，引用标记剥掉");
+        CheckEqual(
+            ParserUtil.ResultExcerpt("两个文件已放到桌面：\n\n- 封面.png\n- 成品图.png"),
+            "两个文件已放到桌面： 封面.png\n- 成品图.png",
+            "excerpt: 列表承接剥首行 '- '");
+        CheckEqual(ParserUtil.ResultExcerpt("结论如下：\n\n已收口。"),
+            "结论如下： 已收口。", "excerpt: 全角冒号同为引子");
+        CheckEqual(ParserUtil.ResultExcerpt("**首段结论**已收口。\n\n第二段细节不应进入结果行。"),
+            "首段结论已收口。", "excerpt: 非引子首段不得续接（与修改前逐字节一致）");
+        CheckEqual(ParserUtil.ResultExcerpt("分两步:\n\n第一步:\n\n落地完成。"),
+            "分两步: 第一步: 落地完成。", "excerpt: 引子链吃到非引子段为止");
+        CheckEqual(ParserUtil.ResultExcerpt("汇报:"), "汇报:",
+            "excerpt: 引子后无正文时不得产出尾随空格");
     }
 
     /// <summary>W6：按 grapheme 簇截断——代理对、ZWJ 家庭、组合字、变体选择符都不劈开。</summary>

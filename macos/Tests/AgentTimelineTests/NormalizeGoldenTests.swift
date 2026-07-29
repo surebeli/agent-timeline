@@ -85,6 +85,39 @@ final class NormalizeGoldenTests: XCTestCase {
         XCTAssertTrue(clipped.hasSuffix("…"))
     }
 
+    /// §3.3 引子续接：首段以冒号收尾时正文在下一段，只取首段会只剩引子。
+    ///
+    /// 回归来源：用户库 `TH-0025 是一条安全类 issue,核心是一句话:`——28 字，
+    /// 正文（引用块）整段丢失。库内 357 条结果行有 14 条是这个形态。
+    func testResultExcerptLeadInContinuation() {
+        // 引用块承接：`>` 标记必须剥掉（规整层在 excerpt 档只剥全文首行）
+        let quoted = "TH-0025 是一条**安全**类 issue,核心是一句话:\n\n> **正文在这里。**\n\n## 事实核对"
+        XCTAssertEqual(
+            ParserSupport.resultExcerpt(quoted),
+            "TH-0025 是一条安全类 issue,核心是一句话: 正文在这里。")
+
+        // 列表承接：`- ` 同样剥掉
+        XCTAssertEqual(
+            ParserSupport.resultExcerpt("两个文件已放到桌面：\n\n- 封面.png\n- 成品图.png"),
+            "两个文件已放到桌面： 封面.png\n- 成品图.png")
+
+        // 全角冒号同样是引子
+        XCTAssertEqual(ParserSupport.resultExcerpt("结论如下：\n\n已收口。"), "结论如下： 已收口。")
+
+        // 非引子首段：行为与修改前逐字节一致（不得续接）
+        XCTAssertEqual(
+            ParserSupport.resultExcerpt("**首段结论**已收口。\n\n第二段细节不应进入结果行。"),
+            "首段结论已收口。")
+
+        // 引子链：连续两层引子继续吃，直到非引子段
+        XCTAssertEqual(
+            ParserSupport.resultExcerpt("分两步:\n\n第一步:\n\n落地完成。"),
+            "分两步: 第一步: 落地完成。")
+
+        // 引子后无正文（全文就一段）→ 保持原样，不得产出尾随空格
+        XCTAssertEqual(ParserSupport.resultExcerpt("汇报:"), "汇报:")
+    }
+
     /// P4：存储只留护栏——正常长度的摘要必须原样落库，不再被排版尺寸截断。
     func testStorageLimitsAreGuardRailsNotLayout() {
         // 实测 p90=25、max=41，护栏 120：这个长度的标题必须完整存下来

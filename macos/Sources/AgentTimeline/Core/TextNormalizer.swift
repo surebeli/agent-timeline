@@ -140,14 +140,22 @@ enum TextNormalizer {
 
             // Excerpt: 首行剥前缀（结果行已有 "→ " 渲染前缀）；Summary: 全剥
             if profile == .summary || first {
-                line = replaceFirst(quotePrefix, in: line, with: "")
-                line = replaceFirst(listPrefix, in: line, with: "")
+                line = stripLeadingMarkers(line)
             }
 
             out.append(line)
             first = false
         }
         return out.joined(separator: "\n")
+    }
+
+    /// 剥掉**串首**的引用/列表标记（`> ` / `- ` / `1. `），只作用于第一行
+    /// （正则未开 `.anchorsMatchLines`，`^` 只锚定串首）。
+    ///
+    /// 规整管线内部与 `ParserSupport.resultExcerpt` 的引子续接共用同一判据：
+    /// 续接进来的段落首行还带着标记，规整层在 excerpt 档只剥全文首行。
+    static func stripLeadingMarkers(_ line: String) -> String {
+        replaceFirst(listPrefix, in: replaceFirst(quotePrefix, in: line, with: ""), with: "")
     }
 
     // MARK: - 行内
