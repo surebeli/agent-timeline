@@ -1,0 +1,31 @@
+windows/scripts/leadin-diff/LeadInDiff.csproj
+  s_5f812b192ad64b::t_d8db0094e15076 1-46
+windows/scripts/leadin-diff/Program.cs
+  s_5f812b192ad64b::t_f7542c7ff91fcc 48-50
+  s_5f812b192ad64b::t_3a7ed24096fd77 1-2,7-47,51-65,70-297,381-392
+  s_5f812b192ad64b::t_1d6fb662c1add9 3-6
+  s_5f812b192ad64b::t_e18f9487311530 66-69
+  s_5f812b192ad64b::t_85b637bc2db5d7 298-380
+windows/scripts/leadin-diff/run-diff.ps1
+  s_5f812b192ad64b::t_7171ae283c5777 2-83,91-101
+  s_5f812b192ad64b::t_858d17319dd80d 84-90
+  s_5f812b192ad64b::t_2eec40a6052b18 1
+docs/TEXT-NORMALIZATION.md
+  s_5f812b192ad64b::t_e6a3e16b827861 122-123,125-154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c7316ee79a82a83a98f1aa9171de3e9b46374c1b",
+  "prompts": {},
+  "sessions": {
+    "s_5f812b192ad64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
