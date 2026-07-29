@@ -1,0 +1,27 @@
+CHANGELOG.md
+  s_5f812b192ad64b::t_262b6929b58294 10-32
+windows/AgentTimeline/Program.cs
+  s_5f812b192ad64b::t_7a36d34e0ff179 1-97
+windows/AgentTimeline/AgentTimeline.csproj
+  s_5f812b192ad64b::t_9fbe325300feec 25-29
+windows/README.md
+  s_5f812b192ad64b::t_cfdb3018a64a19 19
+  s_5f812b192ad64b::t_53cf3d96e9d40a 28-43
+  s_5f812b192ad64b::t_1123987f758075 341,343
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f1e5f053841ba35ef753911a0eac68f456d37924",
+  "prompts": {},
+  "sessions": {
+    "s_5f812b192ad64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
