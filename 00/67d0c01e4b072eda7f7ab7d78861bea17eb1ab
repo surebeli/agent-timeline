@@ -1,0 +1,23 @@
+windows/DEBUG-PLAYBOOK.md
+  s_b85ad4e83942fb::t_44c082fe96dc57 115-168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0067d0c01e4b072eda7f7ab7d78861bea17eb1ab",
+  "prompts": {
+    "s_b85ad4e83942fb::t_44c082fe96dc57": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 54,
+      "total_deletions": 0,
+      "accepted_lines": 54,
+      "overriden_lines": 0
+    }
+  }
+}
