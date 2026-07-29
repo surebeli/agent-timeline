@@ -95,9 +95,9 @@ final class TimelineViewModel {
         return groups.map { group in
             let label: String
             if calendar.isDateInToday(group.day) {
-                label = "今天 · \(group.nodes.count)条"
+                label = Strings.f("timeline.todayWithCount", group.nodes.count)
             } else if calendar.isDateInYesterday(group.day) {
-                label = "昨天"
+                label = Strings.s("timeline.yesterday")
             } else {
                 label = formatter.string(from: group.day)
             }

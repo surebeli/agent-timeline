@@ -119,3 +119,21 @@ final class Strings: @unchecked Sendable {
 
     static func f(_ key: String, _ args: CVarArg...) -> String { current.formatList(key, args) }
 }
+
+/// 语言变更的 SwiftUI 重渲染钩子。
+///
+/// `Strings.s(...)` 是普通函数调用，SwiftUI 不会因为表换了就重算 body——需要一个
+/// 可观察对象把 `didChangeNotification` 转成 `objectWillChange`。代码构建的 UI
+/// （菜单栏菜单）不走 SwiftUI，另行监听同一个通知重建。
+@MainActor
+final class LanguageWatcher: ObservableObject {
+    static let shared = LanguageWatcher()
+
+    private init() {
+        NotificationCenter.default.addObserver(
+            forName: Strings.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.objectWillChange.send() }
+        }
+    }
+}

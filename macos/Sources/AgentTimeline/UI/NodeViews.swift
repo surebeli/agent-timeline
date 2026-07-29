@@ -121,7 +121,8 @@ struct NodeCardView: View {
             AgentBadge(agent: node.command.agent)
                 .help(node.command.agent.displayName)
             if let kind = kindRaw, let color = tokens.color.kindColor(kind) {
-                Text(kind)
+                // 颜色仍按**落库值**取（design tokens 的 kind 表用中文键），只有显示走 UiText
+                Text(UiText.kind(kind))
                     .font(.system(size: tokens.typography.size.chip, weight: .medium))
                     .foregroundStyle(color)
                     .padding(.horizontal, 4)
@@ -208,7 +209,7 @@ struct NodeCardView: View {
         .buttonStyle(.plain)
         .frame(width: 20, height: 20)
         .contentShape(Rectangle())
-        .help("复制原话")
+        .help(Strings.s("entry.copyCommand"))
     }
 
     /// Everything machine-generated, subordinated behind one dotted rule.
@@ -354,11 +355,11 @@ struct NodeCardView: View {
 
     @ViewBuilder
     private var menuItems: some View {
-        Button("复制原话") {
+        Button(Strings.s("entry.copyCommand")) {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(node.command.text, forType: .string)
         }
-        Button("复制摘要") {
+        Button(Strings.s("entry.copySummary")) {
             var parts: [String] = []
             if let s = node.summary {
                 parts.append(s.title)
@@ -371,7 +372,7 @@ struct NodeCardView: View {
         if let first = chipNames.first {
             Button("跳转到 \(first) 定义节点") { viewModel.jumpToDefinition(of: first) }
         }
-        Button("只看此项目") { viewModel.projectFilter = node.command.project }
+        Button(Strings.s("entry.filterThisProject")) { viewModel.projectFilter = node.command.project }
     }
 
     private func toggleExpanded() {
@@ -497,7 +498,7 @@ struct CodenameChip: View {
                 Text(name)
                     .font(.system(size: tokens.typography.size.title, weight: .semibold).monospaced())
                 if let entry, !entry.status.isEmpty {
-                    Text(entry.status)
+                    Text(UiText.status(entry.status))
                         .font(.system(size: tokens.typography.size.chip, weight: .medium))
                         .foregroundStyle(statusBadge?.color ?? tokens.color.textSecondary.color)
                         .padding(.horizontal, 4)
@@ -512,7 +513,7 @@ struct CodenameChip: View {
                         .font(.system(size: tokens.typography.size.body))
                         .textSelection(.enabled)
                 } else {
-                    Text("暂无定义（等待摘要提炼或定义式重述）")
+                    Text(Strings.s("dict.pendingDefinition"))
                         .font(.system(size: tokens.typography.size.caption))
                         .foregroundStyle(.secondary)
                 }
@@ -525,13 +526,13 @@ struct CodenameChip: View {
                 Text(metaLine(entry))
                     .font(.system(size: tokens.typography.size.caption))
                     .foregroundStyle(.secondary)
-                Button("跳转到定义节点") {
+                Button(Strings.s("dict.jumpToDefinition")) {
                     showPopover = false
                     viewModel.jumpToDefinition(of: name)
                 }
                 .font(.system(size: tokens.typography.size.caption))
             } else {
-                Text("尚未登记")
+                Text(Strings.s("dict.notRegistered"))
                     .font(.system(size: tokens.typography.size.caption))
                     .foregroundStyle(.secondary)
             }

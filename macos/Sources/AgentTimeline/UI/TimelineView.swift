@@ -4,6 +4,9 @@ import SwiftUI
 private let tokens = DesignTokens.shared
 
 struct TimelineView: View {
+    /// 语言切换后重算 body——Strings.s(...) 是普通函数调用，SwiftUI 不会自己知道表换了。
+    @ObservedObject private var languageWatcher = LanguageWatcher.shared
+
     @Bindable var viewModel: TimelineViewModel
     let onTogglePin: () -> Void
     let onOpenSettings: () -> Void
@@ -51,20 +54,20 @@ struct TimelineView: View {
                     .foregroundStyle(alwaysOnTop ? tokens.color.accent.color : tokens.color.textTertiary.color)
             }
             .buttonStyle(.plain)
-            .help(alwaysOnTop ? "取消置顶" : "窗口置顶")
+            .help(alwaysOnTop ? Strings.s("timeline.unpin") : Strings.s("settings.alwaysOnTop"))
             Button(action: onOpenSettings) {
                 Image(systemName: "gearshape")
                     .font(.system(size: 11))
                     .foregroundStyle(tokens.color.textTertiary.color)
             }
             .buttonStyle(.plain)
-            .help("设置")
+            .help(Strings.s("header.settings"))
         }
     }
 
     private var projectMenu: some View {
         Menu {
-            Button("全部项目") { viewModel.projectFilter = nil }
+            Button(Strings.s("filter.allProjectsItem")) { viewModel.projectFilter = nil }
             Divider()
             ForEach(viewModel.projects, id: \.self) { project in
                 Button {
@@ -90,7 +93,7 @@ struct TimelineView: View {
             HStack(spacing: 3) {
                 Image(systemName: "folder")
                     .font(.system(size: 10))
-                Text(viewModel.projectFilter ?? "全部")
+                Text(UiText.projectOption(viewModel.projectFilter ?? UiText.allProjects, compact: true))
                     .font(.system(size: tokens.typography.size.caption))
                     .lineLimit(1)
             }
@@ -102,16 +105,16 @@ struct TimelineView: View {
 
     private var kindMenu: some View {
         Menu {
-            Button("全部类型") { viewModel.kindFilter = nil }
+            Button(Strings.s("filter.allKindsItem")) { viewModel.kindFilter = nil }
             Divider()
             ForEach(NodeKind.allCases, id: \.rawValue) { kind in
                 Button {
                     viewModel.kindFilter = kind.rawValue
                 } label: {
                     if viewModel.kindFilter == kind.rawValue {
-                        Label(kind.rawValue, systemImage: "checkmark")
+                        Label(UiText.kind(kind.rawValue), systemImage: "checkmark")
                     } else {
-                        Text(kind.rawValue)
+                        Text(UiText.kind(kind.rawValue))
                     }
                 }
             }
@@ -119,7 +122,7 @@ struct TimelineView: View {
             HStack(spacing: 3) {
                 Image(systemName: "square.stack.3d.up")
                     .font(.system(size: 10))
-                Text(viewModel.kindFilter ?? "类型")
+                Text(UiText.kindOption(viewModel.kindFilter ?? UiText.allKinds, compact: true))
                     .font(.system(size: tokens.typography.size.caption))
             }
             .foregroundStyle(viewModel.kindFilter == nil
@@ -140,7 +143,7 @@ struct TimelineView: View {
                 .foregroundStyle(tokens.color.textTertiary.color)
         }
         .buttonStyle(.plain)
-        .help("代号词典")
+        .help(Strings.s("header.dictionary"))
         .popover(isPresented: $showDictionary, arrowEdge: .bottom) {
             CodenameDictionaryView(viewModel: viewModel) { showDictionary = false }
                 .onAppear {
@@ -174,7 +177,7 @@ struct TimelineView: View {
                         }
                     }
                     if viewModel.canLoadMore {
-                        Button("加载更早…") { viewModel.loadMore() }
+                        Button(Strings.s("timeline.loadMore")) { viewModel.loadMore() }
                             .buttonStyle(.plain)
                             .font(.system(size: tokens.typography.size.caption))
                             .foregroundStyle(tokens.color.accent.color)
@@ -225,7 +228,7 @@ struct TimelineView: View {
             Image(systemName: "moon.zzz")
                 .font(.system(size: 24))
                 .foregroundStyle(tokens.color.textTertiary.color)
-            Text("暂无记录 — 在 Claude Code / Codex / Grok Build / Kimi Code / ZCode 中提交命令后，这里会自动出现时间线")
+            Text(Strings.s("timeline.empty"))
                 .font(.system(size: tokens.typography.size.caption))
                 .foregroundStyle(tokens.color.textTertiary.color)
                 .multilineTextAlignment(.center)

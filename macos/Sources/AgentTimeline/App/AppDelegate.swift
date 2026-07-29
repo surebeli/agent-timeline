@@ -50,6 +50,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.panel.updateTrackingAndOpacity(animated: true)
             }
         }
+        // 菜单栏菜单是代码构建的，不会随语言自动刷新——切换后整体重建。
+        NotificationCenter.default.addObserver(
+            forName: Strings.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.rebuildStatusMenu() }
+        }
         NotificationCenter.default.addObserver(
             forName: FloatingPanel.holdReadableNotification, object: nil, queue: .main
         ) { [weak self] note in
@@ -176,14 +182,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 systemSymbolName: "clock.badge.checkmark",
                 accessibilityDescription: "Agent Timeline")
         }
+        rebuildStatusMenu()
+    }
+
+    /// 菜单项标题在构造期取文案，语言切换后必须整体重建（AppKit 菜单不会自刷新）。
+    private func rebuildStatusMenu() {
+        guard statusItem != nil else { return }
         let menu = NSMenu()
-        menu.addItem(withTitle: "显示 / 隐藏时间线", action: #selector(togglePanel), keyEquivalent: "t")
-        let pinItem = NSMenuItem(title: "窗口置顶", action: #selector(toggleAlwaysOnTop), keyEquivalent: "")
+        menu.addItem(withTitle: Strings.s("tray.showHide"), action: #selector(togglePanel), keyEquivalent: "t")
+        let pinItem = NSMenuItem(title: Strings.s("tray.alwaysOnTop"), action: #selector(toggleAlwaysOnTop), keyEquivalent: "")
         menu.addItem(pinItem)
         menu.addItem(.separator())
-        menu.addItem(withTitle: "设置…", action: #selector(openSettingsAction), keyEquivalent: ",")
+        menu.addItem(withTitle: Strings.s("tray.settings"), action: #selector(openSettingsAction), keyEquivalent: ",")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "退出 Agent Timeline", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: Strings.s("tray.exit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.items.forEach { $0.target = self }
         menu.delegate = self
         statusItem.menu = menu
