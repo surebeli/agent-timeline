@@ -22,6 +22,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
 
+    <!-- 关掉 XAML 生成的 Main，改用 Program.cs：入口处要先过单实例闸，
+         与 mac macos/Sources/AgentTimeline/App/main.swift 同一位置。
+         Program.cs 里的 Main 除首行外与生成版逐字一致。 -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+
     <!--
       Unpackaged (no MSIX) deployment, per PRD M3 decision.
       WindowsAppSDKSelfContained bundles the Windows App SDK runtime next to the exe,

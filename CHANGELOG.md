@@ -7,6 +7,29 @@
 > tag↔VERSION↔CHANGELOG 一致性、跑双端测试、出 macOS `.app` zip 与 Windows x64 zip
 > 并挂到 GitHub Release。
 
+## [Unreleased]
+
+### 修复（Windows）
+
+- **单实例保护**：补上 Windows 侧缺失的入口闸——这是一处双端分叉，mac
+  `App/main.swift` 一直有（发现有同 bundle id 的进程就 `exit(0)`），Windows 侧从无对应物。
+  面板 `IsShownInSwitchers=false`、无任务栏按钮、收进托盘后完全隐身，托盘图标在 Win11
+  默认还在溢出区——用户想确认它在不在跑，最自然的动作就是再双击一次 exe，所以这不是
+  边缘情况而是常规误操作路径。
+  两个实例并存的实际代价：摘要引擎各自挑同一批 `summary_pending` 节点跑 CLI（配额与
+  耗时双倍、`summary_attempts` 提前耗尽）；「replay 与 watcher 不并发写 codenames 表」
+  与 `AppSettings.Save` 的锁都只是**进程内**保证，跨进程失效；两个托盘图标导致「退出」
+  只关掉一个。（SQLite 本身自愈：WAL + busy 重试 + `UNIQUE(agent, session_id, ts,
+  command_hash)` 去重 + `file_offsets` UPSERT，故 mac 注释里那句「silently lose writes」
+  在 Windows 这套姿态下并不完全成立，已如实记在代码注释。）
+  实现：`windows/AgentTimeline/Program.cs` 取代 XAML 生成的 Main（csproj 定义
+  `DISABLE_XAML_GENERATED_MAIN`），Main 除首行外与生成版逐字一致，与 mac 同一位置——
+  在任何应用对象存在之前退出。闸的粒度是**一个数据库**（名字取 `AppPaths.DatabaseFile`
+  的哈希）：不同用户各有自己的 `%LOCALAPPDATA%` 故互不阻塞，同一用户的两个会话
+  （RDP + 控制台）共用一份 store 故被拦下——固定名的 `Global\` 会误伤前者，`Local\`
+  拦不住后者。实机验证：第二个进程 83ms 退出（ExitCode 0，赶在 XAML/托盘初始化之前）、
+  托盘只剩一个图标、强杀后可重启无残留 mutex 死锁、连开三次只剩一个。
+
 ## [0.5.1] - 2026-07-29
 
 ### 修复（双端）
