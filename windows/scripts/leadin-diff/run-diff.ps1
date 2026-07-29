@@ -86,7 +86,9 @@ try {
     # 归因清楚才敢说不是实现少接了——顺手跑，不参与判定。
     Write-Host "── 冒号残留归因"
     & dotnet $afterDll residual $corpus $afterTsv (Join-Path $Work 'residual.txt') | Out-Null
-    Write-Host (Get-Content (Join-Path $Work 'residual.txt') -Raw)
+    # -Encoding UTF8 不能省：工具写的是无 BOM 的 UTF-8，Windows PowerShell 5.1
+    # 默认按 ANSI 读，中文回显会整段变成乱码
+    Write-Host (Get-Content (Join-Path $Work 'residual.txt') -Raw -Encoding UTF8)
 
     Write-Host "── 工作目录: $Work"
     if ($verdict -ne 0) {

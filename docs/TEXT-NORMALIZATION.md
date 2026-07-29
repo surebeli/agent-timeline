@@ -139,6 +139,8 @@ Windows 语料 = `%USERPROFILE%\.claude\projects` 的全部 assistant 回复 +
 抽取（注入块过滤、摘要器 scratch 目录排除等口径与产品完全一致）。
 复现：`windows\scripts\leadin-diff\run-diff.ps1`——改动前的源码状态用 `git worktree`
 取，语料先抽成快照冻结（两端各扫各的就不是同一份语料了）。
+注意语料是**活的**：机器每天还在产生新会话，隔天重跑条数会涨、各项数字随之小幅漂移
+（当天二次复跑即 15092 条 / 3138 条变化 / 20.8%）。**两条硬约束与形态结论不受影响**。
 
 **冒号残留两端差一个量级的归因**（Windows 侧 1369 条逐条分桶，`LeadInDiff residual`）：
 
