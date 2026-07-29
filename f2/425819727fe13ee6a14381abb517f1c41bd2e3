@@ -1,0 +1,37 @@
+windows/scripts/provider-check/run-provider-check.ps1
+  s_5f812b192ad64b::t_a6f0a2a0eec606 134-147,149-152
+  s_5f812b192ad64b::t_2c18277b23d638 2-133,148,153-222
+  s_5f812b192ad64b::t_c97ab32a1fa36f 1
+CHANGELOG.md
+  s_5f812b192ad64b::t_580d4e54755799 14-32
+windows/scripts/provider-check/mock-provider.ps1
+  s_5f812b192ad64b::t_85c97271f0757d 2-61,63-68,79-88,91-114
+  s_5f812b192ad64b::t_1a2108e5b4d0c9 62,69-78
+  s_5f812b192ad64b::t_a8b7fa077c6b34 89-90
+  s_5f812b192ad64b::t_e793c7a4d1bc83 1
+windows/README.md
+  s_5f812b192ad64b::t_c71f35257c984a 343-357
+windows/AgentTimeline/MainWindow.xaml
+  s_5f812b192ad64b::t_a46ffc2b5672fb 430
+  s_5f812b192ad64b::t_3de999d4c4454e 564
+  s_5f812b192ad64b::t_d55f44ec472a5f 618
+  s_5f812b192ad64b::t_567cdaa5d163a2 523-524,529,531
+  s_5f812b192ad64b::t_4f1259f2576e6f 512
+  s_5f812b192ad64b::t_b365a859870786 225-229,234-235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f2425819727fe13ee6a14381abb517f1c41bd2e3",
+  "prompts": {},
+  "sessions": {
+    "s_5f812b192ad64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
