@@ -302,4 +302,117 @@ enum TextNormalizer {
         while let last = t.last, last.isWhitespace { t = t.dropLast() }
         return String(t)
     }
+
+    // MARK: - 匹配态兼容折叠（docs/TEXT-NORMALIZATION.md §3.6）
+    //
+    // 只服务**关键词子串匹配**（状态推断、分类词表），不作用于任何展示文本。
+    //
+    // ⚠️ **不要**改用 `precomposedStringWithCompatibilityMapping`（平台 NFKC）：
+    //   1. .NET 侧 `String.Normalize(FormKC)` 在 `InvariantGlobalization=true` 下
+    //      **静默原样返回**——不抛异常。win 的 CoreSmokeTest 正是这个配置、主程序不是，
+    //      照搬会让「门禁跑的语义」与「线上跑的语义」不同，且无声；
+    //   2. 平台 NFKC 各自绑 ICU 版本，mac 与 Windows 的 ICU 并不同版。双端对齐靠
+    //      「各自调各自的 NFKC」反而不牢，靠这张写死的表才逐字节可复现。
+    //
+    // 覆盖面按真实需要划定（日语语料实测）：全角英数、表意空格、半角片假名、
+    // 分离浊点/半浊点。圈号数字、合字、上下标这些 NFKC 也管的，与关键词匹配无关，不做。
+
+    /// 半角片假名 U+FF61…U+FF9F → 全角，按 `scalar - 0xFF61` 直接索引。
+    private static let halfwidthKatakana = Array(
+        "。「」、・ヲァィゥェォャュョッーアイウエオカキクケコサシスセソタチツテト"
+        + "ナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン゛゜")
+
+    /// 浊点可合成的假名（片/平假名同表；合成值为 base + 1）。
+    private static let voiceable = Set(
+        "カキクケコサシスセソタチツテトハヒフヘホかきくけこさしすせそたちつてとはひふへほ".unicodeScalars)
+
+    /// 半浊点可合成的假名（合成值为 base + 2）。
+    private static let semiVoiceable = Set("ハヒフヘホはひふへほ".unicodeScalars)
+
+    /// 关键词匹配前的兼容折叠。`ＷＩＰ`→`WIP`、`ﾃﾞﾌﾟﾛｲ`→`デプロイ`、表意空格→半角空格。
+    /// 纯函数，输入不含上述形态时原样返回。与 win `TextNormalizer.FoldForMatch` 同表。
+    static func foldForMatch(_ text: String) -> String {
+        guard !text.isEmpty else { return text }
+        var out = String.UnicodeScalarView()
+        for scalar in text.unicodeScalars {
+            var folded = scalar
+            if scalar == "\u{3000}" {                                   // 表意空格
+                folded = " "
+            } else if scalar.value >= 0xFF01 && scalar.value <= 0xFF5E { // 全角英数记号
+                folded = Unicode.Scalar(scalar.value - 0xFEE0)!
+            } else if scalar.value >= 0xFF61 && scalar.value <= 0xFF9F { // 半角片假名
+                folded = halfwidthKatakana[Int(scalar.value - 0xFF61)].unicodeScalars.first!
+            }
+            // 浊点/半浊点跟在可合成假名后面时就地合成；合不成就原样留着（保持可见）。
+            // U+3099/U+309A 是 NFD 的组合记号，゛/゜(U+309B/309C) 是独立字符，
+            // 半角 ﾞ/ﾟ 上一步已折成后者——三种形态在这里统一处理。
+            if folded == "\u{3099}" || folded == "\u{309B}", let prev = out.last {
+                if prev == "ウ" { out.removeLast(); out.append("ヴ"); continue }
+                if voiceable.contains(prev) {
+                    out.removeLast(); out.append(Unicode.Scalar(prev.value + 1)!); continue
+                }
+            } else if folded == "\u{309A}" || folded == "\u{309C}", let prev = out.last {
+                if semiVoiceable.contains(prev) {
+                    out.removeLast(); out.append(Unicode.Scalar(prev.value + 2)!); continue
+                }
+            }
+            out.append(folded)
+        }
+        return String(out)
+    }
+
+    /// 折叠 + 小写，关键词匹配的统一入口态。状态词表与分类词表共用，
+    /// 保证两处对同一段文本看到的是同一个形态。
+    static func forMatch(_ text: String) -> String { foldForMatch(text).lowercased() }
+
+    private static func isASCIIAlnum(_ s: Unicode.Scalar) -> Bool {
+        (s.value >= 48 && s.value <= 57) || (s.value >= 65 && s.value <= 90)
+            || (s.value >= 97 && s.value <= 122)
+    }
+
+    /// 拉丁关键词必须落在**词边界**上；CJK 关键词不设边界（`N2完成`、`バグ修正` 是自然写法）。
+    ///
+    /// 不加这条，纯子串匹配会误命中一批极常见的词：`prefix`/`suffix` 含 fix、
+    /// `networking` 含 working、`disclosed` 含 closed、`swipe` 含 wip。
+    /// 判据只看关键词两端**是否紧邻拉丁字母/数字**——`in progress.` 这类带标点的照常命中。
+    static func hasWordBoundary(
+        _ text: [Unicode.Scalar], _ keyword: [Unicode.Scalar], _ hit: Int, _ hitEnd: Int
+    ) -> Bool {
+        guard let first = keyword.first, let last = keyword.last else { return false }
+        if !isASCIIAlnum(first) && !isASCIIAlnum(last) { return true }
+        if hit > 0 && isASCIIAlnum(text[hit - 1]) { return false }
+        if hitEnd < text.count && isASCIIAlnum(text[hitEnd]) { return false }
+        return true
+    }
+
+    /// 词边界意义上的包含判定。`text` 需已过 `forMatch`。
+    static func containsKeyword(_ text: String, _ keyword: String) -> Bool {
+        containsKeyword(Array(text.unicodeScalars), Array(keyword.unicodeScalars))
+    }
+
+    /// 标量数组版：调用方已切好数组时避免重复转换（词表逐条比对时热路径）。
+    static func containsKeyword(_ text: [Unicode.Scalar], _ keyword: [Unicode.Scalar]) -> Bool {
+        guard !keyword.isEmpty, text.count >= keyword.count else { return false }
+        var from = 0
+        while from <= text.count - keyword.count {
+            guard let hit = indexOf(text, keyword, from: from) else { return false }
+            if hasWordBoundary(text, keyword, hit, hit + keyword.count) { return true }
+            from = hit + 1
+        }
+        return false
+    }
+
+    private static func indexOf(
+        _ text: [Unicode.Scalar], _ keyword: [Unicode.Scalar], from: Int
+    ) -> Int? {
+        guard !keyword.isEmpty else { return nil }
+        var i = from
+        while i <= text.count - keyword.count {
+            var j = 0
+            while j < keyword.count && text[i + j] == keyword[j] { j += 1 }
+            if j == keyword.count { return i }
+            i += 1
+        }
+        return nil
+    }
 }
