@@ -2,12 +2,43 @@ windows/M3-KICKOFF-PROMPT.md
   s_b85ad4e83942fb::t_15458d9ee86d3a 1-32
 windows/DEBUG-PLAYBOOK.md
   0000019f9e637aba 1-93
+windows/scripts/seed-fixture-session.ps1
+  0000019f9e6b13d9 2-66
+windows/AgentTimeline/Core/SessionWatcher.cs
+  s_5b0458546b11e2::t_5b4cb2c55d0c28 89
+  s_5b0458546b11e2::t_0ab558d6f08d71 196
+windows/AgentTimeline/MainWindow.xaml
+  s_5b0458546b11e2::t_123a325f42aa2d 64
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.6.16",
   "base_commit_sha": "540dd07073216813ae6b2394acd9d91f88243505",
   "prompts": {
+    "0000019f9e637aba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ai-thread-claude-claude-fable-5-1785068747450",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi",
+      "total_additions": 93,
+      "total_deletions": 0,
+      "accepted_lines": 93,
+      "overriden_lines": 0
+    },
+    "0000019f9e6b13d9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ai-thread-claude-claude-fable-5-1785069245401",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi",
+      "total_additions": 66,
+      "total_deletions": 0,
+      "accepted_lines": 66,
+      "overriden_lines": 0
+    },
     "s_b85ad4e83942fb::t_15458d9ee86d3a": {
       "agent_id": {
         "tool": "claude",
@@ -15,10 +46,21 @@ windows/DEBUG-PLAYBOOK.md
         "model": "claude-fable-5"
       },
       "human_author": "litianyi <litianyi@corp.netease.com>",
-      "messages": [],
       "total_additions": 32,
       "total_deletions": 0,
       "accepted_lines": 32,
+      "overriden_lines": 0
+    },
+    "s_c708a02f4ff2dd::t_5f646b2f359ee6": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785069244359273200",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
       "overriden_lines": 0
     },
     "s_e438de4a0e15d8::t_cc8d3fa353e0d9": {
@@ -28,24 +70,20 @@ windows/DEBUG-PLAYBOOK.md
         "model": "unknown"
       },
       "human_author": "litianyi <litianyi@corp.netease.com>",
-      "messages": [],
       "total_additions": 0,
       "total_deletions": 0,
       "accepted_lines": 0,
       "overriden_lines": 0
-    },
-    "0000019f9e637aba": {
+    }
+  },
+  "sessions": {
+    "s_5b0458546b11e2": {
       "agent_id": {
         "tool": "claude",
-        "model": "claude-fable-5",
-        "id": "ai-thread-claude-claude-fable-5-1785068747450"
+        "id": "e03021b4-7d0e-4a34-bb41-02f72fc558bf",
+        "model": "claude-fable-5"
       },
-      "human_author": "litianyi",
-      "messages": [],
-      "total_additions": 93,
-      "total_deletions": 0,
-      "accepted_lines": 93,
-      "overriden_lines": 0
+      "human_author": "litianyi <litianyi@corp.netease.com>"
     }
   }
 }
