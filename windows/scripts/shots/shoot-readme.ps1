@@ -27,8 +27,15 @@
 
 .PARAMETER Scale
   期望的显示缩放百分比，默认 200（§3b 规定 1dip = 2px）。
-  脚本**只校验不修改**显示设置：不匹配就停下来，请在「设置 → 系统 → 显示 →
-  缩放」里改主显示器再重跑。改全局缩放会重排你所有开着的窗口，不该由脚本背着人做。
+
+  当前缩放不是这个值时，脚本**自己改**（`WindowTool scale set`，走的是系统「设置」
+  同一条 DisplayConfig 路径，立即生效不用注销），不再要人去点界面。两个要知道的后果：
+  · 改的是全局缩放，会重排屏幕上所有已打开的窗口；
+  · 拍完**不改回**——约定是把机器留在拍摄缩放上，免得每次重拍来回切、
+    也免得中途失败时留下半吊子状态。要改回自己跑 `WindowTool scale set 100`。
+
+  改不动时会停下来说明原因：这条路要求主显示器在 Windows 显示配置库里有活动路径，
+  远程会话 / 虚拟显示适配器驱动的桌面通常没有（那种情况下系统「设置」里也改不动）。
 
 .PARAMETER App
   要拍的 AgentTimeline.exe，默认取仓库 Release 构建产物。
@@ -124,17 +131,46 @@ function Get-Md5([string]$path) {
     return (Get-FileHash $path -Algorithm MD5).Hash
 }
 
-# ── 前置校验：缩放必须对，否则产出的是半尺寸/异比例的图，且**看不出来**
-Write-Host '── 校验显示缩放'
+# ── 前置：缩放必须对，否则产出的是半尺寸/异比例的图，且**看不出来**
+Write-Host '── 显示缩放'
 & dotnet build (Join-Path $PSScriptRoot 'WindowTool\WindowTool.csproj') -c Release -o $bin -v quiet --nologo | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'WindowTool 编译失败' }
 $tool = Join-Path $bin 'WindowTool.exe'
 $primary = (& $tool dpi | Select-Object -First 1)
 Write-Host "   $primary"
 $actual = [int]([regex]::Match($primary, 'scale=(\d+)%').Groups[1].Value)
+
 if ($actual -ne $Scale) {
-    throw ("主显示器缩放是 $actual%，本次要求 $Scale%。请在「设置 → 系统 → 显示 → 缩放」" +
-           "改主显示器后重跑；或显式传 -Scale $actual（产出像素尺寸会随之减半，比例不变）。")
+    # 脚本自己改，不再要求人去点「设置」。改完**不改回**：约定是把机器留在拍摄缩放上，
+    # 免得每次重拍都要来回切、也免得中途失败留下半吊子状态。
+    Write-Host "   主显示器 $actual% → $Scale%（会重排屏幕上所有已打开的窗口）"
+    $out = & $tool scale set $Scale 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw (
+            "改缩放失败：$out`n" +
+            "  这条路要求主显示器在 Windows 的显示配置库（CCD）里有活动路径。" +
+            "远程会话 / 虚拟显示适配器（GameViewer、向日葵、Parsec 之类）驱动的桌面通常没有，" +
+            "此时系统「设置」里的缩放同样改不动，不是脚本的问题。`n" +
+            "  换成物理显示器直连后重跑；或显式传 -Scale $actual 按当前缩放拍" +
+            "（比例与 dip 几何不变，像素密度减半）。")
+    }
+    Write-Host "   $out"
+    Start-Sleep -Seconds 2   # 等 DWM 把新 DPI 广播下去，否则随后启动的应用仍按旧 DPI 布局
+
+    $primary = (& $tool dpi | Select-Object -First 1)
+    $actual = [int]([regex]::Match($primary, 'scale=(\d+)%').Groups[1].Value)
+    if ($actual -ne $Scale) {
+        throw "改缩放后读回仍是 $actual%（要求 $Scale%）——设置没有真正生效，停下来别拍出错图。"
+    }
+    Write-Host "   已生效：$primary"
+}
+
+# 面板高度换算成物理像素后不能超出屏幕可用高度：超了 PrintWindow 抓到的下半截是未渲染区，
+# 而产出的图**尺寸完全正常**，属于最坏的静默失败。
+$screenH = [int]([regex]::Match($primary, '\d+x(\d+)').Groups[1].Value)
+if ($screenH -gt 0 -and ($PANEL_H_DIP * $Scale / 100) -gt $screenH) {
+    throw ("面板 ${PANEL_H_DIP}dip @ $Scale% = $($PANEL_H_DIP * $Scale / 100)px 高，" +
+           "超过主显示器的 ${screenH}px。换更高的屏，或用更低的 -Scale。")
 }
 
 $restored = $false

@@ -3,6 +3,7 @@
 //
 //   WindowTool list                        列出 AgentTimeline 的在屏窗口
 //   WindowTool dpi                         报每个显示器的 DPI 与缩放
+//   WindowTool scale get|set <pct>        读 / 改主显示器缩放（set 会重排所有窗口）
 //   WindowTool rect   <AutomationId>       报某个控件的屏幕矩形（诊断用）
 //   WindowTool invoke <AutomationId>       UIA 调用一次（用来关掉上一态留下的弹层）
 //   WindowTool shot   <hwnd> <out.png>     按窗口抓取（PrintWindow + PW_RENDERFULLCONTENT）
@@ -63,6 +64,7 @@ internal static class WindowTool
             {
                 case "list": return List();
                 case "dpi": return Dpi();
+                case "scale": return Scale(args);
                 case "rect": return args.Length < 2 ? Usage() : Rect(args[1]);
                 case "invoke": return args.Length < 2 ? Usage() : Invoke(args[1]);
                 case "border": return Border();
@@ -98,6 +100,7 @@ internal static class WindowTool
             "用法:\n" +
             "  WindowTool list\n" +
             "  WindowTool dpi\n" +
+            "  WindowTool scale  get | set <pct>\n" +
             "  WindowTool rect   <AutomationId>\n" +
             "  WindowTool invoke <AutomationId>\n" +
             "  WindowTool shot   <hwnd> <out.png>\n" +
@@ -158,6 +161,143 @@ internal static class WindowTool
                               $"dpi={dpiX} scale={dpiX * 100 / 96}%");
         }
         return 0;
+    }
+
+    /// <summary>
+    /// 读/写主显示器的缩放百分比。<c>scale get</c> 打印当前值；<c>scale set &lt;pct&gt;</c> 改到目标档。
+    ///
+    /// 改全局缩放会重排屏幕上所有已打开的窗口——这是有意为之、由调用方负责告知用户，
+    /// 不是副作用。写完不自动改回：拍摄脚本按用户约定把机器留在目标缩放上。
+    /// </summary>
+    private static int Scale(string[] args)
+    {
+        var (adapterId, sourceId) = PrimarySource();
+        var get = new DISPLAYCONFIG_SOURCE_DPI_SCALE_GET
+        {
+            header = new DISPLAYCONFIG_DEVICE_INFO_HEADER
+            {
+                type = DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE,
+                size = Marshal.SizeOf<DISPLAYCONFIG_SOURCE_DPI_SCALE_GET>(),
+                adapterId = adapterId,
+                id = sourceId,
+            },
+        };
+        if (DisplayConfigGetDeviceInfo(ref get) != 0)
+        {
+            throw new InvalidOperationException("读取显示缩放失败（DisplayConfigGetDeviceInfo）");
+        }
+
+        // curScaleRel 是「当前档相对推荐档」的偏移 → 反推推荐档在 DpiSteps 里的下标
+        var currentDpi = CurrentPrimaryScale();
+        var currentIdx = Array.IndexOf(DpiSteps, currentDpi);
+        if (currentIdx < 0)
+        {
+            throw new InvalidOperationException($"当前缩放 {currentDpi}% 不在已知档位表里");
+        }
+        var recommendedIdx = currentIdx - get.curScaleRel;
+
+        if (args.Length < 2 || args[1] == "get")
+        {
+            var min = DpiSteps[Math.Clamp(recommendedIdx + get.minScaleRel, 0, DpiSteps.Length - 1)];
+            var max = DpiSteps[Math.Clamp(recommendedIdx + get.maxScaleRel, 0, DpiSteps.Length - 1)];
+            Console.WriteLine($"scale={currentDpi}% recommended={DpiSteps[recommendedIdx]}% range={min}%..{max}%");
+            return 0;
+        }
+
+        var target = Int(args[1]);
+        var targetIdx = Array.IndexOf(DpiSteps, target);
+        if (targetIdx < 0)
+        {
+            throw new ArgumentException($"{target}% 不是合法档位，可选：{string.Join(", ", DpiSteps)}");
+        }
+        if (target == currentDpi)
+        {
+            Console.WriteLine($"scale={currentDpi}% 已是目标值，无需改动");
+            return 0;
+        }
+
+        var rel = targetIdx - recommendedIdx;
+        if (rel < get.minScaleRel || rel > get.maxScaleRel)
+        {
+            throw new ArgumentException(
+                $"{target}% 超出本显示器允许范围（相对档位 {rel} 不在 {get.minScaleRel}..{get.maxScaleRel}）");
+        }
+
+        var set = new DISPLAYCONFIG_SOURCE_DPI_SCALE_SET
+        {
+            header = new DISPLAYCONFIG_DEVICE_INFO_HEADER
+            {
+                type = DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE,
+                size = Marshal.SizeOf<DISPLAYCONFIG_SOURCE_DPI_SCALE_SET>(),
+                adapterId = adapterId,
+                id = sourceId,
+            },
+            scaleRel = rel,
+        };
+        if (DisplayConfigSetDeviceInfo(ref set) != 0)
+        {
+            throw new InvalidOperationException("设置显示缩放失败（DisplayConfigSetDeviceInfo）");
+        }
+        Console.WriteLine($"scale {currentDpi}% → {target}%");
+        return 0;
+    }
+
+    private static int CurrentPrimaryScale()
+    {
+        var hMon = MonitorFromPoint(new POINT { X = 0, Y = 0 }, 1 /* MONITOR_DEFAULTTOPRIMARY */);
+        GetDpiForMonitor(hMon, 0 /* MDT_EFFECTIVE_DPI */, out var dpiX, out _);
+        return (int)(dpiX * 100 / 96);
+    }
+
+    /// <summary>
+    /// 主显示器对应的 (adapterId, sourceId)。按 GDI 设备名匹配——DisplayConfig 的路径里
+    /// 没有「哪个是主屏」的标志位，只能拿 MONITORINFOEX.szDevice 去对 viewGdiDeviceName。
+    /// </summary>
+    private static (LUID, uint) PrimarySource()
+    {
+        var hMon = MonitorFromPoint(new POINT { X = 0, Y = 0 }, 1);
+        var info = new MONITORINFOEX { cbSize = Marshal.SizeOf<MONITORINFOEX>() };
+        GetMonitorInfo(hMon, ref info);
+        var primaryDevice = info.szDevice;
+
+        var sizeRc = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out var pathCount, out var modeCount);
+        if (sizeRc != 0 || pathCount == 0)
+        {
+            throw new InvalidOperationException(
+                $"GetDisplayConfigBufferSizes rc={sizeRc} paths={pathCount} modes={modeCount}" +
+                (pathCount == 0
+                    ? "——没有活动显示路径，无法定位主显示器。远程会话 / 虚拟显示适配器驱动的桌面"
+                      + "通常不进显示配置库（CCD），这种情况下系统「设置」里的缩放同样改不动。"
+                    : ""));
+        }
+        var paths = new DISPLAYCONFIG_PATH_INFO[pathCount];
+        var modes = new DISPLAYCONFIG_MODE_INFO[modeCount];
+        if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero) != 0)
+        {
+            throw new InvalidOperationException(
+                $"QueryDisplayConfig 失败 paths={pathCount}(struct {Marshal.SizeOf<DISPLAYCONFIG_PATH_INFO>()}B/应72) " +
+                $"modes={modeCount}(struct {Marshal.SizeOf<DISPLAYCONFIG_MODE_INFO>()}B/应64)");
+        }
+
+        for (var i = 0; i < pathCount; i++)
+        {
+            var name = new DISPLAYCONFIG_SOURCE_DEVICE_NAME
+            {
+                header = new DISPLAYCONFIG_DEVICE_INFO_HEADER
+                {
+                    type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME,
+                    size = Marshal.SizeOf<DISPLAYCONFIG_SOURCE_DEVICE_NAME>(),
+                    adapterId = paths[i].sourceInfo.adapterId,
+                    id = paths[i].sourceInfo.id,
+                },
+            };
+            if (DisplayConfigGetDeviceInfo(ref name) != 0) continue;
+            if (string.Equals(name.viewGdiDeviceName, primaryDevice, StringComparison.OrdinalIgnoreCase))
+            {
+                return (paths[i].sourceInfo.adapterId, paths[i].sourceInfo.id);
+            }
+        }
+        throw new InvalidOperationException($"在活动显示路径里找不到主显示器 {primaryDevice}");
     }
 
     private static AutomationElement? PanelElement() =>
@@ -710,6 +850,7 @@ internal static class WindowTool
     [DllImport("user32.dll")] private static extern IntPtr GetDC(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
     [DllImport("user32.dll")] private static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(POINT pt, uint flags);
     [DllImport("user32.dll")] private static extern uint SendInput(uint n, INPUT[] inputs, int size);
     [DllImport("user32.dll")] private static extern bool SetProcessDpiAwarenessContext(IntPtr ctx);
     [DllImport("user32.dll")] private static extern bool EnumDisplayMonitors(
@@ -724,4 +865,118 @@ internal static class WindowTool
     [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr obj);
     [DllImport("gdi32.dll")] private static extern IntPtr CreateDIBSection(
         IntPtr hdc, ref BITMAPINFO bmi, uint usage, out IntPtr bits, IntPtr section, uint offset);
+
+    // ─────────────────────────── 主显示器缩放（读 / 写）
+    //
+    // 走的是 DisplayConfig 那套，和系统「设置 → 显示 → 缩放」同一条路径：**立即生效**，
+    // 不需要注销重登。GET/SET_DPI_SCALE 这两个 info type 微软没写进文档（负数保留段），
+    // 但从 Win10 1703 起一直可用，Settings 应用自己就在用。
+    //
+    // 关键点：`scaleRel` 是**相对系统推荐缩放的档位偏移**，不是绝对百分比。所以要先 GET
+    // 拿到 (min, cur, max) 三个相对值，用 cur 反推出推荐档在 DpiSteps 里的下标，
+    // 再算目标档的相对偏移。直接写绝对百分比是错的。
+    [DllImport("user32.dll")] private static extern int GetDisplayConfigBufferSizes(
+        uint flags, out uint pathCount, out uint modeCount);
+
+    [DllImport("user32.dll")] private static extern int QueryDisplayConfig(
+        uint flags, ref uint pathCount, [Out] DISPLAYCONFIG_PATH_INFO[] paths,
+        ref uint modeCount, [Out] DISPLAYCONFIG_MODE_INFO[] modes, IntPtr topologyId);
+
+    [DllImport("user32.dll")] private static extern int DisplayConfigGetDeviceInfo(
+        ref DISPLAYCONFIG_SOURCE_DEVICE_NAME request);
+
+    [DllImport("user32.dll")] private static extern int DisplayConfigGetDeviceInfo(
+        ref DISPLAYCONFIG_SOURCE_DPI_SCALE_GET request);
+
+    [DllImport("user32.dll")] private static extern int DisplayConfigSetDeviceInfo(
+        ref DISPLAYCONFIG_SOURCE_DPI_SCALE_SET request);
+
+    private const uint QDC_ONLY_ACTIVE_PATHS = 0x00000002;
+    private const int DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1;
+    private const int DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE = -3;
+    private const int DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE = -4;
+
+    /// <summary>Windows 允许的缩放档位，顺序即档位序号。</summary>
+    private static readonly int[] DpiSteps = { 100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500 };
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LUID { public uint LowPart; public int HighPart; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DISPLAYCONFIG_DEVICE_INFO_HEADER
+    {
+        public int type;
+        public int size;
+        public LUID adapterId;
+        public uint id;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct DISPLAYCONFIG_SOURCE_DEVICE_NAME
+    {
+        public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string viewGdiDeviceName;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DISPLAYCONFIG_SOURCE_DPI_SCALE_GET
+    {
+        public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+        public int minScaleRel;
+        public int curScaleRel;
+        public int maxScaleRel;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DISPLAYCONFIG_SOURCE_DPI_SCALE_SET
+    {
+        public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+        public int scaleRel;
+    }
+
+    // 路径/模式结构只用来定位主显示器的 (adapterId, sourceId)，字段按大小占位即可——
+    // 只有 sourceInfo 前两个字段被真正读取，其余保持布局正确就行。
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DISPLAYCONFIG_PATH_SOURCE_INFO
+    {
+        public LUID adapterId;
+        public uint id;
+        public uint modeInfoIdx;
+        public uint statusFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DISPLAYCONFIG_PATH_TARGET_INFO
+    {
+        public LUID adapterId;
+        public uint id;
+        public uint modeInfoIdx;
+        public uint outputTechnology;
+        public uint rotation;
+        public uint scaling;
+        // DISPLAYCONFIG_RATIONAL 是两个 uint32、按 4 字节对齐。写成 ulong 会把对齐提到 8，
+        // 前面插进 4 字节 padding，整个结构体错位——路径数组一错，主显示器就找不着了。
+        public uint refreshRateNumerator;
+        public uint refreshRateDenominator;
+        public uint scanLineOrdering;
+        public int targetAvailable;
+        public uint statusFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DISPLAYCONFIG_PATH_INFO
+    {
+        public DISPLAYCONFIG_PATH_SOURCE_INFO sourceInfo;
+        public DISPLAYCONFIG_PATH_TARGET_INFO targetInfo;
+        public uint flags;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Size = 64)]
+    private struct DISPLAYCONFIG_MODE_INFO
+    {
+        public uint infoType;
+        public uint id;
+        public LUID adapterId;
+        // 其后是 64 字节的 union（target/source/desktopImage），本工具不读，靠 Size 占位。
+    }
 }
