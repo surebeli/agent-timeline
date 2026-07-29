@@ -106,7 +106,7 @@ public static class CodenameStatuses
 }
 
 /// <summary>
-/// Node phase classification (PRD §3.3b 阶段锚点) — the "anchor" facet of the timeline.
+/// Node kind classification (PRD §3.3b 类型锚点) — the "anchor" facet of the timeline.
 /// Mirrors macos NodeKind; persisted/filtered by the Chinese label (the mac rawValue).
 /// </summary>
 public enum NodeKind

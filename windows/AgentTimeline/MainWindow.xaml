@@ -139,16 +139,16 @@
                         </Flyout>
                     </Button.Flyout>
                 </Button>
-                <!-- Node kind filter (PRD §3.3b 阶段锚点): 阶段(全部) / 需求 / 任务 / … -->
+                <!-- Node kind filter (PRD §3.3b 类型锚点): 类型(全部) / 需求 / 任务 / … -->
                 <Button
                     x:Name="KindFilterButton"
                     Padding="5,3,5,4"
                     VerticalAlignment="Center"
-                    ToolTipService.ToolTip="阶段过滤">
+                    ToolTipService.ToolTip="类型过滤">
                     <TextBlock
                         x:Name="KindFilterLabel"
                         FontSize="{StaticResource FontSizeBody}"
-                        Text="阶段 ▾" />
+                        Text="类型 ▾" />
                     <Button.Flyout>
                         <MenuFlyout Opening="KindFilterFlyout_Opening" />
                     </Button.Flyout>

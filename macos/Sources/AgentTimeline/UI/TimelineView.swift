@@ -102,7 +102,7 @@ struct TimelineView: View {
 
     private var kindMenu: some View {
         Menu {
-            Button("全部阶段") { viewModel.kindFilter = nil }
+            Button("全部类型") { viewModel.kindFilter = nil }
             Divider()
             ForEach(NodeKind.allCases, id: \.rawValue) { kind in
                 Button {
@@ -119,7 +119,7 @@ struct TimelineView: View {
             HStack(spacing: 3) {
                 Image(systemName: "square.stack.3d.up")
                     .font(.system(size: 10))
-                Text(viewModel.kindFilter ?? "阶段")
+                Text(viewModel.kindFilter ?? "类型")
                     .font(.system(size: tokens.typography.size.caption))
             }
             .foregroundStyle(viewModel.kindFilter == nil

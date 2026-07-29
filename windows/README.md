@@ -149,7 +149,7 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
        跳跃滚动下有一拍校准延迟，实测不可感知；
     2. 窗口 hover/idle 渐变实际使用 `opacity.transitionMs`(180ms)，tokens 的
        `hoverFadeMs`(120ms) 仅用于条目内 hover 渐显——与 mac 同源同义；
-    3. 头部过滤器为「全部 ▾ / 阶段 ▾」紧凑按钮 + 单选菜单（mac 为 popup 按钮）；
+    3. 头部过滤器为「全部 ▾ / 类型 ▾」紧凑按钮 + 单选菜单（mac 为 popup 按钮）；
        空间不足时标题省略号让位，长项目名按钮内截断（WinUI 控件 chrome 宽于 mac）；
     4. 「总在最前」在验证机上被系统级拒绝（该会话对一切窗口禁止 topmost，含记事本），
        代码路径正确，需正常交互会话复测——非 app 缺陷；

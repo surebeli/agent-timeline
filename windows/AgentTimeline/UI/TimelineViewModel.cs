@@ -406,17 +406,17 @@ public sealed class NodeViewModel : ObservableObject
 
 /// <summary>
 /// The timeline (PRD F2): newest first, lazily paged, filterable by project and by node
-/// kind (PRD §3.3b 阶段过滤). Fed by TimelineCoordinator events which MainWindow marshals
+/// kind (PRD §3.3b 类型过滤). Fed by TimelineCoordinator events which MainWindow marshals
 /// onto the UI thread.
 /// </summary>
 public sealed class TimelineViewModel : ObservableObject
 {
-    // 紧凑标签对齐 mac 参照物（"全部"/"阶段"）：340px 面板宽装不下
-    // 标题 + 两个"全部项目/全部阶段"宽下拉 + 三个头部按钮，右对齐的下拉栈会
+    // 紧凑标签对齐 mac 参照物（"全部"/"类型"）：340px 面板宽装不下
+    // 标题 + 两个"全部项目/全部类型"宽下拉 + 三个头部按钮，右对齐的下拉栈会
     // 溢出压到标题上（M3 实机发现）。ComboBox 折叠态显示的就是选中项文本，
     // 因此 all-选项本身必须是短标签。
     public const string AllProjects = "全部";
-    public const string AllKinds = "阶段";
+    public const string AllKinds = "类型";
     private const int PageSize = 200;
 
     private readonly Store _store;

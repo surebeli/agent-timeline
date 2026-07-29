@@ -68,7 +68,7 @@ swift test                                # 48 项单测
 
 #### Windows 实机一览
 
-| 双墨线台账 · 阶段彩标 · 代号状态徽章 | 项目下拉 · 最近活跃 agent 徽标 | 代号词典 · 生命周期一屏回忆 |
+| 双墨线台账 · 类型彩标 · 代号状态徽章 | 项目下拉 · 最近活跃 agent 徽标 | 代号词典 · 生命周期一屏回忆 |
 |:---:|:---:|:---:|
 | <img src="docs/assets/screenshot-windows-timeline.png" width="290" alt="Windows 台账时间线：五家 agent 混排、kind 彩标、N2✓/N3△ 状态徽章、决策菱形锚点" /> | <img src="docs/assets/screenshot-windows-projects.png" width="290" alt="项目下拉：CL/CO/GR/KI 来源徽标（跟随最近活跃 agent）" /> | <img src="docs/assets/screenshot-windows-dictionary.png" width="290" alt="代号词典面板：N1/N2/N3/T1/T2/REQ-AUTH-3 的定义、完成/进行中/变更状态与出处" /> |
 
@@ -76,7 +76,7 @@ swift test                                # 48 项单测
 
 #### macOS 实机一览
 
-| 双墨线台账 · 阶段彩标 · 代号状态徽章 | 项目下拉 · 最近活跃 agent 徽标 | 代号词典 · 生命周期一屏回忆 |
+| 双墨线台账 · 类型彩标 · 代号状态徽章 | 项目下拉 · 最近活跃 agent 徽标 | 代号词典 · 生命周期一屏回忆 |
 |:---:|:---:|:---:|
 | <img src="docs/assets/screenshot-macos-timeline.png" width="290" alt="macOS 台账时间线：五家 agent 混排、kind 彩标、N2✓/N3△ 状态徽章、决策菱形锚点" /> | <img src="docs/assets/screenshot-macos-projects.png" width="290" alt="项目下拉：CL/CO/GR/KI 来源徽标（跟随最近活跃 agent）" /> | <img src="docs/assets/screenshot-macos-dictionary.png" width="290" alt="代号词典面板：N1/N2/N3/T1/T2/REQ-AUTH-3 的定义、完成/进行中/变更状态与出处" /> |
 
