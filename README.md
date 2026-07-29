@@ -62,7 +62,7 @@ swift test                                # 48 项单测
 ### Windows（WinUI 3 / .NET 8）
 
 完整源码在 [`windows/`](windows/)，**已完成实机运行验证（M3，2026-07-26）**：Core 解析层跨平台
-冒烟 348 断言，WinUI 层过 CI 的 VS msbuild 硬门禁，分层验证清单全项注记见
+冒烟 354 断言，WinUI 层过 CI 的 VS msbuild 硬门禁，分层验证清单全项注记见
 [windows/DEBUG-PLAYBOOK.md](windows/DEBUG-PLAYBOOK.md)。开发构建用 Visual Studio 2022 打开
 `windows/AgentTimeline.sln`，详见 [windows/README.md](windows/README.md)。
 

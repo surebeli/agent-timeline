@@ -17,6 +17,27 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 
 ## 更新记录
 
+- **2026-07-29 引子续接实机验证 + README 一览重拍（v0.5.1 轮，无产品代码改动）**
+  - **A 引子续接差分执行**：§3.3b 的实现随 mac 同步落地并过 CI，本轮补 CI 做不了的
+    实机验证——本机 15020 条真实 agent 回复（claude 5052 + codex 9968），改动前/后
+    两个源码状态各跑一遍 `ParserUtil.ResultExcerpt` 逐条比对：产出变化 3136 条
+    （20.9%）、**变短 0 条**、**旧值全部是新值的前缀**、冒号结尾 4496→1369、
+    均长 85→127、空串 0→0。两条硬约束成立。冒号残留与 mac（2 条）差一个量级，
+    逐条分桶归因：1341 条回复本来就只有一段、19 条正文全在围栏/表格里、9 条吃到
+    上限，未归类 0——不是实现少接了。工具入仓 `scripts/leadin-diff/`；
+  - **B README「Windows 实机一览」重拍**：三张图统一为同演示数据 / 同 dip 几何 /
+    同背板，README 三列统一 290。拍摄脚本入仓 `scripts/shots/`。四处 mac 参数
+    按 Windows 实机事实改（弹层受 `ShouldConstrainToRootBounds` 约束不溢出面板、
+    合成鼠标输入被系统吞、UIA 树会退化、窗口矩形比客户区大 7px 且 PrintWindow
+    不带圆角），全部实测并写进 [DEBUG-PLAYBOOK.md](DEBUG-PLAYBOOK.md) §3b；
+  - **顺带修** `scripts/demo-seed.py` 对 `docs/DEMO-DATASET.md` 的偏离：日期写死成
+    2026-07-26/27，而规范明写「D = 拍摄当天」、mac 侧一直是相对实现，导致两端截图
+    日期分组对不上。已改为相对今天；
+  - **A3**：CI 出的 `AgentTimeline-windows-x64-v0.5.1.zip` 装机验证（sha256 与 Release
+    页一致）——托盘常驻（溢出区 UIA 确认）、时间线正常上屏、设置窗 caption
+    `Agent Timeline 设置 · v0.5.1`；
+  - 冒烟 **354 断言全绿**（含本轮 `ResultExcerptLeadIn()` 6 条）。
+
 - **2026-07-28 (i) 四路解析器对拍 — Windows 侧分叉修复（W-a…W-e）**
   - **W-a codex 摘要器自摄取（高）**：摘要引擎解析到 `codex exec` 时，CliSummarizer 以
     cwd=`%LOCALAPPDATA%\AgentTimeline\summarizer` 起进程，codex 把每条摘要 prompt 写成
