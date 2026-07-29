@@ -1,5 +1,27 @@
 # macOS 同步开工 Prompt（多语言地基追齐轮 · 2026-07-29）
 
+> ## ✅ 本轮已完成（2026-07-30）
+>
+> 任务 A/B/C 落地并 push，CI 第五关（Strings · 文案表同源）对 mac 那半边
+> **已从「跳过」转为真校验并通过**（69 键 × 4 语言，副本同源）。mac 测试 49 → 56 项全绿。
+>
+> - **A** `build-app.sh` 增生成步，`design/strings.json` → `UI/StringsData.swift`，
+>   与 `DesignTokensData` 同构、原样嵌入。删掉产物重跑整包构建验证过生成链路；
+> - **B** `UI/Strings.swift`，逐条对齐 `AppStrings.cs` 的行为契约——平台覆盖 `@mac`、
+>   跟随系统解析（zh-TW/zh-HK → zh-Hans，兜底 en）、`{0}` 序号占位符、
+>   载入失败不抛、缺键回显键名、切换发 `didChangeNotification`；
+> - **C** `AppSettings.language` 存字符串 rawValue，`AppDelegate` 在任何界面构建前载入。
+>
+> **任务 D 查证结论：mac 确实没有摘要缓存**——你没看漏。`Store.swift` 只建
+> `nodes` / `codenames` / `file_offsets` 三张表，Windows 另有 `summaries`。PRD §3.4
+> 在 mac 端从未实现，已如实记入 `docs/TEXT-NORMALIZATION.md §4.2` 分叉清单**第 20 条**
+> （含「绝不能把语言混进命令 hash」那条硬约束的转述），本轮未补实现。
+>
+> **留给下一轮**：69 键接线 + 识别词表四语化（含你调研出的三条会让现有实现出错的发现），
+> 按你的要求双端同轮做。
+>
+> 下面 `---` 之间是本轮的原始任务书，保留备查。
+
 > 用法：在 macOS 机器的仓库根目录启动 agent 会话，把下面 `---` 之间的整段粘贴为首条指令。
 >
 > 上一轮（对齐 Windows 跨端合并审计，A1–A4 + B1）已全部完成并随 v0.5.0 发布，
