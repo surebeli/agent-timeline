@@ -1,0 +1,21 @@
+windows/README.md
+  s_5f812b192ad64b::t_24e75fb21dbf4f 351-362
+CHANGELOG.md
+  s_5f812b192ad64b::t_817cb14e6cce78 20-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "53faa2c9e217974bec91c46550016d28f83ec815",
+  "prompts": {},
+  "sessions": {
+    "s_5f812b192ad64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}

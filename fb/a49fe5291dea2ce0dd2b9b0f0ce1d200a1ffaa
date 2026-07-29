@@ -1,0 +1,23 @@
+README.md
+  s_5f812b192ad64b::t_9b9dbdfe14c34a 65
+windows/SYNC-KICKOFF-PROMPT.md
+  s_5f812b192ad64b::t_eba283d2538626 3-27
+windows/README.md
+  s_5f812b192ad64b::t_46fe24d6e12cd9 20-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "fba49fe5291dea2ce0dd2b9b0f0ce1d200a1ffaa",
+  "prompts": {},
+  "sessions": {
+    "s_5f812b192ad64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
