@@ -1,0 +1,108 @@
+macos/scripts/shots/window-tool.swift
+  s_b85ad4e83942fb::t_2b28c6ed0ce8d3 1-56
+macos/scripts/shots/compose.swift
+  s_b85ad4e83942fb::t_6a6f84ffa76d1f 1-58
+macos/scripts/shots/shoot-readme.sh
+  s_b85ad4e83942fb::t_0dac9daaf2c223 1-53,55-60,62-63,65-90,92-108,115-115,130-150,153-153,165-181,183-186
+  s_b85ad4e83942fb::t_122b50df6f68ac 54-54,61-61,64-64,91-91,151-152,182-182
+  s_b85ad4e83942fb::t_9754ce4d4dd1c8 109-114,116-129
+  s_b85ad4e83942fb::t_d718e3edfb1f24 154-155,157-164
+  s_b85ad4e83942fb::t_2cae3525cf36c2 156-156
+windows/DEBUG-PLAYBOOK.md
+  s_b85ad4e83942fb::t_06785a8f7d5778 167-186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "a0193f9b203c3897ea5400e17efeb21743ddb167",
+  "prompts": {
+    "s_b85ad4e83942fb::t_2b28c6ed0ce8d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 56,
+      "total_deletions": 0,
+      "accepted_lines": 56,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_6a6f84ffa76d1f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 58,
+      "total_deletions": 0,
+      "accepted_lines": 58,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_0dac9daaf2c223": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 148,
+      "total_deletions": 0,
+      "accepted_lines": 148,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_06785a8f7d5778": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 20,
+      "total_deletions": 0,
+      "accepted_lines": 20,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_122b50df6f68ac": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 0,
+      "accepted_lines": 7,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_9754ce4d4dd1c8": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 20,
+      "total_deletions": 0,
+      "accepted_lines": 20,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_d718e3edfb1f24": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 0,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_2cae3525cf36c2": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
