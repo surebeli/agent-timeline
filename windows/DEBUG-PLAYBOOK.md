@@ -185,6 +185,39 @@ macos/scripts/shots/compose.swift      # 合成到统一画布（背板 + 光晕
 已知不可复现处：代号词典按 `updated` 排序，**并列项行序不稳定**（演示数据里 N2/N3、
 T1/T2 的 updated 完全相同），两次拍摄的字典图可能行序对调、字节不同。属正常。
 
+### Windows 实机落地（2026-07-29 首次拍成，脚本 `windows/scripts/shots/`）
+
+```
+windows/scripts/shots/shoot-readme.ps1        # 编排：校验缩放 → 备份 → 灌演示数据 → 三态 → 合成 → 还原 → 核验
+windows/scripts/shots/WindowTool/             # 窗口枚举 / UIA 调用 / PrintWindow 抓取 / 合成（mac 两件套合一）
+```
+
+上面那套 mac 参数**大部分照抄，四处必须按 Windows 实机事实改**——都是实测出来的，
+照搬 mac 只会得到静默错误的产出：
+
+| 项 | mac | Windows 实测 | 影响 |
+|---|---|---|---|
+| 弹层归属 | 画在面板窗口缓冲区，**恒定溢出**面板右缘 122pt | WinUI 3 Flyout 默认受 `ShouldConstrainToRootBounds` 约束，被系统**左移挤回面板内**（实测面板 300..940、弹层 576..916） | mac 的「词典态必须比时间线态宽」不变式**在 Windows 上恒不成立**，照抄即误报。换成「调用按钮后面板像素必须有实质变化」，由 WindowTool 硬判 |
+| 驱动方式 | 合成点击（CGEvent） | **合成鼠标输入被系统吞掉**：`SendInput` 连指针都挪不动（前后 `GetCursorPos` 完全不变），与 §2a 记的「合成输入起不动原生 NC 拖拽」同源 | 按钮一律走 **UIA `InvokePattern`**，不点坐标 |
+| 自动化稳定性 | 一次启动拍完三态 | 面板窗口的 **UIA 树会退化**：跑久了或残留 tooltip 后，后代节点实测从 96 掉到 4，按 `AutomationId` 就找不到控件 | **每一态都重启应用再拍**，顺带清掉上一态残留的弹层 |
+| 抓取范围 | `screencapture -l` 取窗口，自带圆角与 alpha | `GetWindowRect` 比可见面板大一圈（四边各 7px 不可见 resize 边框），PrintWindow 把这一圈画成垃圾——顶边一条浅色带、其余三边纯黑；且**不带 DWM 圆角裁剪** | 裁到**客户区**（`GetClientRect`+`ClientToScreen`），圆角在合成阶段按 token `radius.panel=14` 补回 |
+
+两个连带结论：
+
+1. `AppSettings.WindowWidth/Height` 存的是**窗口矩形**，可见面板是客户区。要让可见
+   面板正好 640×580dip，得按边框厚度反推窗口尺寸——差值随 DPI 变，脚本在建表那次
+   启动时用 `WindowTool border` 量，不写死；
+2. 面板宽 640 **不会**被 `panel.maxWidth=560` 钳制：`OnAppWindowChanged` 在
+   `RestoreWindowBounds()` 之后才挂上，首次 `MoveAndResize` 不走钳制（用户手动拖拽
+   才会被钳到 560）。所以不需要动 `design/design-tokens.json`。
+
+**缩放**：脚本**只校验不修改**显示设置（`-Scale`，默认 200）。改全局缩放会重排机器上
+所有开着的窗口，不该由脚本背着人做；不匹配就停下来提示去「设置 → 系统 → 显示 → 缩放」
+改。2026-07-29 那轮拍摄机主屏是 100%，故 `-Scale 100`，产出 859×676——画布**宽高比与
+dip 几何和 mac 的 1718×1352 逐位相同**（859×676 就是同一组 dip 常量），README 三列同为
+290 时两行仍严丝合缝对齐，只是像素密度为 mac 的一半。投影位移/模糊与圆角半径都按
+`画布宽 / 859dip` 折算，不是写死像素，换 200% 重拍无需改代码。
+
 ## 4. 修复回路（推荐工作流）
 
 1. Windows 上装 Claude Code / 任意 agent CLI，在仓库根目录开会话——

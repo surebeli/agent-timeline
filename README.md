@@ -70,7 +70,7 @@ swift test                                # 48 项单测
 
 | 双墨线台账 · 阶段彩标 · 代号状态徽章 | 项目下拉 · 最近活跃 agent 徽标 | 代号词典 · 生命周期一屏回忆 |
 |:---:|:---:|:---:|
-| <img src="docs/assets/screenshot-windows-timeline.png" width="250" alt="Windows 台账时间线：四家 agent 混排、kind 彩标、N2✓/N3△ 状态徽章" /> | <img src="docs/assets/screenshot-windows-projects.png" width="230" alt="项目下拉：CL/CO/KI/ZC 来源徽标（跟随最近活跃 agent）" /> | <img src="docs/assets/screenshot-windows-dictionary.png" width="250" alt="代号词典面板：定义/进行中/完成/变更 状态与出处" /> |
+| <img src="docs/assets/screenshot-windows-timeline.png" width="290" alt="Windows 台账时间线：五家 agent 混排、kind 彩标、N2✓/N3△ 状态徽章、决策菱形锚点" /> | <img src="docs/assets/screenshot-windows-projects.png" width="290" alt="项目下拉：CL/CO/GR/KI 来源徽标（跟随最近活跃 agent）" /> | <img src="docs/assets/screenshot-windows-dictionary.png" width="290" alt="代号词典面板：N1/N2/N3/T1/T2/REQ-AUTH-3 的定义、完成/进行中/变更状态与出处" /> |
 
 设置界面（摘要引擎三档 / 透明度 / agent 开关）：[screenshot-windows-settings.png](docs/assets/screenshot-windows-settings.png)。
 
@@ -82,7 +82,10 @@ swift test                                # 48 项单测
 
 设置界面：[screenshot-macos-settings.png](docs/assets/screenshot-macos-settings.png)。两端同一演示数据集拍摄（[docs/DEMO-DATASET.md](docs/DEMO-DATASET.md)），视觉规范同源 `design/design-tokens.json`。
 
-> 首图与 macOS 一览摄于 v0.5.x（五家 agent 混排，同一画布同一缩放）；Windows 一览摄于四家 agent 时期（v0.4.x），界面结构不变、仅多一枚 `GR` 徽标。
+> 两端一览均摄于 v0.5.1（五家 agent 混排，同一演示数据、同一 dip 几何、同一背板，
+> 画布宽高比逐位相同故两行等高）。macOS 为 Retina 2x（1718×1352），Windows 本轮拍摄机
+> 主屏为 100% 缩放（859×676，dip 几何与 mac 一致、像素密度为其一半）；README 显示宽度
+> 290 下两端观感无差异。拍摄脚本：mac `macos/scripts/shots/`、Windows `windows/scripts/shots/`。
 
 ## 工作原理
 

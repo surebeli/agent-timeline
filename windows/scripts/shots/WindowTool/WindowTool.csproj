@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    截图编排用的窗口/输入/合成工具（配合 shoot-readme.ps1），对标 mac 侧
+    macos/scripts/shots/window-tool.swift + compose.swift 两件套合一。
+
+    ⚠ 必须先 dotnet build 成二进制再用：编排里有十几次交互步骤，
+      每步都重新编译会超时（mac 侧 `swift file.swift` 实测 >2min，同一个坑）。
+      shoot-readme.ps1 已代劳。
+
+    net8.0-windows + System.Drawing.Common：只用 GDI+ 位图与 Win32 P/Invoke，
+    不引 WinUI，任何装了 .NET 8 SDK 的 Windows 机器都能编。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>WindowTool</AssemblyName>
+    <RootNamespace>AgentTimeline.Shots</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- UseWPF 只为拿 System.Windows.Automation（UIA 客户端），不建 WPF 界面。
+         按 AutomationId 找按钮、按 UIA 树判定弹层是否真开了，比硬编码像素偏移
+         稳得多——也是"抓到一张没有弹层的图"这类静默失败的唯一可靠拦法。 -->
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="8.0.6" />
+  </ItemGroup>
+
+</Project>
