@@ -395,15 +395,16 @@ enum TextNormalizer {
         guard !keyword.isEmpty, text.count >= keyword.count else { return false }
         var from = 0
         while from <= text.count - keyword.count {
-            guard let hit = indexOf(text, keyword, from: from) else { return false }
+            guard let hit = firstIndex(of: keyword, in: text, from: from) else { return false }
             if hasWordBoundary(text, keyword, hit, hit + keyword.count) { return true }
             from = hit + 1
         }
         return false
     }
 
-    private static func indexOf(
-        _ text: [Unicode.Scalar], _ keyword: [Unicode.Scalar], from: Int
+    /// 标量数组里的首次出现位置（词表逐条比对时需要命中下标做否定判定）。
+    static func firstIndex(
+        of keyword: [Unicode.Scalar], in text: [Unicode.Scalar], from: Int
     ) -> Int? {
         guard !keyword.isEmpty else { return nil }
         var i = from
