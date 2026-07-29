@@ -11,6 +11,25 @@
 
 ### 修复（Windows）
 
+- **整条点击展开在绝大部分面积上失效**（实机值守发现）。`Tapped` 原先挂在一层夹在中间的
+  透明命中层上，而命令/派生纸面块是**不透明 Border、可命中且自身没有 Tapped 处理器**——
+  点在它们身上时事件只会往**上**冒泡到条目 root（root 当时也没有 Tapped），那层兄弟命中层
+  永远轮不到。可点区域只剩元信息行与块间窄缝。改为把 `Tapped` 挂到条目 root（对齐 mac
+  `NodeViews.swift` 的 `.contentShape(Rectangle()).onTapGesture`）并删掉命中层。
+- **要点摘要行划不动**：折叠态下派生区最显眼的那行，是全条唯一漏了
+  `IsTextSelectionEnabled` 的文本。补上；并给条目内各文本加元素级 `RightTapped` 兜底，
+  防止可选文本吞掉右键手势（派生区右键菜单待复测确认）。
+
+### 验证（Windows）
+
+- **provider 档全链路打通**（此前长期挂在「已知未验证事项」里，只验过失败降级链路）。
+  新增 `windows/scripts/provider-check/`：本机 OpenAI 兼容 mock（真 HTTP、真协议）+ 端到端
+  编排。五项判定全绿——baseUrl 不带 `/v1` 时自动补全、Bearer 头带上、`temperature=0`、
+  解析 `choices[0].message.content` → `SummaryJson.Parse`、落库 `summary_source='Provider'`
+  且标题被 LLM 值替换。数据安全同 §3b：备份 → 文件级交换 → try/finally 还原 → 计数 + md5
+  双重核验。mock **不记录 prompt 正文**（只留长度与 SHA256），Authorization 头日志脱敏。
+  仍未验：某个具体厂商端点的响应怪癖（需真凭据，不经手脚本）。
+
 - **单实例保护**：补上 Windows 侧缺失的入口闸——这是一处双端分叉，mac
   `App/main.swift` 一直有（发现有同 bundle id 的进程就 `exit(0)`），Windows 侧从无对应物。
   面板 `IsShownInSwitchers=false`、无任务栏按钮、收进托盘后完全隐身，托盘图标在 Win11

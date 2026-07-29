@@ -222,11 +222,17 @@
                 <!-- Boxless ledger entry. Grammar: ❯ + solid agent rule + opaque paper
                      block = my literal words; ✦ + dotted rule = machine-derived. -->
                 <DataTemplate x:Key="NodeTemplate" x:DataType="ui:NodeViewModel">
+                    <!-- Tapped 挂在**整条 root**（对齐 mac NodeViews.swift 的
+                         `.contentShape(Rectangle()).onTapGesture`）。曾经用一层夹在中间的
+                         透明命中层，但命令/派生纸面块是**不透明 Border、可命中且没有
+                         Tapped 处理器**，点在它们身上时事件只会往上冒泡、永远轮不到那层
+                         兄弟命中层——于是整条视觉面积的绝大部分都点不开（实机值守发现）。 -->
                     <Grid
                         Background="Transparent"
                         PointerEntered="Entry_PointerEntered"
                         PointerExited="Entry_PointerExited"
-                        RightTapped="Entry_RightTapped">
+                        RightTapped="Entry_RightTapped"
+                        Tapped="EntryBackground_Tapped">
 
                         <!-- 需求/决策 anchor wash: full-width kind color @8%, radius 6 -->
                         <Border
@@ -240,10 +246,6 @@
                             Background="{ThemeResource EntryHoverBrush}"
                             IsHitTestVisible="False"
                             Visibility="{x:Bind IsHovering, Mode=OneWay}" />
-                        <!-- expand hit layer: catches taps on the entry background / meta row;
-                             selectable text and buttons sit ABOVE it, so text selection wins -->
-                        <Border Background="Transparent" Tapped="EntryBackground_Tapped" />
-
                         <!-- rail gutter: continuous 2px segment (joins across entries) + kind marker -->
                         <Grid
                             Width="22"
@@ -425,6 +427,7 @@
                                             Foreground="{ThemeResource CommandTextBrush}"
                                             IsTextSelectionEnabled="True"
                                             MaxLines="{x:Bind CommandMaxLines, Mode=OneWay}"
+                                            RightTapped="Entry_RightTapped"
                                             Tapped="EntryText_Tapped"
                                             Text="{x:Bind PromptText}"
                                             TextTrimming="CharacterEllipsis"
@@ -506,6 +509,7 @@
                                             Foreground="{ThemeResource TextSecondaryBrush}"
                                             IsTextSelectionEnabled="True"
                                             MaxLines="1"
+                                            RightTapped="Entry_RightTapped"
                                             Tapped="EntryText_Tapped"
                                             Text="{x:Bind DerivedTitle, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis" />
@@ -516,11 +520,15 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
+                                        <!-- IsTextSelectionEnabled 曾漏在这一行：折叠态下它是
+                                             派生区最显眼的一行，却是唯一划不动的（实机值守发现） -->
                                         <TextBlock
                                             Grid.Column="0"
                                             FontSize="{StaticResource FontSizeCaption}"
                                             Foreground="{ThemeResource TextSecondaryBrush}"
+                                            IsTextSelectionEnabled="True"
                                             MaxLines="1"
+                                            RightTapped="Entry_RightTapped"
                                             Tapped="EntryText_Tapped"
                                             Text="{x:Bind KeypointsDigest, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis" />
@@ -553,6 +561,7 @@
                                                         FontSize="{StaticResource FontSizeCaption}"
                                                         Foreground="{ThemeResource TextSecondaryBrush}"
                                                         IsTextSelectionEnabled="True"
+                                                        RightTapped="Entry_RightTapped"
                                                         Tapped="EntryText_Tapped"
                                                         Text="{x:Bind}"
                                                         TextWrapping="Wrap" />
@@ -606,6 +615,7 @@
                                         Foreground="{ThemeResource ResultLineBrush}"
                                         IsTextSelectionEnabled="True"
                                         MaxLines="{x:Bind ResultLineMaxLines, Mode=OneWay}"
+                                        RightTapped="Entry_RightTapped"
                                         Tapped="EntryText_Tapped"
                                         TextTrimming="CharacterEllipsis"
                                         TextWrapping="Wrap"

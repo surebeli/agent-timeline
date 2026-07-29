@@ -340,12 +340,21 @@ AgentTimeline/
 | 6 | **窗口尺寸 DPI** | ✅ 已修：`RestoreWindowBounds` 对 token 尺寸乘 `GetWindowScale`，用户保存的尺寸本就是物理像素原样恢复 |
 | 7 | **单实例保护** | ✅ **已实现**（2026-07-29）——`Program.cs` 取代 XAML 生成的 Main，入口处过命名 Mutex 闸，与 mac `App/main.swift` 同一位置同一语义。闸的粒度是**一个数据库**（名字取 `AppPaths.DatabaseFile` 哈希），不同用户互不阻塞、同一用户跨会话仍拦得住 |
 
-另一项**至今未闭环**，不在原 7 条里，一并列明：
+另两项不在原 7 条里，一并列明现状：
 
-- **provider 档未接过真端点**：只用假端点验证过「异常入日志 → 规则兜底 → 进程存活」的降级链路；
-- **需真实指针驱动的交互项**：整条点击展开 / 划选文本不触发展开 / hover 复制 ✓ 回执 /
-  右键菜单四项 / 逐帧顺滑度。机制与代码路径已核（与 mac 对应），但本机**合成鼠标输入被
-  系统吞掉**（`SendInput` 连指针都挪不动，见 DEBUG-PLAYBOOK §3b），只能待有人值守目验。
+- **provider 档**：✅ **全链路已通**（2026-07-29，`scripts/provider-check/`）——baseUrl 不带
+  `/v1` 时自动补全、Bearer 头、`temperature=0`、解析 `choices[0].message.content` →
+  `SummaryJson.Parse` → 落库 `summary_source='Provider'` 且标题被 LLM 值替换，五项判定全绿。
+  端点是本机 OpenAI 兼容 mock（真 HTTP、真协议）。
+  ⚠ **仍未验**：某个具体厂商端点的响应怪癖。那要用真厂商凭据，不该经手脚本——在「设置」里
+  自己填 Base URL / Key / Model，再看 `logs\app.log` 与库里的 `summary_source` 即可。
+- **需真实指针驱动的交互项**：2026-07-29 有人值守复测，结果分三档——
+  - ✅ **已修并确认**：整条点击展开（`Tapped` 原先挂在一层被不透明纸面块盖住的命中层上，
+    纸面块自己没有处理器、事件只往上冒泡，于是整条绝大部分面积点不开）；
+    要点摘要行划选（全条唯一漏了 `IsTextSelectionEnabled` 的文本）；
+  - ⏳ **待确认**：派生区（agent 回复区域）的右键菜单。已加元素级 `RightTapped` 兜底，
+    但复测时判据与修复进了同一个构建、失去区分力，需重新单点确认；
+  - ⏳ **未复测**：hover 复制 ✓ 回执、逐帧顺滑度。
 
 另：连字符代号正则采用 `\b[A-Z][A-Z0-9]{0,9}(?:-[A-Z0-9]{1,12}){1,3}\b`（与 mac 端
 CodenameDetector 同源）——首段量词是 `{0,9}` 而非 `{1,9}`，否则 PRD 自己的示例
