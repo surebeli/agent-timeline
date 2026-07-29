@@ -18,6 +18,7 @@ enum SettingsKey {
     static let agentGrokEnabled = "agentGrokEnabled"
     static let agentKimiEnabled = "agentKimiEnabled"
     static let agentZcodeEnabled = "agentZcodeEnabled"
+    static let language = "language"                    // AppLanguage rawValue
 }
 
 struct AppSettings: Sendable {
@@ -37,6 +38,7 @@ struct AppSettings: Sendable {
             SettingsKey.agentGrokEnabled: true,
             SettingsKey.agentKimiEnabled: true,
             SettingsKey.agentZcodeEnabled: true,
+            SettingsKey.language: AppLanguage.system.rawValue,
         ])
     }
 
@@ -51,6 +53,16 @@ struct AppSettings: Sendable {
     static var idleOpacity: Double { UserDefaults.standard.double(forKey: SettingsKey.idleOpacity) }
     static var alwaysOnTop: Bool { UserDefaults.standard.bool(forKey: SettingsKey.alwaysOnTop) }
     static var backfillDays: Int { UserDefaults.standard.integer(forKey: SettingsKey.backfillDays) }
+
+    /// 界面语言："System"（跟随系统，默认）/ "ZhHans" / "En" / "Ja" / "Ko"。
+    ///
+    /// 存字符串不存序号：设置是人可读的，加语言时不希望旧值语义被序号挪位。
+    /// 切换**即时生效**；已入库的历史摘要保持原语言不重跑，但 kind / 代号状态 / 日期
+    /// 这些**渲染标签**跟随（它们落库的是枚举值，不是文案）。与 Windows 同名同值。
+    static var language: AppLanguage {
+        AppLanguage(rawValue: UserDefaults.standard.string(forKey: SettingsKey.language) ?? "")
+            ?? .system
+    }
 
     static func isAgentEnabled(_ agent: AgentKind) -> Bool {
         let key: String

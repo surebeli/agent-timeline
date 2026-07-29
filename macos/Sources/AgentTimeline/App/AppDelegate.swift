@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppSettings.registerDefaults()
+        // 文案表要在任何界面构建之前载入：菜单栏菜单与代码构建的弹层都在构造期取文案，
+        // 晚一步就会拿到键名（与 Windows App.xaml.cs 同一处置）。
+        Strings.load(AppSettings.language)
 
         do {
             store = try Store(path: AppSettings.supportDir + "/store.sqlite")

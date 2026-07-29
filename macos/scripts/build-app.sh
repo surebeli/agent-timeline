@@ -23,6 +23,18 @@ out = '// GENERATED from design/design-tokens.json by scripts/build-app.sh — d
 out += 'enum DesignTokensData {\n    static let json = #"""\n%s\n"""#\n}\n' % src.rstrip()
 pathlib.Path("Sources/AgentTimeline/UI/DesignTokensData.swift").write_text(out)
 EOF
+
+# design/strings.json 同理：双端共享文案表，编译进二进制而不是走资源包。
+# ⚠ 原样嵌入，不要重新格式化 JSON——CI 门禁（scripts/check-strings.py 第 6 项）
+# 断言的是「源文件内容 rstrip 后原样出现在 StringsData.swift 里」。
+python3 - <<'EOF'
+import json, pathlib
+src = pathlib.Path("../design/strings.json").read_text()
+json.loads(src)  # validate
+out = '// GENERATED from design/strings.json by scripts/build-app.sh — do not edit.\n'
+out += 'enum StringsData {\n    static let json = #"""\n%s\n"""#\n}\n' % src.rstrip()
+pathlib.Path("Sources/AgentTimeline/UI/StringsData.swift").write_text(out)
+EOF
 swift build -c "$CONFIG"
 
 rm -rf "$APP"
