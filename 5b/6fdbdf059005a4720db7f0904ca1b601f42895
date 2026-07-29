@@ -1,0 +1,23 @@
+macos/SYNC-KICKOFF-PROMPT.md
+  s_b85ad4e83942fb::t_408ad04390e191 3-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "5b6fdbdf059005a4720db7f0904ca1b601f42895",
+  "prompts": {
+    "s_b85ad4e83942fb::t_408ad04390e191": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 23,
+      "total_deletions": 0,
+      "accepted_lines": 23,
+      "overriden_lines": 0
+    }
+  }
+}
