@@ -1,0 +1,21 @@
+docs/TEXT-NORMALIZATION.md
+  s_5f812b192ad64b::t_d09c63095aa526 142-143
+windows/scripts/leadin-diff/run-diff.ps1
+  s_5f812b192ad64b::t_7bd2d792e5eb61 89-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "d9a9313b213853607a84b8049e3f8627d1042490",
+  "prompts": {},
+  "sessions": {
+    "s_5f812b192ad64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
