@@ -1,4 +1,4 @@
-<Window
+﻿<Window
     x:Class="AgentTimeline.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -57,11 +57,11 @@
                     菜单画得出来、点击却全无反应（实机验证）。接线见 WireTrayCommands()。
                 -->
                 <MenuFlyout AreOpenCloseAnimationsEnabled="False">
-                    <MenuFlyoutItem x:Name="TrayShowHideItem" Text="显示 / 隐藏" />
-                    <ToggleMenuFlyoutItem x:Name="TrayAlwaysOnTopItem" Text="总在最前" />
-                    <MenuFlyoutItem x:Name="TraySettingsItem" Text="设置…" />
+                    <MenuFlyoutItem x:Name="TrayShowHideItem" />
+                    <ToggleMenuFlyoutItem x:Name="TrayAlwaysOnTopItem" />
+                    <MenuFlyoutItem x:Name="TraySettingsItem" />
                     <MenuFlyoutSeparator />
-                    <MenuFlyoutItem x:Name="TrayExitItem" Text="退出" />
+                    <MenuFlyoutItem x:Name="TrayExitItem" />
                 </MenuFlyout>
             </tb:TaskbarIcon.ContextFlyout>
         </tb:TaskbarIcon>
@@ -120,11 +120,10 @@
                     MaxWidth="110"
                     Padding="5,3,5,4"
                     VerticalAlignment="Center"
-                    ToolTipService.ToolTip="项目过滤">
+                    >
                     <TextBlock
                         x:Name="ProjectFilterLabel"
                         FontSize="{StaticResource FontSizeBody}"
-                        Text="全部 ▾"
                         TextTrimming="CharacterEllipsis" />
                     <Button.Flyout>
                         <!-- 自定义内容 Flyout（非 MenuFlyout）：菜单 Icon 槽只支持单色字形，
@@ -144,11 +143,11 @@
                     x:Name="KindFilterButton"
                     Padding="5,3,5,4"
                     VerticalAlignment="Center"
-                    ToolTipService.ToolTip="类型过滤">
+                    >
                     <TextBlock
                         x:Name="KindFilterLabel"
                         FontSize="{StaticResource FontSizeBody}"
-                        Text="类型 ▾" />
+                        />
                     <Button.Flyout>
                         <MenuFlyout Opening="KindFilterFlyout_Opening" />
                     </Button.Flyout>
@@ -165,19 +164,21 @@
                     x:Name="DictionaryButton"
                     Click="OpenDictionary_Click"
                     Style="{StaticResource HeaderIconButtonStyle}"
-                    ToolTipService.ToolTip="代号词典">
+                    >
                     <FontIcon FontSize="12" Glyph="&#xE82D;" />
                 </Button>
                 <Button
+                    x:Name="SettingsButton"
                     Click="OpenSettings_Click"
                     Style="{StaticResource HeaderIconButtonStyle}"
-                    ToolTipService.ToolTip="设置">
+                    >
                     <FontIcon FontSize="12" Glyph="&#xE713;" />
                 </Button>
                 <Button
+                    x:Name="HidePanelButton"
                     Click="HidePanel_Click"
                     Style="{StaticResource HeaderIconButtonStyle}"
-                    ToolTipService.ToolTip="收进托盘">
+                    >
                     <FontIcon FontSize="12" Glyph="&#xE921;" />
                 </Button>
             </StackPanel>
@@ -383,7 +384,7 @@
                                         FontSize="{StaticResource FontSizeChip}"
                                         FontWeight="Medium"
                                         Foreground="{x:Bind KindBrush, Mode=OneWay}"
-                                        Text="{x:Bind Kind, Mode=OneWay}" />
+                                        Text="{x:Bind KindDisplay, Mode=OneWay}" />
                                 </Border>
                                 <Button
                                     Grid.Column="4"
@@ -391,7 +392,7 @@
                                     Height="24"
                                     Click="ExpandNode_Click"
                                     Style="{StaticResource HeaderIconButtonStyle}"
-                                    ToolTipService.ToolTip="展开 / 收起">
+                                    ToolTipService.ToolTip="{x:Bind ExpandCollapseTip}">
                                     <FontIcon
                                         FontSize="9"
                                         Glyph="&#xE70D;"
@@ -455,7 +456,7 @@
                                     VerticalAlignment="Top"
                                     Click="CopyCommand_Click"
                                     Style="{StaticResource HeaderIconButtonStyle}"
-                                    ToolTipService.ToolTip="复制原话"
+                                    ToolTipService.ToolTip="{x:Bind CopyCommandTip}"
                                     Visibility="{x:Bind ShowCopyButton, Mode=OneWay}">
                                     <FontIcon
                                         FontSize="10"
@@ -694,6 +695,19 @@
                     VerticalAlignment="Center"
                     Fill="{ThemeResource DayHeaderRuleBrush}" />
             </Grid>
+
+            <!-- 空态提示（对齐 mac TimelineView）：此前 Windows 侧空列表是**完全空白**，
+                 首次运行分不清「还没监听到」还是「起崩了」。文案见 timeline.empty。 -->
+            <TextBlock
+                x:Name="TimelineEmptyText"
+                Margin="24,0,24,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontSize="{StaticResource FontSizeBody}"
+                Opacity="0.55"
+                TextAlignment="Center"
+                TextWrapping="Wrap"
+                Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}" />
         </Grid>
 
         <!-- ═══════════════ Footer: lazy loading ═══════════════ -->
@@ -701,8 +715,8 @@
             Grid.Row="2"
             Margin="12,6,12,10"
             HorizontalAlignment="Stretch"
+            x:Name="LoadMoreButton"
             Click="LoadMore_Click"
-            Content="加载更多"
             FontSize="{StaticResource FontSizeBody}"
             Visibility="{x:Bind ViewModel.HasMore, Mode=OneWay}" />
     </Grid>

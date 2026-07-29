@@ -41,6 +41,7 @@ public partial class App : Application
         // Core 不该反过来依赖应用层，故解析结果由这里推给它；摘要 prompt 语言与
         // 摘要缓存键都取这个值（见 SummaryEngine.CacheKey）。
         Core.Summarize.SummaryEngine.Locale = AppStrings.Current.Language;
+        Core.Summarize.RuleSummarizer.EmptyCommandTitle = AppStrings.S("rule.emptyCommand");
         // Code-built UI (chip badges, flyouts) picks dual-token variants by app theme.
         Tokens.DarkTheme = RequestedTheme == ApplicationTheme.Dark;
 

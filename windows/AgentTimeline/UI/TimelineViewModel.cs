@@ -208,6 +208,7 @@ public sealed class NodeViewModel : ObservableObject
         {
             if (!Set(ref _kind, value)) return;
             Raise(nameof(HasKind));
+            Raise(nameof(KindDisplay));
             Raise(nameof(KindBrush));
             Raise(nameof(KindBgBrush));
             Raise(nameof(MarkerBrush));
@@ -219,6 +220,25 @@ public sealed class NodeViewModel : ObservableObject
         }
     }
     public bool HasKind => !string.IsNullOrEmpty(_kind);
+
+    /// <summary>
+    /// 类型标签的**显示**文本。<see cref="Kind"/> 本身是落库值，过滤与配色都按它走，
+    /// 界面上绑的是这一个（见 <see cref="UiText.Kind"/>）。
+    /// </summary>
+    public string KindDisplay => UiText.Kind(_kind);
+
+    // 条目模板内的两处提示语。模板里的元素没有 x:Name 可供代码回写（ItemsRepeater 每次
+    // realize 都是新实例），故走 x:Bind 到条目自身；语言切换由 RefreshLocalizedText 广播。
+    public string ExpandCollapseTip => AppStrings.S("entry.expandCollapse");
+    public string CopyCommandTip => AppStrings.S("entry.copyCommand");
+
+    /// <summary>语言切换后重取本条的所有本地化文本。</summary>
+    public void RefreshLocalizedText()
+    {
+        Raise(nameof(KindDisplay));
+        Raise(nameof(ExpandCollapseTip));
+        Raise(nameof(CopyCommandTip));
+    }
 
     public SolidColorBrush KindBrush =>
         new(_tokens.KindColor(_kind) ?? Microsoft.UI.Colors.Gray);
@@ -411,12 +431,19 @@ public sealed class NodeViewModel : ObservableObject
 /// </summary>
 public sealed class TimelineViewModel : ObservableObject
 {
-    // 紧凑标签对齐 mac 参照物（"全部"/"类型"）：340px 面板宽装不下
-    // 标题 + 两个"全部项目/全部类型"宽下拉 + 三个头部按钮，右对齐的下拉栈会
-    // 溢出压到标题上（M3 实机发现）。ComboBox 折叠态显示的就是选中项文本，
-    // 因此 all-选项本身必须是短标签。
-    public const string AllProjects = "全部";
-    public const string AllKinds = "类型";
+    // 「全部」哨兵。**不是**展示文本——展示走 UiText.ProjectOption/KindOption。
+    //
+    // 这两个串同时是选项集合的成员、过滤比较的判据（SetProjectFilter/SetKindFilter），
+    // 而项目选项的其余成员是真实项目名、类型选项的其余成员是落库的中文 kind 标签。
+    // 早先它们直接就是"全部"/"类型"两个中文词，语言一切换选项集合与比较判据会一起漂。
+    // 故取一个**永远不会与真实值相撞、也永远不会被显示**的哨兵：冒号在 Windows
+    // 路径分量里非法，任何真实项目名都不可能长这样；也不在七个 kind 标签之列。
+    //
+    // 折叠态按钮上仍用短标签（"全部"/"类型"）：340px 面板宽装不下标题 + 两个
+    // "全部项目/全部类型"宽下拉 + 三个头部按钮，右对齐的下拉栈会溢出压到标题上
+    // （M3 实机发现）。菜单项里才用完整措辞。
+    public const string AllProjects = "::all-projects::";
+    public const string AllKinds = "::all-kinds::";
     private const int PageSize = 200;
 
     private readonly Store _store;
@@ -447,6 +474,9 @@ public sealed class TimelineViewModel : ObservableObject
     public ObservableCollection<string> KindOptions { get; } = new() { AllKinds };
 
     public bool HasMore { get => _hasMore; private set => Set(ref _hasMore, value); }
+
+    /// <summary>空态提示的可见性。过滤到空也算空——提示语在那种情况下同样成立。</summary>
+    public bool IsEmpty => Items.Count == 0;
 
     public void LoadInitial()
     {
@@ -506,14 +536,17 @@ public sealed class TimelineViewModel : ObservableObject
             }
             Items.Add(vm);
         }
+        Raise(nameof(IsEmpty)); // Items 是 ObservableCollection，但 IsEmpty 是派生量
     }
 
     private static string DayLabel(DateTime day, int count)
     {
         var today = DateTime.Now.Date;
-        if (day == today) return $"今天 · {count}条";
-        if (day == today.AddDays(-1)) return "昨天";
-        return $"{day:MM-dd} · {day:ddd}";
+        if (day == today) return AppStrings.F("timeline.todayWithCount", count);
+        if (day == today.AddDays(-1)) return AppStrings.S("timeline.yesterday");
+        // 更早的日期不进文案表：MM-dd 与星期缩写由 CultureInfo 出，跟随界面语言
+        // （AppStrings.Load 时已把 CurrentUICulture 对齐到解析结果）。
+        return $"{day.ToString("MM-dd", AppStrings.Culture)} · {day.ToString("ddd", AppStrings.Culture)}";
     }
 
     public void SetProjectFilter(string option)
@@ -529,6 +562,16 @@ public sealed class TimelineViewModel : ObservableObject
     }
 
     public bool HasActiveFilters => _projectFilter is not null || _kindFilter is not null;
+
+    /// <summary>
+    /// 语言切换后刷新所有随语言变化的展示文本。日期分隔线的文案在 <see cref="DayLabel"/>
+    /// 里生成、只在重排时算，故这里整体重排一次；条目内的标签逐条广播。
+    /// </summary>
+    public void RefreshLocalizedText()
+    {
+        foreach (var vm in _ordered) vm.RefreshLocalizedText();
+        RebuildItems();
+    }
 
     /// <summary>Drops both filters and reloads (used before jumping to a filtered-out node).</summary>
     public void ClearFilters()

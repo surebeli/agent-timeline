@@ -9,6 +9,16 @@ namespace AgentTimeline.Core.Summarize;
 /// </summary>
 public sealed class RuleSummarizer : ISummarizer
 {
+    /// <summary>
+    /// 空命令的占位标题。UI 层在语言切换时改写为当前语言（rule.emptyCommand）——
+    /// Core 不反向依赖应用层，故留一个注入点而不是直接查表；Core 单独跑（冒烟）时
+    /// 保持中文默认，断言不受影响。
+    ///
+    /// 它会**落库**成摘要标题，所以只影响此后新生成的行，历史行不重写
+    /// （与"已入库历史不随语言重生成"这条产品约束一致）。
+    /// </summary>
+    public static string EmptyCommandTitle { get; set; } = "(空命令)";
+
     public string Name => "rule";
 
     public Task<Summary?> SummarizeAsync(UserCommand command, CancellationToken ct) =>
@@ -26,7 +36,7 @@ public sealed class RuleSummarizer : ISummarizer
 
         var title = lines.Length > 0 ? lines[0] : display.Trim();
         title = ParserUtil.Clip(title, DisplayLimits.SummaryTitle); // 代理对安全截断
-        if (title.Length == 0) title = "(空命令)";
+        if (title.Length == 0) title = EmptyCommandTitle;
 
         var keyPoints = new List<string>();
         foreach (var line in lines.Skip(1))

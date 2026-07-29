@@ -205,10 +205,10 @@ enum StringsData {
       "ko": "최근 언급: …{0}…"
     },
     "dict.firstSeen": {
-      "zh-Hans": "首次 {0}",
-      "en": "First seen {0}",
-      "ja": "初検出 {0}",
-      "ko": "최초 {0}"
+      "zh-Hans": "首次 {0} · 共 {1} 次",
+      "en": "First seen {0} · {1} mentions",
+      "ja": "初検出 {0} · 計 {1} 回",
+      "ko": "최초 {0} · 총 {1}회"
     },
     "dict.updated": {
       "zh-Hans": " · 更新 {0}",

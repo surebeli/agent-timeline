@@ -3,22 +3,37 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Standard-chrome window (PRD F6 设置界面); values load/save in code-behind. -->
-    <ScrollViewer Padding="20,12,20,12" VerticalScrollBarVisibility="Auto">
-        <StackPanel MaxWidth="520" Spacing="16">
+    <!--
+        Standard-chrome window (PRD F6 设置界面); values load/save in code-behind.
+        文本一律不写字面量：全部在 ApplyStrings() 里从 design/strings.json 灌入
+        （见 AppStrings）。这里只留结构与命名。
+    -->
+    <!--
+        动作条钉在滚动区**之外**：设置项已经比任何合理窗高都长，早先把保存/取消放在
+        ScrollViewer 里，它们会被挤到可视区之外——UIA 树里直接查不到那两个按钮才发现的。
+        对话框的确认动作不该需要先滚动才找得到。
+    -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Padding="20,12,20,12" VerticalScrollBarVisibility="Auto">
+            <StackPanel MaxWidth="520" Spacing="16">
 
             <!-- ═══════════ 摘要引擎 ═══════════ -->
-            <TextBlock FontSize="16" FontWeight="SemiBold" Text="摘要引擎" />
+            <TextBlock
+                x:Name="EngineSectionText"
+                FontSize="16"
+                FontWeight="SemiBold" />
             <RadioButtons x:Name="EngineRadios" SelectionChanged="EngineRadios_SelectionChanged">
-                <RadioButton Content="本机 CLI（默认，零配置：claude -p / codex exec）" />
-                <RadioButton Content="自定义 Provider（OpenAI 兼容接口）" />
-                <RadioButton Content="纯规则（不调用 LLM）" />
+                <RadioButton x:Name="EngineCliRadio" />
+                <RadioButton x:Name="EngineProviderRadio" />
+                <RadioButton x:Name="EngineRuleRadio" />
             </RadioButtons>
 
-            <ComboBox
-                x:Name="CliCommandBox"
-                MinWidth="180"
-                Header="CLI 选择（auto 时优先 claude，其次 codex）">
+            <ComboBox x:Name="CliCommandBox" MinWidth="180">
                 <ComboBoxItem Content="auto" />
                 <ComboBoxItem Content="claude" />
                 <ComboBoxItem Content="codex" />
@@ -27,34 +42,50 @@
             <StackPanel x:Name="ProviderPanel" Spacing="8">
                 <TextBox x:Name="ProviderBaseUrlBox" Header="Base URL" PlaceholderText="https://api.example.com/v1" />
                 <PasswordBox x:Name="ProviderApiKeyBox" Header="API Key" />
-                <TextBox x:Name="ProviderModelBox" Header="Model" PlaceholderText="gpt-4o-mini" />
+                <TextBox x:Name="ProviderModelBox" PlaceholderText="gpt-4o-mini" />
             </StackPanel>
 
             <!-- ═══════════ 外观与窗口 ═══════════ -->
-            <TextBlock FontSize="16" FontWeight="SemiBold" Text="外观与窗口" />
+            <TextBlock
+                x:Name="AppearanceSectionText"
+                FontSize="16"
+                FontWeight="SemiBold" />
+
+            <!--
+                语言：切换**即时生效**（不等保存），整个界面当场换语言，用户能直接看到
+                效果再决定留不留；取消则回滚到打开设置窗时的那一档。
+            -->
+            <ComboBox x:Name="LanguageBox" MinWidth="180" SelectionChanged="LanguageBox_SelectionChanged" />
+            <TextBlock
+                x:Name="LanguageNoteText"
+                FontSize="12"
+                Opacity="0.6"
+                TextWrapping="Wrap" />
+
             <Slider
                 x:Name="HoverOpacitySlider"
-                Header="悬停不透明度"
                 Maximum="1.0"
                 Minimum="0.3"
                 StepFrequency="0.05" />
             <Slider
                 x:Name="IdleOpacitySlider"
-                Header="失焦不透明度"
                 Maximum="1.0"
                 Minimum="0.05"
                 StepFrequency="0.05" />
-            <ToggleSwitch x:Name="AlwaysOnTopToggle" Header="总在最前" OffContent="关" OnContent="开" />
+            <ToggleSwitch x:Name="AlwaysOnTopToggle" />
 
             <!-- ═══════════ 数据与 Agent ═══════════ -->
-            <TextBlock FontSize="16" FontWeight="SemiBold" Text="数据与 Agent" />
+            <TextBlock
+                x:Name="DataSectionText"
+                FontSize="16"
+                FontWeight="SemiBold" />
             <NumberBox
                 x:Name="BackfillDaysBox"
-                Header="回填最近 N 天的 session"
                 Maximum="90"
                 Minimum="0"
                 SpinButtonPlacementMode="Inline" />
-            <StackPanel Spacing="4">
+            <StackPanel x:Name="SessionSourcesPanel" Spacing="4">
+                <TextBlock x:Name="SessionSourcesText" Opacity="0.8" />
                 <CheckBox x:Name="EnableClaudeCheck" Content="Claude Code" ToolTipService.ToolTip="%USERPROFILE%\.claude\projects" />
                 <CheckBox x:Name="EnableCodexCheck" Content="Codex" ToolTipService.ToolTip="%USERPROFILE%\.codex\sessions" />
                 <CheckBox x:Name="EnableGrokCheck" Content="Grok Build" ToolTipService.ToolTip="%USERPROFILE%\.grok\sessions" />
@@ -62,23 +93,30 @@
                 <CheckBox x:Name="EnableZcodeCheck" Content="ZCode" ToolTipService.ToolTip="%USERPROFILE%\.zcode\cli\agents" />
             </StackPanel>
             <TextBlock
+                x:Name="SettingsNoteText"
                 FontSize="12"
                 Opacity="0.6"
-                Text="Agent 目录开关需重启应用后生效；其余设置保存即生效。"
                 TextWrapping="Wrap" />
 
-            <!-- ═══════════ actions ═══════════ -->
+        </StackPanel>
+        </ScrollViewer>
+
+        <!-- ═══════════ actions（常驻，不随内容滚动）═══════════ -->
+        <Border
+            Grid.Row="1"
+            Padding="20,10,20,12"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,0">
             <StackPanel
-                Margin="0,4,0,8"
                 HorizontalAlignment="Right"
                 Orientation="Horizontal"
                 Spacing="8">
-                <Button Click="Cancel_Click" Content="取消" />
+                <Button x:Name="CancelButton" Click="Cancel_Click" />
                 <Button
+                    x:Name="SaveButton"
                     Click="Save_Click"
-                    Content="保存"
                     Style="{StaticResource AccentButtonStyle}" />
             </StackPanel>
-        </StackPanel>
-    </ScrollViewer>
+        </Border>
+    </Grid>
 </Window>

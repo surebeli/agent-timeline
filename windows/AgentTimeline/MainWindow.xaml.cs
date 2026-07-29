@@ -106,6 +106,47 @@ public sealed partial class MainWindow : Window
                 fe.DataContext = ViewModel.Items[args.Index];
             }
         };
+
+        ApplyStrings();
+        AppStrings.Changed += OnStringsChanged;
+    }
+
+    private void OnStringsChanged() => DispatcherQueue.TryEnqueue(() =>
+    {
+        ApplyStrings();
+        ViewModel.RefreshLocalizedText();
+    });
+
+    /// <summary>
+    /// 把文案表灌进 XAML 声明的控件。
+    ///
+    /// 没有走 <c>{Binding [键]}</c> 之类的标记扩展：键名里带点（<c>entry.copyCommand</c>），
+    /// 而绑定路径解析器把点当属性分隔符，索引器写法在这里是雷；托盘菜单又是 H.NotifyIcon
+    /// 的原生 PopupMenu，绑定行为本就受限。逐句赋值虽笨，但**一处可读尽、可断点、
+    /// 语言切换时确定性重跑**，与本工程大量代码构建 UI 的风格一致。
+    ///
+    /// 条目模板内的文本不在这里——那些元素每次 realize 都是新实例、没有稳定的 x:Name，
+    /// 走 x:Bind 到条目自身（见 NodeViewModel.ExpandCollapseTip）。
+    /// </summary>
+    private void ApplyStrings()
+    {
+        TrayShowHideItem.Text = AppStrings.S("tray.showHide");
+        TrayAlwaysOnTopItem.Text = AppStrings.S("tray.alwaysOnTop");
+        TraySettingsItem.Text = AppStrings.S("tray.settings");
+        TrayExitItem.Text = AppStrings.S("tray.exit");
+
+        ToolTipService.SetToolTip(ProjectFilterButton, AppStrings.S("header.projectFilter"));
+        ToolTipService.SetToolTip(KindFilterButton, AppStrings.S("header.kindFilter"));
+        ToolTipService.SetToolTip(DictionaryButton, AppStrings.S("header.dictionary"));
+        ToolTipService.SetToolTip(SettingsButton, AppStrings.S("header.settings"));
+        ToolTipService.SetToolTip(HidePanelButton, AppStrings.S("header.hideToTray"));
+
+        LoadMoreButton.Content = AppStrings.S("timeline.loadMore");
+        TimelineEmptyText.Text = AppStrings.S("timeline.empty");
+
+        // 折叠态标签跟着当前选中项重算（选项本身是哨兵/落库值，不随语言变）
+        ProjectFilterLabel.Text = UiText.ProjectOption(_currentProjectOption, compact: true) + " ▾";
+        KindFilterLabel.Text = UiText.KindOption(_currentKindOption, compact: true) + " ▾";
     }
 
     // ─────────────────────────── 面板内弹层与透明度的协奏（P1 实机反馈修复）
@@ -549,22 +590,22 @@ public sealed partial class MainWindow : Window
         var menu = new MenuFlyout();
         RegisterPanelFlyout(menu);
 
-        var copyRaw = new MenuFlyoutItem { Text = "复制原话" };
+        var copyRaw = new MenuFlyoutItem { Text = AppStrings.S("entry.copyCommand") };
         copyRaw.Click += (_, _) => CopyToClipboard(vm.PromptText);
         menu.Items.Add(copyRaw);
 
-        var copySummary = new MenuFlyoutItem { Text = "复制摘要" };
+        var copySummary = new MenuFlyoutItem { Text = AppStrings.S("entry.copySummary") };
         copySummary.Click += (_, _) => CopyToClipboard(vm.SummaryClipboardText);
         menu.Items.Add(copySummary);
 
         if (vm.FirstChipName is { } chipName && App.Registry.Lookup(chipName) is { } entry)
         {
-            var jump = new MenuFlyoutItem { Text = $"跳转到 {chipName} 定义节点" };
+            var jump = new MenuFlyoutItem { Text = AppStrings.F("entry.jumpToCodename", chipName) };
             jump.Click += (_, _) => JumpToNode(entry.DefiningNodeId);
             menu.Items.Add(jump);
         }
 
-        var filterProject = new MenuFlyoutItem { Text = "只看此项目" };
+        var filterProject = new MenuFlyoutItem { Text = AppStrings.S("entry.filterThisProject") };
         filterProject.Click += (_, _) => ApplyProjectFilter(vm.Project);
         menu.Items.Add(filterProject);
 
@@ -700,7 +741,7 @@ public sealed partial class MainWindow : Window
 
             var label = new TextBlock
             {
-                Text = option,
+                Text = UiText.ProjectOption(option, compact: false),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
             };
@@ -760,7 +801,7 @@ public sealed partial class MainWindow : Window
         {
             var item = new RadioMenuFlyoutItem
             {
-                Text = option,
+                Text = UiText.KindOption(option, compact: false),
                 GroupName = "kindFilter",
                 IsChecked = option == _currentKindOption,
             };
@@ -772,14 +813,14 @@ public sealed partial class MainWindow : Window
     private void ApplyProjectFilter(string option)
     {
         _currentProjectOption = option;
-        ProjectFilterLabel.Text = option + " ▾"; // 超出 MaxWidth 由 TextTrimming 省略
+        ProjectFilterLabel.Text = UiText.ProjectOption(option, compact: true) + " ▾"; // 超出 MaxWidth 由 TextTrimming 省略
         ViewModel.SetProjectFilter(option);
     }
 
     private void ApplyKindFilter(string option)
     {
         _currentKindOption = option;
-        KindFilterLabel.Text = option + " ▾";
+        KindFilterLabel.Text = UiText.KindOption(option, compact: true) + " ▾";
         ViewModel.SetKindFilter(option);
     }
 
@@ -816,7 +857,7 @@ public sealed partial class MainWindow : Window
 
         if (entry is null)
         {
-            panel.Children.Add(SecondaryText("尚未登记"));
+            panel.Children.Add(SecondaryText(AppStrings.S("dict.notRegistered")));
             var quick = new Flyout { Content = panel };
             RegisterPanelFlyout(quick);
             quick.ShowAt(chip);
@@ -824,7 +865,7 @@ public sealed partial class MainWindow : Window
         }
 
         panel.Children.Add(string.IsNullOrEmpty(entry.Definition)
-            ? SecondaryText("暂无定义（等待摘要提炼或定义式重述）")
+            ? SecondaryText(AppStrings.S("dict.pendingDefinition"))
             : new TextBlock
             {
                 Text = entry.Definition,
@@ -834,13 +875,13 @@ public sealed partial class MainWindow : Window
 
         if (entry.LastContext.Length > 0)
         {
-            panel.Children.Add(SecondaryText($"最近提及：…{entry.LastContext}…"));
+            panel.Children.Add(SecondaryText(AppStrings.F("dict.lastMention", entry.LastContext)));
         }
         panel.Children.Add(SecondaryText(MetaLine(entry)));
 
         var flyout = new Flyout { Content = panel };
         RegisterPanelFlyout(flyout);
-        var jump = new Button { Content = "跳转到定义节点", Margin = new Thickness(0, 4, 0, 0) };
+        var jump = new Button { Content = AppStrings.S("dict.jumpToDefinition"), Margin = new Thickness(0, 4, 0, 0) };
         jump.Click += (_, _) =>
         {
             flyout.Hide();
@@ -860,7 +901,7 @@ public sealed partial class MainWindow : Window
         var root = new StackPanel { Spacing = 6, MinWidth = 280, MaxWidth = 340 };
         root.Children.Add(new TextBlock
         {
-            Text = $"代号词典（{entries.Count}）",
+            Text = AppStrings.F("dict.title", entries.Count),
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
         });
 
@@ -869,7 +910,7 @@ public sealed partial class MainWindow : Window
         if (entries.Count == 0)
         {
             root.Children.Add(SecondaryText(
-                "尚无登记的代号 — 会话中出现 \"N1: xxx\" 式定义或 REQ-3 式长代号后会自动登记"));
+                AppStrings.S("dict.empty")));
         }
         else
         {
@@ -914,7 +955,7 @@ public sealed partial class MainWindow : Window
         content.Children.Add(header);
         content.Children.Add(new TextBlock
         {
-            Text = string.IsNullOrEmpty(entry.Definition) ? "（暂无定义）" : entry.Definition,
+            Text = string.IsNullOrEmpty(entry.Definition) ? AppStrings.S("dict.noDefinition") : entry.Definition,
             FontSize = 10.5,
             Opacity = string.IsNullOrEmpty(entry.Definition) ? 0.5 : 0.8,
             TextWrapping = TextWrapping.Wrap,
@@ -962,7 +1003,7 @@ public sealed partial class MainWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             Child = new TextBlock
             {
-                Text = entry.Status,
+                Text = UiText.Status(entry.Status),
                 FontSize = 10,
                 FontWeight = Microsoft.UI.Text.FontWeights.Medium,
                 Foreground = new SolidColorBrush(color),
@@ -981,10 +1022,13 @@ public sealed partial class MainWindow : Window
 
     private static string MetaLine(Core.CodenameEntry entry)
     {
-        var line = $"首次 {entry.FirstSeen.ToLocalTime():yyyy-MM-dd HH:mm} · 共 {entry.Occurrences} 次";
+        var line = AppStrings.F(
+            "dict.firstSeen",
+            entry.FirstSeen.ToLocalTime().ToString("yyyy-MM-dd HH:mm", AppStrings.Culture),
+            entry.Occurrences);
         if (entry.Updated is { } updated)
         {
-            line += $" · 更新 {updated.ToLocalTime():MM-dd HH:mm}";
+            line += AppStrings.F("dict.updated", updated.ToLocalTime().ToString("MM-dd HH:mm", AppStrings.Culture));
         }
         return line;
     }
@@ -1000,8 +1044,8 @@ public sealed partial class MainWindow : Window
             // 复位过滤按钮标签（VM 侧一次 ClearFilters 完成重载，不走 Apply* 以免双重加载）。
             _currentProjectOption = TimelineViewModel.AllProjects;
             _currentKindOption = TimelineViewModel.AllKinds;
-            ProjectFilterLabel.Text = TimelineViewModel.AllProjects + " ▾";
-            KindFilterLabel.Text = TimelineViewModel.AllKinds + " ▾";
+            ProjectFilterLabel.Text = UiText.ProjectOption(_currentProjectOption, compact: true) + " ▾";
+            KindFilterLabel.Text = UiText.KindOption(_currentKindOption, compact: true) + " ▾";
             ViewModel.ClearFilters();
         }
         if (ViewModel.FindById(nodeId) is null && !ViewModel.EnsureLoaded(nodeId)) return;

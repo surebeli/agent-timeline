@@ -38,6 +38,16 @@ public sealed class AppStrings
     /// <summary>当前生效的语言标签（"zh-Hans" / "en" / "ja" / "ko"），已解析过「跟随系统」。</summary>
     public string Language { get; }
 
+    /// <summary>
+    /// 与 <see cref="Language"/> 对应的 <see cref="CultureInfo"/>，供日期/数字格式化用
+    /// （日期分隔线的 "MM-dd · ddd" 星期缩写、数字分组）。
+    ///
+    /// 不去改 <c>CultureInfo.CurrentUICulture</c>：那是进程级全局量，会顺带改掉
+    /// 后台线程的解析行为（<c>double.Parse</c> 之类），而本应用大量读写 JSON /
+    /// SQLite 数值。只在**格式化调用点**显式传入，作用域可控。
+    /// </summary>
+    public static CultureInfo Culture { get; private set; } = CultureInfo.InvariantCulture;
+
     public static AppStrings Current { get; private set; } = Empty();
 
     /// <summary>语言切换后触发，供 UI 重建代码构建的部分（托盘菜单等不会自动刷新）。</summary>
@@ -58,6 +68,7 @@ public sealed class AppStrings
     public static void Load(AppLanguage preference)
     {
         var language = Resolve(preference);
+        Culture = ToCulture(language);
         try
         {
             var path = Path.Combine(AppContext.BaseDirectory, "Assets", "strings.json");
@@ -86,7 +97,7 @@ public sealed class AppStrings
     /// 「跟随系统」时按系统 UI 语言取最接近的一档。zh-TW / zh-HK 也归到 zh-Hans——
     /// 目前只有简体一份，给繁体用户简体也好过直接掉到英文。
     /// </summary>
-    private static string Resolve(AppLanguage preference) => preference switch
+    internal static string Resolve(AppLanguage preference) => preference switch
     {
         AppLanguage.ZhHans => "zh-Hans",
         AppLanguage.En => "en",
@@ -100,6 +111,22 @@ public sealed class AppStrings
             _ => Fallback,
         },
     };
+
+    /// <summary>
+    /// 语言标签 → 格式化用文化。取不到（精简运行时未带该文化数据）就退回不变文化，
+    /// 日期照样出得来、只是星期缩写变英文——比抛异常让面板起不来强。
+    /// </summary>
+    private static CultureInfo ToCulture(string language)
+    {
+        try
+        {
+            return CultureInfo.GetCultureInfo(language == "zh-Hans" ? "zh-CN" : language);
+        }
+        catch (CultureNotFoundException)
+        {
+            return CultureInfo.InvariantCulture;
+        }
+    }
 
     /// <summary>
     /// 取文案。查不到时**回显键名**而不是空串：空串会让界面看起来"少了个控件"，
