@@ -145,7 +145,8 @@ internal static class ParserUtil
     }
 
     /// <summary>
-    /// 续接段数上限：真实语料里引子链最多两层，给到 4 段是防病态输入的兜底，
+    /// 续接上限 4 段（首段之外；含首段合计最多 5 段——判据是追加后才检查）：
+    /// 真实语料里引子链最多两层，给到 4 段是防病态输入的兜底，
     /// 与 §3.4-2「凑够即停」的扫描预算同源。
     /// </summary>
     private const int LeadInMaxParagraphs = 4;
