@@ -1,19 +1,27 @@
-# Agent Timeline — Windows 端（M3 scaffold）
+# Agent Timeline — Windows 端
 
 WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂件。与 mac 端共享
 `docs/SESSION-FORMATS.md` 解析规范与 `design/design-tokens.json` 视觉规范。
 
-> ⚠️ **重要：本工程在 macOS 上编写，尚未在 Windows 上编译运行过。**
-> 代码按可编译标准编写，但请预期少量琐碎修正（NuGet 版本号、个别 API 签名等）。
-> 详见下方「已知未验证事项」。
-> 实机调试请从 **[DEBUG-PLAYBOOK.md](DEBUG-PLAYBOOK.md)** 开始（含种子数据脚本与分层验证清单）。
+> ## ✅ 已实机验证完成（最新一轮 2026-07-29 · v0.5.1）
 >
-> ✅ 已验证部分：`Core/`（解析器/Store/词典/摘要引擎/协调器）与 `Interop/` **不依赖 WinUI**，
-> 已在 macOS 用 .NET SDK 实际编译通过（0 警告 0 错误），并对三个解析器的过滤规则、
-> 代号正则、SQLite 读写/去重/偏移表、摘要 JSON 契约跑过功能冒烟测试（全部通过）。
-> 冒烟测试工程在 `windows/CoreSmokeTest/`（独立 console 工程，未挂进 .sln），
-> 在仓库任意平台 `dotnet run` 即可复跑。
-> 未验证的主要是 UI 层（XAML / WinUI API / H.NotifyIcon / Win32 interop 行为）。
+> 本工程最初在 macOS 上编写，**M3 起已在 Windows 11 实机反复编译、运行、验证**，
+> 与 mac 端同版本发布。当前状态：
+>
+> | 层 | 状态 |
+> |---|---|
+> | 构建 | ✅ VS msbuild x64 Release；CI 四道关（mac swift test / Core 冒烟 / WinUI msbuild / tokens 同源）为硬门禁 |
+> | `Core/` + `Interop/` | ✅ 冒烟 **354 断言** 全绿（`windows/CoreSmokeTest/`，任意平台 `dotnet run` 可复跑） |
+> | UI 层（XAML / WinUI / H.NotifyIcon / Win32 interop） | ✅ 分层验证清单全项过，逐条注记见 [DEBUG-PLAYBOOK.md](DEBUG-PLAYBOOK.md) §2 |
+> | 五条 agent 通道 | ✅ claude / codex / grok / kimi / zcode 均在本机真实语料上跑通 |
+> | 发布 | ✅ v0.5.1 安装包实机验证（托盘常驻 / 时间线上屏 / 设置窗版本号） |
+>
+> **仍未闭环的少数项**（诚实记录，别当已完成）：单实例保护未做；provider 档未接过
+> 真端点；若干「机制已验证、逐帧观感待有人值守复测」的交互项 —— 逐条见下方
+> [已知未验证事项](#已知未验证事项对账2026-07-29) 与 DEBUG-PLAYBOOK 中标 ⚠️ 的条目。
+>
+> 实机调试仍从 **[DEBUG-PLAYBOOK.md](DEBUG-PLAYBOOK.md)** 开始（含种子数据脚本、
+> 分层验证清单与宣发截图拍摄规程）。
 
 ## 更新记录
 
@@ -302,25 +310,26 @@ AgentTimeline/
 - 「自定义 Provider」：OpenAI 兼容 `/chat/completions`，在设置中填 Base URL / Key / Model；
 - 「纯规则」：不调 LLM，首行截断为标题 + 正则提代号。
 
-## 已知未验证事项（在 Windows 上调试时优先检查）
+## 已知未验证事项（对账，2026-07-29）
 
-1. **NuGet 版本号**：`Microsoft.WindowsAppSDK 1.5.240627000`、`H.NotifyIcon.WinUI 2.0.131`、
-   `Microsoft.Data.Sqlite 8.0.6`、`Microsoft.Windows.SDK.BuildTools 10.0.22621.3233`。
-   若还原失败，就近升级到可用版本即可；H.NotifyIcon 2.x API（`TaskbarIcon`/`ForceCreate`/
-   `ContextMenuMode="SecondWindow"`）在小版本间偶有变动。
-2. **分层窗口 alpha 与 Acrylic 的兼容性**：hover 透明度用 `WS_EX_LAYERED +
-   SetLayeredWindowAttributes` 整窗淡入淡出（对应 mac 的 `alphaValue`）。个别 Windows
-   版本上分层 alpha 会让 Acrylic 材质失效——若遇到，把
-   `UI/OpacityAnimator.cs` 里 `UseLayeredWindowAlpha` 改为 `false`（退化为只淡内容层）。
-3. **无边框拖动**：用经典 `WM_NCLBUTTONDOWN + HTCAPTION` 技巧，理论上对 WinUI 3 生效；
-   若无效可改用 `AppWindowTitleBar` 拖拽区方案。
-4. **ItemsRepeater DataTemplate 的 DataContext**：`ExpandNode_Click` 依赖模板根元素的
-   DataContext 为 NodeViewModel（ItemsRepeater 默认行为）；若为 null，改为遍历可视树取绑定项。
-5. **Kimi Code wire 协议**：已按本机 44 个真实 session 重写（`turn.prompt` +
-   `context.append_loop_event/content.part`），Windows 实机只需确认路径与监听生效。
-6. **窗口尺寸 DPI**：tokens 中的面板尺寸按物理像素处理（未乘缩放系数），高 DPI 下面板略小，
-   如需精确可乘 `RasterizationScale`。
-7. 未做单实例保护（重复启动会有两个托盘图标）。
+原「在 Windows 上调试时优先检查」的 7 条，逐条对账如下——**5 条已闭环，2 条仍开**。
+
+| # | 事项 | 现状 |
+|---|---|---|
+| 1 | **NuGet 版本号**（`WindowsAppSDK 1.5.240627000` / `H.NotifyIcon.WinUI 2.0.131` / `Data.Sqlite 8.0.6`） | ✅ **原样可用**，未做任何升级 |
+| 2 | **分层窗口 alpha 与 Acrylic 兼容性** | ✅ 本机 Win11 26200 上**共存正常**，`OpacityAnimator.UseLayeredWindowAlpha` 保持 `true`，逃生口未启用 |
+| 3 | **无边框拖动**（`WM_NCLBUTTONDOWN + HTCAPTION`） | ✅ 实测生效；边缘 resize 的 `WM_NCHITTEST` 命中区与宽度钳制一并实测正确 |
+| 4 | **ItemsRepeater DataTemplate 的 DataContext** | ✅ 实测正常；`TimelineItemTemplateSelector` 在 4900+ 节点上持续正确 |
+| 5 | **Kimi Code wire 协议** | ✅ **已在本机真实语料上跑通**（2026-07-29：120 个 `wire.jsonl` / 177 条回复被正确解析）。此前 DEBUG-PLAYBOOK §2b 记的「本机无 kimi 数据、该通道未覆盖」已不再成立 |
+| 6 | **窗口尺寸 DPI** | ✅ 已修：`RestoreWindowBounds` 对 token 尺寸乘 `GetWindowScale`，用户保存的尺寸本就是物理像素原样恢复 |
+| 7 | **单实例保护** | ❌ **仍未做**——重复启动会有两个托盘图标 |
+
+另外两项**至今未闭环**，不在原 7 条里，一并列明：
+
+- **provider 档未接过真端点**：只用假端点验证过「异常入日志 → 规则兜底 → 进程存活」的降级链路；
+- **需真实指针驱动的交互项**：整条点击展开 / 划选文本不触发展开 / hover 复制 ✓ 回执 /
+  右键菜单四项 / 逐帧顺滑度。机制与代码路径已核（与 mac 对应），但本机**合成鼠标输入被
+  系统吞掉**（`SendInput` 连指针都挪不动，见 DEBUG-PLAYBOOK §3b），只能待有人值守目验。
 
 另：连字符代号正则采用 `\b[A-Z][A-Z0-9]{0,9}(?:-[A-Z0-9]{1,12}){1,3}\b`（与 mac 端
 CodenameDetector 同源）——首段量词是 `{0,9}` 而非 `{1,9}`，否则 PRD 自己的示例

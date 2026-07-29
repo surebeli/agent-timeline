@@ -69,7 +69,10 @@ T2 ▶进行中、N3 △变更；**用 `-Append` 追加探针行** → 观察实
 - [x] `%LOCALAPPDATA%\AgentTimeline\` 生成 timeline.db / settings.json（本文原写 store.sqlite 系笔误）
       ✅ timeline.db(+wal/shm)、settings.json、logs\app.log、summarizer\ 全部生成
 - [x] 若装了真实 Claude Code：真实会话与种子数据并存显示
-      ✅ claude 119 + codex 4336 节点并存（本机无 kimi 数据，该通道未覆盖）
+      ✅ claude 119 + codex 4336 节点并存（当时本机无 kimi 数据，该通道未覆盖）
+      ✅ **五通道全覆盖补记（2026-07-29）**：库中 claude 158 / codex 4832 / grok 90 /
+      kimi 19 / zcode 49 节点并存；kimi 通道另经 `scripts/leadin-diff` 抽取复核——
+      120 个 `wire.jsonl`、177 条回复被 `KimiParser` 正确解析。原「kimi 未覆盖」已闭环
 
 ### 2c. 台账 UI（对照 mac 截图 docs/assets/screenshot-dark.png 逐项）
 - [x] 指令纸面块：❯ 悬挂缩进、实线 agent 色墨线、圆角 3/8/8/8、1px 描边
