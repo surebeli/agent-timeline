@@ -174,6 +174,7 @@ enum DesignTokensData {
     "hover": 0.95,
     "idle": 0.25,
     "transitionMs": 180,
+    "transitionOutMs": 500,
     "anchorWash": 0.08,
     "hoverFadeMs": 120
   },

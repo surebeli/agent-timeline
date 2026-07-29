@@ -103,6 +103,9 @@ struct DesignTokens: Codable {
         let hover: Double
         let idle: Double
         let transitionMs: Double
+        /// 面板**变暗**（指针移出/失活）的时长，比变亮长得多——「快淡入、慢淡出」。
+        /// 曲线也随方向换（见 FloatingPanel.updateTrackingAndOpacity）。
+        let transitionOutMs: Double
         let anchorWash: Double
         let hoverFadeMs: Double
     }

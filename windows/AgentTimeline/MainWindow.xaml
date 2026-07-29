@@ -73,7 +73,10 @@
             Padding="12,10,12,6"
             Background="Transparent"
             ColumnSpacing="8"
-            PointerPressed="HeaderBar_PointerPressed">
+            PointerCaptureLost="HeaderBar_PointerCaptureLost"
+            PointerMoved="HeaderBar_PointerMoved"
+            PointerPressed="HeaderBar_PointerPressed"
+            PointerReleased="HeaderBar_PointerReleased">
             <Grid.ColumnDefinitions>
                 <!-- 标题列 *（可省略）+ 过滤/按钮列 Auto：340px 宽装不下全量标题与
                      过滤器，空间紧张时标题省略号让位（M3 实机布局修正） -->
@@ -231,6 +234,7 @@
                         Background="Transparent"
                         PointerEntered="Entry_PointerEntered"
                         PointerExited="Entry_PointerExited"
+                        PointerMoved="Entry_PointerMoved"
                         RightTapped="Entry_RightTapped"
                         Tapped="EntryBackground_Tapped">
 

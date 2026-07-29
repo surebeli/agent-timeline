@@ -59,7 +59,7 @@ public sealed partial class MainWindow : Window
         TrySetAcrylicBackdrop();
 
         _opacityAnimator = new OpacityAnimator(
-            _hwnd, RootGrid, DispatcherQueue, App.Tokens.TransitionMs);
+            _hwnd, RootGrid, DispatcherQueue, App.Tokens.TransitionMs, App.Tokens.TransitionOutMs);
         _opacityAnimator.SetImmediate(App.Settings.HoverOpacity); // starts focused
 
         Activated += OnWindowActivated;
@@ -91,6 +91,21 @@ public sealed partial class MainWindow : Window
         // 头部过滤菜单也是面板内弹层，参与 hover 抑制（见 RegisterPanelFlyout）。
         if (ProjectFilterButton.Flyout is { } pf) RegisterPanelFlyout(pf);
         if (KindFilterButton.Flyout is { } kf) RegisterPanelFlyout(kf);
+
+        // ⚠ ItemsRepeater **不给实现出来的条目设 DataContext**（不像 ListView/ItemsControl
+        // 会用 ContentPresenter 包一层）。模板里的 x:Bind 编译成直接绑定、不走 DataContext，
+        // 所以画面一切正常——但每个读 DataContext 的代码后处理器都拿到 null 并静默 return。
+        // 实机值守 + 探针实测（2026-07-29）：`CHEVRON sender=Button dc=<null>`。
+        // 这一个 null 让整条交互簇集体失效：整条点击展开、chevron 展开、hover 高亮与复制
+        // 按钮、条目右键菜单。代号 chip 不受影响，因为它在 ItemsControl 里（那个会设）。
+        // 在这里补上，所有处理器一起复活，不必逐个改成走 GetElementIndex。
+        NodeRepeater.ElementPrepared += (_, args) =>
+        {
+            if (args.Element is FrameworkElement fe && args.Index < ViewModel.Items.Count)
+            {
+                fe.DataContext = ViewModel.Items[args.Index];
+            }
+        };
     }
 
     // ─────────────────────────── 面板内弹层与透明度的协奏（P1 实机反馈修复）
@@ -294,6 +309,7 @@ public sealed partial class MainWindow : Window
     private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         _pointerOver = false;
+        SetHoveredEntry(null);   // 条目级 PointerExited 送不达，靠窗口级收尾
         if (_openPanelFlyouts > 0) return; // 指针移入自家弹层不算离开（P1 实机反馈）
         _opacityAnimator?.AnimateTo(App.Settings.IdleOpacity);
     }
@@ -320,14 +336,53 @@ public sealed partial class MainWindow : Window
 
     // ═══════════════════════════════════════════════════ interactions
 
+    // ─────────────────────────── 头部拖动（手动，不进系统模态移动循环）
+
+    private bool _dragging;
+    private PointInt32 _dragCursorStart;
+    private PointInt32 _dragWindowStart;
+
+    /// <summary>
+    /// 无边框窗口的拖动。**不用** ReleaseCapture + WM_NCLBUTTONDOWN/HTCAPTION 那套借系统
+    /// 原生移动循环的经典技巧——WinUI 3 下指针输入走 XAML island 的 input site 而非顶层
+    /// HWND，模态循环常在按键已松开之后才启动，于是它在等一个早就发生过的 WM_LBUTTONUP。
+    /// 实机症状正是「按住不动拖不走，点一下松开窗口反而黏着鼠标跑」（有人值守发现）。
+    ///
+    /// 改为自己管三态：按下捕获指针并记起点，移动时按**屏幕坐标位移**调 AppWindow.Move，
+    /// 松开或捕获丢失即结束。位移取屏幕坐标而不是元素内坐标，跨不同 DPI 的显示器才不漂。
+    /// </summary>
     private void HeaderBar_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        // Borderless window: dragging via the Win32 caption trick (see WindowInterop).
-        var point = e.GetCurrentPoint(HeaderBar);
-        if (point.Properties.IsLeftButtonPressed)
-        {
-            WindowInterop.BeginWindowDrag(_hwnd);
-        }
+        if (!e.GetCurrentPoint(HeaderBar).Properties.IsLeftButtonPressed) return;
+        if (!WindowInterop.TryGetCursorPos(out var cursor)) return;
+        _dragCursorStart = cursor;
+        _dragWindowStart = AppWindow.Position;
+        _dragging = HeaderBar.CapturePointer(e.Pointer);
+        e.Handled = _dragging;
+    }
+
+    private void HeaderBar_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_dragging || !WindowInterop.TryGetCursorPos(out var cursor)) return;
+        AppWindow.Move(new PointInt32(
+            _dragWindowStart.X + (cursor.X - _dragCursorStart.X),
+            _dragWindowStart.Y + (cursor.Y - _dragCursorStart.Y)));
+    }
+
+    private void HeaderBar_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_dragging) return;
+        _dragging = false;
+        HeaderBar.ReleasePointerCapture(e.Pointer);
+        SaveWindowBounds();   // 拖完就记住新位置，别等到隐藏/退出
+    }
+
+    /// <summary>捕获被系统收走（切窗、弹层夺焦等）时收尾，否则会一直粘着拖动状态。</summary>
+    private void HeaderBar_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_dragging) return;
+        _dragging = false;
+        SaveWindowBounds();
     }
 
     private void ExpandNode_Click(object sender, RoutedEventArgs e)
@@ -385,10 +440,24 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void Entry_PointerEntered(object sender, PointerRoutedEventArgs e)
+    /// <summary>当前处于 hover 的条目；换条目或指针离开面板时清掉。</summary>
+    private NodeViewModel? _hoveredEntry;
+
+    private void Entry_PointerEntered(object sender, PointerRoutedEventArgs e) => EnterEntry(sender);
+
+    /// <summary>
+    /// PointerMoved 与 PointerEntered 走同一条路，是**有意的双保险**：
+    /// ItemsRepeater 会回收容器，滚动时同一个元素可能换绑到另一条数据而指针没动过，
+    /// 此时 PointerEntered 不会再触发、hover 会粘在旧条目上。Moved 天然覆盖这种情况，
+    /// 而下面的 ReferenceEquals 守卫让它在已 hover 时退化成一次引用比较，代价可忽略。
+    /// </summary>
+    private void Entry_PointerMoved(object sender, PointerRoutedEventArgs e) => EnterEntry(sender);
+
+    private void EnterEntry(object sender)
     {
         if (sender is not FrameworkElement root || root.DataContext is not NodeViewModel vm) return;
-        vm.IsHovering = true;
+        if (ReferenceEquals(_hoveredEntry, vm)) return;   // 同一条：不重复迁移
+        SetHoveredEntry(vm);
         if (AnimationsEnabled)
         {
             FadeIn(root.FindName("HoverLayer") as UIElement);
@@ -396,18 +465,42 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void SetHoveredEntry(NodeViewModel? vm)
+    {
+        if (_hoveredEntry is { } previous && !ReferenceEquals(previous, vm)) previous.IsHovering = false;
+        _hoveredEntry = vm;
+        if (vm is not null) vm.IsHovering = true;
+    }
+
+    /// <summary>指针离开本条目即清；离开整个面板由 RootGrid_PointerExited 兜底。</summary>
     private void Entry_PointerExited(object sender, PointerRoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is NodeViewModel vm)
+        if ((sender as FrameworkElement)?.DataContext is NodeViewModel vm &&
+            ReferenceEquals(_hoveredEntry, vm))
         {
-            vm.IsHovering = false;
+            SetHoveredEntry(null);
         }
     }
 
-    /// <summary>Opacity fade-in over opacity.hoverFadeMs (opacity-only, per the motion rules).</summary>
+    /// <summary>运行中的淡入：Storyboard 必须有人持有，否则可能被 GC 掉（见下）。</summary>
+    private static readonly List<Storyboard> RunningFades = new();
+
+    /// <summary>
+    /// Opacity fade-in over opacity.hoverFadeMs (opacity-only, per the motion rules).
+    ///
+    /// 两处加固。**它们不是** hover 长期失效的根因（那是 ItemsRepeater 的 DataContext
+    /// 为 null，见构造函数里 ElementPrepared 的注释），是排查途中顺手补的健壮性：
+    ///
+    /// 1. **先把本地 Opacity 置 1**：`Begin()` 会立刻把 Opacity 压到 `From = 0`。动画
+    ///    期间动画值优先；一旦动画中途被停掉，生效的就是这个本地值——否则元素会停在 0，
+    ///    Visibility 明明是 Visible 却完全透明，是最难查的一类失效。
+    /// 2. **持有 Storyboard**：原先它是局部变量、没有任何引用，理论上可能在播放途中被
+    ///    GC。播完即从列表移除，不会长期堆积。
+    /// </summary>
     private static void FadeIn(UIElement? element)
     {
         if (element is null) return;
+        element.Opacity = 1;
         var animation = new DoubleAnimation
         {
             From = 0,
@@ -418,6 +511,8 @@ public sealed partial class MainWindow : Window
         Storyboard.SetTargetProperty(animation, "Opacity");
         var storyboard = new Storyboard();
         storyboard.Children.Add(animation);
+        RunningFades.Add(storyboard);
+        storyboard.Completed += (s, _) => RunningFades.Remove((Storyboard)s!);
         storyboard.Begin();
     }
 

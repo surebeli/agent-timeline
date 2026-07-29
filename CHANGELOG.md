@@ -7,10 +7,37 @@
 > tag↔VERSION↔CHANGELOG 一致性、跑双端测试、出 macOS `.app` zip 与 Windows x64 zip
 > 并挂到 GitHub Release。
 
-## [Unreleased]
+## [0.6.0] - 2026-07-29
+
+本轮由**有人值守的实机复测**驱动：此前标 ⚠️「需真实指针、待复测」的交互项第一次被真人
+逐项点过，查出一簇长期静默失效的缺陷——根因是同一个 `null`。
+
+### 新增（双端）
+
+- **快淡入、慢淡出**：面板变亮仍是 `opacity.transitionMs`（180ms）+ ease-out，指针一进来
+  立刻可读；变暗改走新 token `opacity.transitionOutMs`（500ms）+ **ease-in**，从容化开，
+  不再"看到一半就唰地消失"。
+  曲线必须随方向换，不能只拉长时长：ease-out 会把约 87% 的变化挤在前段，500ms 下观感
+  反而变成"唰一下再慢慢爬"。ease-in 先稳住、后段化开，才是想要的。
+  双端同一套语义（win `OpacityAnimator`、mac `FloatingPanel.updateTrackingAndOpacity`）。
 
 ### 修复（Windows）
 
+- **`ItemsRepeater` 不给条目设 `DataContext`——一个 `null` 打掉了整簇交互**（本轮根因）。
+  `ItemsRepeater` 不像 `ListView`/`ItemsControl` 会用 `ContentPresenter` 包一层，realize
+  出来的元素 `DataContext` 始终为 `null`。模板里的 `x:Bind` 编译成直接绑定、不走
+  DataContext，所以**画面完全正常**——但每个 `DataContext is NodeViewModel vm` 的代码后
+  处理器都拿到 null 并静默 return。受害面：整条点击展开、chevron 展开、hover 高亮与复制
+  按钮、条目右键菜单。代号 chip 不受影响，因为它在 `ItemsControl` 里——这个反差正是佐证。
+  修法：`NodeRepeater.ElementPrepared` 里补上 DataContext，所有处理器一起复活。
+  定位靠日志探针：`CHEVRON sender=Button dc=<null>`；修复后用 UIA 调用 chevron 自验，
+  画面差异从 0.91%（没反应）变为 34.65%（真的展开了）。
+- **头部拖动：按住拖不走，点一下松开窗口反而黏着鼠标跑**。原实现借系统原生移动循环
+  （`ReleaseCapture` + `WM_NCLBUTTONDOWN`/`HTCAPTION`），这在 WinUI 3 下不可靠——指针输入
+  走 XAML island 的 input site 而非顶层 HWND，模态循环常在按键已松开之后才启动，于是它在
+  等一个早就发生过的 `WM_LBUTTONUP`。改为手动拖拽：捕获指针 + 按**屏幕坐标位移**调
+  `AppWindow.Move`，松开或捕获丢失即结束（后者不处理会一直粘在拖动态）。位移取屏幕坐标
+  而非元素内坐标，跨不同 DPI 的显示器才不漂；拖完即存位置。
 - **整条点击展开在绝大部分面积上失效**（实机值守发现）。`Tapped` 原先挂在一层夹在中间的
   透明命中层上，而命令/派生纸面块是**不透明 Border、可命中且自身没有 Tapped 处理器**——
   点在它们身上时事件只会往**上**冒泡到条目 root（root 当时也没有 Tapped），那层兄弟命中层
@@ -23,16 +50,8 @@
   Border 内边距、右侧留白等大片非文本像素，右键落在那儿仍能冒泡上去——所以症状表现为
   「只有自己发出的命令范围内有菜单」。修法：给条目内各文本加**元素级** `RightTapped`。
   三处均经有人值守实机确认修复。
-
-### 验证（Windows）
-
-- **provider 档全链路打通**（此前长期挂在「已知未验证事项」里，只验过失败降级链路）。
-  新增 `windows/scripts/provider-check/`：本机 OpenAI 兼容 mock（真 HTTP、真协议）+ 端到端
-  编排。五项判定全绿——baseUrl 不带 `/v1` 时自动补全、Bearer 头带上、`temperature=0`、
-  解析 `choices[0].message.content` → `SummaryJson.Parse`、落库 `summary_source='Provider'`
-  且标题被 LLM 值替换。数据安全同 §3b：备份 → 文件级交换 → try/finally 还原 → 计数 + md5
-  双重核验。mock **不记录 prompt 正文**（只留长度与 SHA256），Authorization 头日志脱敏。
-  仍未验：某个具体厂商端点的响应怪癖（需真凭据，不经手脚本）。
+  ⚠ 注：这三处与上面的 DataContext 是**两层问题叠在一起**——命中层/属性/事件的修法本身
+  必要，但只修它们时仍然全无反应，直到 DataContext 补上才真正生效。
 
 - **单实例保护**：补上 Windows 侧缺失的入口闸——这是一处双端分叉，mac
   `App/main.swift` 一直有（发现有同 bundle id 的进程就 `exit(0)`），Windows 侧从无对应物。
@@ -52,6 +71,16 @@
   （RDP + 控制台）共用一份 store 故被拦下——固定名的 `Global\` 会误伤前者，`Local\`
   拦不住后者。实机验证：第二个进程 83ms 退出（ExitCode 0，赶在 XAML/托盘初始化之前）、
   托盘只剩一个图标、强杀后可重启无残留 mutex 死锁、连开三次只剩一个。
+
+### 验证（Windows）
+
+- **provider 档全链路打通**（此前长期挂在「已知未验证事项」里，只验过失败降级链路）。
+  新增 `windows/scripts/provider-check/`：本机 OpenAI 兼容 mock（真 HTTP、真协议）+ 端到端
+  编排。五项判定全绿——baseUrl 不带 `/v1` 时自动补全、Bearer 头带上、`temperature=0`、
+  解析 `choices[0].message.content` → `SummaryJson.Parse`、落库 `summary_source='Provider'`
+  且标题被 LLM 值替换。数据安全同 §3b：备份 → 文件级交换 → try/finally 还原 → 计数 + md5
+  双重核验。mock **不记录 prompt 正文**（只留长度与 SHA256），Authorization 头日志脱敏。
+  仍未验：某个具体厂商端点的响应怪癖（需真凭据，不经手脚本）。
 
 ## [0.5.1] - 2026-07-29
 

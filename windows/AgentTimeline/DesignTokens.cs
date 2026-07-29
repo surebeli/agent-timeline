@@ -22,6 +22,14 @@ public sealed class DesignTokens
     public double IdleOpacity { get; private set; } = 0.25;
     public int TransitionMs { get; private set; } = 180;
 
+    /// <summary>
+    /// 面板**变暗**（指针移出/失活）的时长，比变亮长得多——「快淡入、慢淡出」：
+    /// 指针一进来要立刻可读，移开时则从容化开，避免"看到一半就唰地消失"。
+    /// 曲线也随方向换（见 OpacityAnimator）：只拉长时长而不换曲线，ease-out 会把
+    /// 绝大部分变化挤在前段，观感反而变成"唰一下再慢慢爬"。
+    /// </summary>
+    public int TransitionOutMs { get; private set; } = 500;
+
     // --- 台账 (dual-ink ledger) values consumed from code-behind / view-models ---
     public double AnchorWashOpacity { get; private set; } = 0.08;
     public int HoverFadeMs { get; private set; } = 120;
@@ -93,6 +101,7 @@ public sealed class DesignTokens
                 tokens.HoverOpacity = GetDouble(opacity, "hover", tokens.HoverOpacity);
                 tokens.IdleOpacity = GetDouble(opacity, "idle", tokens.IdleOpacity);
                 tokens.TransitionMs = (int)GetDouble(opacity, "transitionMs", tokens.TransitionMs);
+                tokens.TransitionOutMs = (int)GetDouble(opacity, "transitionOutMs", tokens.TransitionOutMs);
                 tokens.AnchorWashOpacity = GetDouble(opacity, "anchorWash", tokens.AnchorWashOpacity);
                 tokens.HoverFadeMs = (int)GetDouble(opacity, "hoverFadeMs", tokens.HoverFadeMs);
             }

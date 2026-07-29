@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore   // CAMediaTimingFunction（淡入/淡出用不同曲线）
 import SwiftUI
 
 /// The translucent timeline panel. Non-activating so clicking it never steals
@@ -120,8 +121,15 @@ final class FloatingPanel: NSPanel, NSWindowDelegate {
         let target = readable ? AppSettings.hoverOpacity : AppSettings.idleOpacity
         let clamped = max(0.05, min(1.0, target))
         if animated {
+            // 快淡入、慢淡出：指针一进来要立刻可读，移开时则从容化开，避免
+            // "看到一半就唰地消失"。方向同时决定时长与曲线——只拉长时长而不换
+            // 曲线的话，easeOut 会把绝大部分变化挤在前段，观感反而是"唰一下再
+            // 慢慢爬"。与 Windows OpacityAnimator 同一套语义。
+            let fadingOut = clamped < alphaValue
+            let tokens = DesignTokens.shared.opacity
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = DesignTokens.shared.opacity.transitionMs / 1000
+                ctx.duration = (fadingOut ? tokens.transitionOutMs : tokens.transitionMs) / 1000
+                ctx.timingFunction = CAMediaTimingFunction(name: fadingOut ? .easeIn : .easeOut)
                 animator().alphaValue = clamped
             }
         } else {

@@ -14,9 +14,12 @@ namespace AgentTimeline.Interop;
 /// acrylic material; OpacityAnimator therefore has a fallback mode that animates the XAML
 /// root's Opacity instead (content-only fade, backdrop stays solid).
 ///
-/// Window dragging: the window is borderless (no title bar), so dragging is implemented
-/// with the classic ReleaseCapture + WM_NCLBUTTONDOWN/HTCAPTION trick — Windows then runs
-/// its native move loop as if the user grabbed a real caption bar.
+/// Window dragging: 曾用经典的 ReleaseCapture + WM_NCLBUTTONDOWN/HTCAPTION 技巧借系统
+/// 原生移动循环，**在 WinUI 3 下不可靠**——指针输入走的是 XAML island 的 input site 而不是
+/// 顶层 HWND，模态循环常常在按键已经松开之后才启动、于是在等一个早就发生过的 WM_LBUTTONUP。
+/// 实机症状：按住不动拖不走，点一下松开窗口反而黏着鼠标跑（2026-07-29 有人值守发现）。
+/// 现改为手动拖拽（捕获指针 + AppWindow.Move，见 MainWindow.HeaderBar_Pointer*），
+/// 不进系统模态循环。这里只留取屏幕坐标的辅助方法。
 /// </summary>
 public static partial class WindowInterop
 {
@@ -67,10 +70,26 @@ public static partial class WindowInterop
         SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
     }
 
-    /// <summary>Starts the native window move loop (call from a PointerPressed handler).</summary>
-    public static void BeginWindowDrag(IntPtr hwnd)
+    /// <summary>
+    /// 指针的**屏幕**坐标（物理像素，与 <c>AppWindow.Position</c>/<c>Move</c> 同一坐标系）。
+    ///
+    /// 拖窗口用它算位移、而不是用 <c>PointerRoutedEventArgs.GetCurrentPoint</c>：后者是
+    /// 相对元素的逻辑坐标，跨 DPI 不同的显示器拖动时换算会漂。
+    /// </summary>
+    public static bool TryGetCursorPos(out Windows.Graphics.PointInt32 point)
     {
-        ReleaseCapture();
-        SendMessage(hwnd, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
+        if (GetCursorPos(out var p))
+        {
+            point = new Windows.Graphics.PointInt32(p.X, p.Y);
+            return true;
+        }
+        point = default;
+        return false;
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT { public int X, Y; }
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT point);
 }
