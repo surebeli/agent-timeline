@@ -66,9 +66,13 @@ $settings = Join-Path $data 'settings.json'
 $dbFiles  = @('timeline.db', 'timeline.db-wal', 'timeline.db-shm')
 
 # ── 几何常量（与 macOS 三张严格一致，改这里必须同步 DEBUG-PLAYBOOK.md §3b）
-$PANEL_W_DIP = 640     # 640 宽命令原文不被弹层截断
-$PANEL_H_DIP = 580     # 580 高收尾正好落在卡片边界而非切半行
-$PANEL_X_DIP = 300     # 屏幕落点（左上原点）；离右缘远一点，给弹层留地方
+# ⚠ 640×580 是**与 mac 对齐**的尺寸，不是按 Windows 版面调出来的：
+#   mac 那边 640 宽是为了命令原文不被溢出的词典弹层截断、580 高让收尾正好落在
+#   卡片边界。Windows 弹层不溢出面板（见下），580 高实测切在末条卡片中间——
+#   属已知观感差异，**不要为此改尺寸**：两端同 dip 几何才是这组图的意义所在。
+$PANEL_W_DIP = 640
+$PANEL_H_DIP = 580
+$PANEL_X_DIP = 300     # 屏幕落点（左上原点）
 $PANEL_Y_DIP = 30
 # 画布 = mac 三态并集 763×580dip + 四边 48dip 留白 = 859×676dip。
 # 写成 dip 常量而不是"取本端三态并集"：Windows 三态尺寸恒等（弹层不溢出面板），
