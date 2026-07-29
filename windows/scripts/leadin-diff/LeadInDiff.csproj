@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    引子续接（docs/TEXT-NORMALIZATION.md §3.3b）的差分执行工具。
+
+    和 CoreSmokeTest 一样把 WinUI-free 的 Core/ + Interop/ 源码**链接**进来编译成
+    普通控制台程序——链接而非引用是关键：ParserUtil 是 internal，只有同一程序集
+    才看得见，而我们要跑的正是**真实实现**，不是它的副本。
+
+    CoreRoot 可覆盖，这样同一份工具能分别对着「改动前」「改动后」两个源码状态编译：
+
+        dotnet build LeadInDiff.csproj -c Release -p:CoreRoot=<某个 git worktree>\windows\AgentTimeline
+
+    run-diff.ps1 会代劳（它用 git worktree 拿改动前的源码状态）。
+    直接 `dotnet run` 时用默认 CoreRoot = 本仓库工作区。
+
+    TargetFramework/LangVersion 与 CoreSmokeTest 对齐：主工程（net8.0 / C# 12）是超集，
+    这里能编过的那边一定能编过。不进 AgentTimeline.sln，独立运行。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <LangVersion>11</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>AgentTimeline.LeadInDiff</RootNamespace>
+    <AssemblyName>LeadInDiff</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(CoreRoot)' == ''">
+    <CoreRoot>$(MSBuildThisFileDirectory)..\..\AgentTimeline</CoreRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(CoreRoot)\Core\**\*.cs" LinkBase="Core" />
+    <Compile Include="$(CoreRoot)\Interop\FileIdentity.cs" Link="Interop/FileIdentity.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.6" />
+  </ItemGroup>
+
+</Project>
