@@ -17,8 +17,12 @@
   永远轮不到。可点区域只剩元信息行与块间窄缝。改为把 `Tapped` 挂到条目 root（对齐 mac
   `NodeViews.swift` 的 `.contentShape(Rectangle()).onTapGesture`）并删掉命中层。
 - **要点摘要行划不动**：折叠态下派生区最显眼的那行，是全条唯一漏了
-  `IsTextSelectionEnabled` 的文本。补上；并给条目内各文本加元素级 `RightTapped` 兜底，
-  防止可选文本吞掉右键手势（派生区右键菜单待复测确认）。
+  `IsTextSelectionEnabled` 的文本。补上。
+- **agent 回复区域右键出不来菜单**：`IsTextSelectionEnabled="True"` 的 TextBlock 会
+  **吞掉右键手势**，使其到不了挂在条目 root 的 `Entry_RightTapped`。命令区因为有 ❯ 列、
+  Border 内边距、右侧留白等大片非文本像素，右键落在那儿仍能冒泡上去——所以症状表现为
+  「只有自己发出的命令范围内有菜单」。修法：给条目内各文本加**元素级** `RightTapped`。
+  三处均经有人值守实机确认修复。
 
 ### 验证（Windows）
 
