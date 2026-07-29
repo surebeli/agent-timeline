@@ -1,0 +1,45 @@
+windows/scripts/shots/WindowTool/Program.cs
+  s_5f812b192ad64b::t_2f966354c8b02a 1-5,7-66,68-102,104-165,303-851,854-956,961-982
+  human 67-67,103-103
+  s_5f812b192ad64b::t_da8b2b8e5d009f 166-262,265-265,272-276,280-302
+  s_5f812b192ad64b::t_394926f328d192 263-264,266-268,271-271
+  s_5f812b192ad64b::t_36d4bc2b85b793 269-270
+  s_5f812b192ad64b::t_30fb5147fa659a 277-279,852-852
+  s_5f812b192ad64b::t_e139fe653e6122 957-960
+windows/scripts/shots/shoot-readme.ps1
+  s_5f812b192ad64b::t_05a02cf48a2ee0 1-29,39-299
+  s_5f812b192ad64b::t_0e3df2eb827471 30-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "9dbbe1e1d2819c6696174258383aca9e05f4a8f9",
+  "prompts": {
+    "s_5f812b192ad64b::t_2f966354c8b02a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 836,
+      "total_deletions": 0,
+      "accepted_lines": 836,
+      "overriden_lines": 0
+    },
+    "s_5f812b192ad64b::t_05a02cf48a2ee0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 290,
+      "total_deletions": 0,
+      "accepted_lines": 290,
+      "overriden_lines": 0
+    }
+  }
+}
