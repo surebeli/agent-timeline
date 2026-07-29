@@ -1,0 +1,52 @@
+README.md
+  s_b85ad4e83942fb::t_a345e08eb675a3 81-81
+  s_b85ad4e83942fb::t_6cd3d509738212 85-85
+docs/assets/screenshot-macos-dictionary.png
+  0000019facec2014 1-2183
+docs/assets/screenshot-macos-projects.png
+  0000019facec2014 1-2123
+docs/assets/screenshot-macos-timeline.png
+  0000019facec2014 1-2312
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0805724daea9701e51fa46320f7e3a0b53344878",
+  "prompts": {
+    "s_b85ad4e83942fb::t_a345e08eb675a3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "0000019facec2014": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785312583700"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 6618,
+      "total_deletions": 0,
+      "accepted_lines": 6618,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_6cd3d509738212": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
