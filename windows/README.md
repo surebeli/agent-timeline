@@ -13,7 +13,7 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 >
 > | 层 | 状态 |
 > |---|---|
-> | 构建 | ✅ VS msbuild x64 Release；CI 五道关（mac swift test / Core 冒烟 / WinUI msbuild / tokens 同源 / 文案表同源）为硬门禁 |
+> | 构建 | ✅ VS msbuild x64 Release；CI 六道关（mac swift test / Core 冒烟 / WinUI msbuild / tokens 同源 / 文案表同源 / 演示数据集中英不变式）为硬门禁 |
 > | `Core/` + `Interop/` | ✅ 冒烟 **400 断言** 全绿（`windows/CoreSmokeTest/`，任意平台 `dotnet run` 可复跑） |
 > | UI 层（XAML / WinUI / H.NotifyIcon / Win32 interop） | ✅ 分层验证清单全项过，逐条注记见 [DEBUG-PLAYBOOK.md](DEBUG-PLAYBOOK.md) §2 |
 > | 五条 agent 通道 | ✅ claude / codex / grok / kimi / zcode 均在本机真实语料上跑通 |

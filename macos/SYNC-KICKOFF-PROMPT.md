@@ -11,7 +11,9 @@
 
 你在一台 macOS 机器上，当前目录是仓库 agent-timeline 根目录
 （远端 github.com/surebeli/agent-timeline，先 `git pull` 到最新 main）。产品是双端桌面
-挂件「Agent Timeline」，两端跑在 CI 六道关下（本轮新增第六关：演示数据集中英不变式），最新发布 **v0.6.0**。
+挂件「Agent Timeline」，两端跑在 **CI 六道关**下，最新发布 **v0.6.0**。六关是：
+mac swift test / Core 冒烟 / WinUI msbuild / tokens 同源 / 文案表同源 /
+**演示数据集中英不变式**（最后一关是 Windows 侧本轮新加的，见任务 C）。
 
 **本轮三件事**：补一个能丢用户真实数据的坑（A，最高优先）、英文版截图的 mac 半边（C）、双语文档收尾（B）。
 

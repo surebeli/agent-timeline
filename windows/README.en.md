@@ -14,7 +14,7 @@ It shares the parsing spec in `docs/SESSION-FORMATS.md`, the visual spec in
 >
 > | Layer | State |
 > |---|---|
-> | Build | ✅ VS msbuild x64 Release; five CI gates are hard blockers (mac `swift test` / Core smoke / WinUI msbuild / design-tokens parity / strings-table parity) |
+> | Build | ✅ VS msbuild x64 Release; six CI gates are hard blockers (mac `swift test` / Core smoke / WinUI msbuild / design-tokens parity / strings-table parity / demo-dataset bilingual invariants) |
 > | `Core/` + `Interop/` | ✅ **400 smoke assertions** green (`windows/CoreSmokeTest/`; `dotnet run` reproduces them on any OS) |
 > | UI layer (XAML / WinUI / H.NotifyIcon / Win32 interop) | ✅ every item on the layered verification checklist passes; per-item notes in [DEBUG-PLAYBOOK.md](DEBUG-PLAYBOOK.md) §2 (Chinese) |
 > | All five agent channels | ✅ claude / codex / grok / kimi / zcode all exercised against real local corpora |
