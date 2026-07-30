@@ -16,6 +16,7 @@ final class TimelineViewModel {
     private let store: Store
     private var reloadScheduled = false
     private var fetchLimit = 500
+    private var isLoadingMore = false
 
     var canLoadMore: Bool { nodes.count >= fetchLimit }
 
@@ -124,9 +125,19 @@ final class TimelineViewModel {
         scrollTarget = entry.definitionNodeId
     }
 
+    /// Triggered by the sentinel view at the end of the ledger when it scrolls into
+    /// view (replaces the old tap-to-load button, parity with the Windows port).
+    /// `isLoadingMore` guards against `LazyVStack` re-firing `.onAppear` on the
+    /// sentinel while a previous load is still settling — see TimelineView.swift.
     func loadMore() {
+        guard canLoadMore, !isLoadingMore else { return }
+        isLoadingMore = true
+        let before = nodes.count
         fetchLimit += 500
         reload()
+        isLoadingMore = false
+        print("[TimelineViewModel] 滚到底自动加载：\(before) → \(nodes.count) 条，"
+              + "canLoadMore=\(canLoadMore)")
     }
 
     func reload() {

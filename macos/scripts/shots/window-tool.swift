@@ -7,6 +7,10 @@
 //   window-tool move  <x> <y>   仅移动指针（用于让 hover 态复位、并让 tooltip 消失）
 //   window-tool up              补发一次 mouseUp——中断的拖拽会残留按下态，
 //                               之后任何 move 都会把面板拖走
+//   window-tool scroll <x> <y> <deltaY> [count]
+//                               在屏幕坐标合成 [count]（默认 1）次滚轮事件，每次间隔
+//                               30ms；deltaY 负值向下滚（内容往上移，等价用户往下拉）。
+//                               用于交互测试滚动触发的行为（例如滚到底自动加载）。
 //
 // ⚠ 必须先 swiftc 编译成二进制再用：`swift window-tool.swift` 每次都重新编译，
 //   几个交互步骤串起来就会超时（实测 >2min）。shoot-readme.sh 已代劳。
@@ -51,6 +55,25 @@ case "move":
     post(.mouseMoved, point(args[2...]))
 case "up":
     post(.leftMouseUp, CGEvent(source: nil)?.location ?? .zero)
+case "scroll":
+    guard args.count >= 5, let dy = Int32(args[4]) else {
+        FileHandle.standardError.write(Data("用法: window-tool scroll <x> <y> <deltaY> [count]\n".utf8))
+        exit(2)
+    }
+    let p = point(args[2...3])
+    let count = args.count >= 6 ? (Int(args[5]) ?? 1) : 1
+    post(.mouseMoved, p)
+    usleep(100_000)
+    for _ in 0..<count {
+        if let scroll = CGEvent(
+            scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
+            wheel1: dy, wheel2: 0, wheel3: 0
+        ) {
+            scroll.location = p
+            scroll.post(tap: .cghidEventTap)
+        }
+        usleep(30_000)
+    }
 default:
     FileHandle.standardError.write(Data("未知子命令: \(args[1])\n".utf8)); exit(2)
 }

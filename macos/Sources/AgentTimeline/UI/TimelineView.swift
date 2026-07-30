@@ -227,12 +227,18 @@ struct TimelineView: View {
                             DayHeader(label: group.label)
                         }
                     }
+                    // Scroll-to-bottom auto-load (parity with the Windows port): a
+                    // near-invisible sentinel at the tail of the lazy stack. `LazyVStack`
+                    // only materializes children near the viewport, so `.onAppear` here
+                    // fires exactly when the user has scrolled close to the end — no
+                    // manual scroll-percentage math needed. Replaces the old tap-to-load
+                    // button; `timeline.loadMore` stays in the shared strings table
+                    // (Windows already stopped referencing it too, but it's not deleted
+                    // — see windows/SYNC-KICKOFF-PROMPT.md's reasoning, kept per that call).
                     if viewModel.canLoadMore {
-                        Button(Strings.s("timeline.loadMore")) { viewModel.loadMore() }
-                            .buttonStyle(.plain)
-                            .font(.system(size: tokens.typography.size.caption))
-                            .foregroundStyle(tokens.color.accent.color)
-                            .padding(.vertical, 8)
+                        Color.clear
+                            .frame(height: 1)
+                            .onAppear { viewModel.loadMore() }
                     }
                 }
                 .padding(.leading, tokens.spacing.panelPadding)
