@@ -1,17 +1,20 @@
 # Agent Timeline — Windows 端
 
-WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂件。与 mac 端共享
-`docs/SESSION-FORMATS.md` 解析规范与 `design/design-tokens.json` 视觉规范。
+**中文** · [English](README.en.md)
 
-> ## ✅ 已实机验证完成（最新一轮 2026-07-29 · v0.5.1）
+WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂件。与 mac 端共享
+`docs/SESSION-FORMATS.md` 解析规范、`design/design-tokens.json` 视觉规范与
+`design/strings.json` 界面文案。
+
+> ## ✅ 已实机验证完成（最新一轮 2026-07-30）
 >
 > 本工程最初在 macOS 上编写，**M3 起已在 Windows 11 实机反复编译、运行、验证**，
 > 与 mac 端同版本发布。当前状态：
 >
 > | 层 | 状态 |
 > |---|---|
-> | 构建 | ✅ VS msbuild x64 Release；CI 四道关（mac swift test / Core 冒烟 / WinUI msbuild / tokens 同源）为硬门禁 |
-> | `Core/` + `Interop/` | ✅ 冒烟 **354 断言** 全绿（`windows/CoreSmokeTest/`，任意平台 `dotnet run` 可复跑） |
+> | 构建 | ✅ VS msbuild x64 Release；CI 五道关（mac swift test / Core 冒烟 / WinUI msbuild / tokens 同源 / 文案表同源）为硬门禁 |
+> | `Core/` + `Interop/` | ✅ 冒烟 **400 断言** 全绿（`windows/CoreSmokeTest/`，任意平台 `dotnet run` 可复跑） |
 > | UI 层（XAML / WinUI / H.NotifyIcon / Win32 interop） | ✅ 分层验证清单全项过，逐条注记见 [DEBUG-PLAYBOOK.md](DEBUG-PLAYBOOK.md) §2 |
 > | 五条 agent 通道 | ✅ claude / codex / grok / kimi / zcode 均在本机真实语料上跑通 |
 > | 发布 | ✅ v0.5.1 安装包实机验证（托盘常驻 / 时间线上屏 / 设置窗版本号） |
@@ -24,6 +27,42 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 > 分层验证清单与宣发截图拍摄规程）。
 
 ## 更新记录
+
+- **2026-07-30 四语接线轮（B 词表 + A 69 键接线 + 一览重拍）**
+  - **B 识别词表四语化 + 日韩三条硬伤**（`c72824c`）。否定检测的位置三语不同：中文前置、
+    日语后置（完了して**いない**）、韩语两头都有。新增后置否定标记 + 8 字窗口且**遇子句
+    边界即止**；韩语前置否定按 **어절**（空格分词）判**不能按字符**——真实语料里
+    `이미 완료`(11265)/`제안 완료`(3261)/`잘못`(84805) 都含 안·못·미。`ClauseSeparators`
+    补 ASCII 句点但只认**句末形态**（否则 `v0.6.0` 会被从中间截断），向后窗口 24→48
+    迁就韩语 SOV。兼容折叠**不用平台 NFKC**：实测 `String.Normalize(FormKC)` 在
+    `InvariantGlobalization=true` 下**静默原样返回**（不抛异常），而冒烟工程正是这个配置、
+    主程序不是——照搬会让门禁与线上语义不同且无声；理由见
+    [docs/TEXT-NORMALIZATION.md](../docs/TEXT-NORMALIZATION.md) §3.6。
+    顺带修掉两处一直存在的匹配缺陷：拉丁词无词边界（`prefix`/`suffix` 命中 fix，开发语料
+    里几乎无处不在）、中日同形词误伤（`要求`/`判断` 在中文里是高频通用动词，实测把 31 条
+    任务误判成需求）。真实语料量化：代号状态判定 **100% 不变**（789 处命中）、类型判定
+    97.36% 不变且 137 处变化逐条归因。冒烟 360→**400**，四次反证各自精确打红；
+  - **A 69 键接线 + 设置页语言选择器**（`3778ac4`）。界面不再有任何文案字面量。
+    落库值与显示标签彻底分开（`UI/UiText.cs`）：`NodeKind`/`CodenameStatus` 落库仍是中文
+    rawValue、过滤照旧下推 SQL，语言只换渲染；过滤器的「全部/类型」改用 `::all-projects::`
+    哨兵（冒号在 Windows 路径分量里非法，真实项目名不可能相撞），显示时才映射。
+    语言**即时生效**，未保存关窗回滚——回滚挂在 `Closed` 而非取消按钮上，标题栏的 X
+    不走 Cancel。顺带修掉设置窗保存/取消**被挤出滚动区**（动作条改为钉在 ScrollViewer 外
+    常驻）、Windows 空列表无提示两处；
+  - **一览三张图按 100% 重拍**（`35a4ac8`）。拍摄脚本改为自己切显示缩放
+    （`WindowTool scale set`，走系统「设置」同一条 DisplayConfig 路径）、指针压住面板时
+    自己挪开，不再需要人介入。演示配置**钉死 `Language='ZhHans'`**——此前没钉，产出语言
+    取决于拍摄机系统 UI 语言（本机 en-US，一跑就拍出英文图而图看着完全正常）；
+  - ⚠️ **本轮踩过一次真实数据丢失，两个 bug 各修一处**，教训写在这里：
+    ① `try/finally` **挡不住进程被硬杀**——一轮拍摄在"已写入演示库、尚未还原"时被外部
+    终止，演示库留在真实位置；下一轮把**演示库当成真实基线**备份，拍完又忠实还原回去，
+    三条 ✅ 全打勾而真实数据被水泥封死。**校验通过、数据没了**是最坏的一类失败。
+    修法：数据目录立**中断标记**（还原三项全对上才清）+ 固定备份位置 `.shoot-backup`
+    + `-Recover` 一键还原；
+    ② 上面那道防护**自己又删了一次库**——`finally` 会在 try 里任何位置抛出时跑到还原逻辑，
+    包括备份步骤之前；那时备份目录是空的，而还原是"先删真实文件再从备份拷回"：删得掉、
+    拷不回，随后启动应用还会重建空库开始回填把现场盖掉。修法：`$swapped` 标志，
+    只有真的进入交换阶段才允许还原，否则一个文件都不动。两处都做了反证。
 
 - **2026-07-29 (ii) 单实例保护（补双端分叉）**
   - mac `App/main.swift` 一直有这道闸（发现同 bundle id 的进程就 `exit(0)`），Windows 侧
@@ -290,6 +329,9 @@ XAML 资源（颜色/字号/间距/圆角）。修改 tokens 时请同步三处�
 根 JSON → 复制到 Assets → 重新生成 Tokens.xaml（注意 XAML 颜色是 `#AARRGGBB`，
 tokens 是 `#RRGGBBAA`，alpha 位置不同）。
 
+界面文案同理：`design/strings.json`（69 键 × 4 语言）是唯一事实源，
+`AgentTimeline/Assets/strings.json` 是它的字节一致副本，漂移由 CI 拦下。
+
 ## 模块结构
 
 ```
@@ -297,11 +339,13 @@ AgentTimeline/
 ├── App.xaml(.cs)               # 组装根：settings/store/registry/engine/coordinator
 ├── MainWindow.xaml(.cs)        # 悬浮面板：无边框+Acrylic+hover透明度+托盘+时间线 UI
 ├── SettingsWindow.xaml(.cs)    # 设置界面（F6）
+├── AppStrings.cs               # 载入 Assets/strings.json；语言解析与取词
 ├── DesignTokens.cs             # 解析 Assets/design-tokens.json
 ├── Themes/Tokens.xaml          # tokens 生成的 XAML 资源
 ├── UI/
 │   ├── TimelineViewModel.cs    # 时间线 VM（倒序、分页、过滤、节点 VM）
-│   └── OpacityAnimator.cs      # hover 0.95 / 失焦 0.25，180ms 缓动
+│   ├── UiText.cs               # 落库值 → 显示标签的唯一映射点
+│   └── OpacityAnimator.cs      # hover 0.95 / 失焦 0.25，快淡入慢淡出
 ├── Interop/
 │   ├── WindowInterop.cs        # 分层窗口 alpha + 无边框拖动（Win32）
 │   └── FileIdentity.cs         # 文件 fileId（inode 等价物，检测文件重建）
@@ -313,7 +357,8 @@ AgentTimeline/
     ├── CodenameRegistry.cs     # 代号词典：命令+回复+LLM 三路并集，状态机落库与缓存
     ├── SessionWatcher.cs       # FileSystemWatcher + 字节偏移增量 tail + 7 天回填
     ├── TimelineCoordinator.cs  # 数据流编排（watcher→parser→store→engine→UI 事件）
-    ├── Parsers/                # Claude/Codex/Kimi 按规范实现；Zcode 占位
+    ├── Text/TextNormalizer.cs  # 展示态规整 + 匹配态兼容折叠
+    ├── Parsers/                # Claude/Codex/Grok/Kimi/ZCode 按规范实现
     └── Summarize/              # SummaryEngine + Cli/Provider/Rule 三实现
 ```
 
@@ -368,7 +413,7 @@ CodenameDetector 同源）——首段量词是 `{0,9}` 而非 `{1,9}`，否则 
 
 ## 与 PRD 的对应
 
-- F1 session 跟踪：`SessionWatcher` + 三个解析器 + zcode 预留 ✅
+- F1 session 跟踪：`SessionWatcher` + 五个解析器 ✅
 - F2/F2b timeline 展示：倒序、双墨线台账条目（命令块主角 + ✦ 提炼块 + rail 标记 + 日期
   分组），项目过滤 + 阶段过滤、命令原文常显可划选复制 ✅
 - F3 代号词典（含生命周期）：定义式登记 + 词典引导匹配 + LLM 提取三路并集、状态机
@@ -377,4 +422,6 @@ CodenameDetector 同源）——首段量词是 `{0,9}` 而非 `{1,9}`，否则 
 - F4 摘要引擎：CLI / Provider / Rule 三实现 + hash 缓存 + 串行限速 + 降级 ✅
 - F5 窗口交互：托盘、半透明两档 + 动画、置顶开关、位置尺寸记忆 ✅
   （「非激活面板不抢焦点」为 mac NSPanel 特性，Windows 无直接等价物，未实现）
-- F6 设置：引擎/透明度/置顶/回填天数/agent 开关 ✅（版本号在标题栏，双端同串）
+- F6 设置：引擎/界面语言/透明度/置顶/回填天数/agent 开关 ✅（版本号在标题栏，双端同串）
+- 四语界面：`design/strings.json`（69 键 × 4 语言）+ `AppStrings.cs` 加载器 + `UI/UiText.cs`
+  落库值到显示标签的映射；识别词表四语常开（会话语言与界面语言无关）✅
