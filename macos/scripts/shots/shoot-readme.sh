@@ -6,8 +6,9 @@
 #   --install   拍完直接覆盖 docs/assets/ 下的成品（默认只写 out 目录，便于先目验）
 #   --recover   救援：用数据目录下的固定备份 .shoot-backup 覆盖真实位置并清中断标记
 #   --settings  额外拍设置窗口（screenshot-macos-settings$SUFFIX.png）
-#   --language <ZhHans|En>  演示语言（默认 ZhHans）。En 时产出装到 *-en.png，
-#               供 README.en.md 用；与 win shoot-readme.ps1 -Language 同语义
+#   --language <ZhHans|En|Ja|Ko>  演示语言（默认 ZhHans）。En 时产出装到 *-en.png，
+#               供 README.en.md 用；Ja/Ko 产出 *-ja.png / *-ko.png，用于社媒素材、
+#               不进 README。与 win shoot-readme.ps1 -Language 同语义
 #
 # 缩放：**按拍摄机系统默认**，脚本不改显示缩放（用户 2026-07-30 决定：各端用自己系统
 # 的默认设置，不再互相强制）。mac 上 Retina 2x → 1718×1352；Windows 100% → 859×676，
@@ -214,12 +215,8 @@ rm -f "$DB" "$DB-wal" "$DB-shm"
 case "$LANGUAGE" in
   ZhHans) SEED_LANG=zh ;;
   En)     SEED_LANG=en ;;
-  # Ja/Ko：demo-dataset 没有日/韩正文（DEMO-DATASET.md 明确注明），演示内容退回
-  # 英文，只有**界面 chrome**切成日/韩。这不是将就——它恰好实拍出「界面语言与
-  # 识别/内容语言无关」这条产品能力本身：日语 chrome 认得懂英文 agent 的回复，
-  # 比伪造一批日语假数据更真实、也更贴切「四语言」这个卖点。
-  Ja)     SEED_LANG=en ;;
-  Ko)     SEED_LANG=en ;;
+  Ja)     SEED_LANG=ja ;;
+  Ko)     SEED_LANG=ko ;;
   *) echo "--language 只支持 ZhHans / En / Ja / Ko" >&2; exit 2 ;;
 esac
 python3 "$REPO/macos/scripts/demo-seed.py" "$DB" --lang "$SEED_LANG"

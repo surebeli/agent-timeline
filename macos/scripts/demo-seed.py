@@ -1,5 +1,5 @@
 # 演示数据灌注（README 截图专用）—— 数据集规范见 docs/DEMO-DATASET.md
-# 用法: python3 demo-seed.py <db路径> [--lang zh|en]   （对全新空库执行）
+# 用法: python3 demo-seed.py <db路径> [--lang zh|en|ja|ko]   （对全新空库执行）
 #
 # 结构（STRUCT / CODES）与文案（CONTENT / DEFS）分离，且**结构与 windows/scripts/demo-seed.py
 # 逐字段相同**：两端 README 的中英四行要对齐，版面与折行就必须由同一套结构决定。
@@ -23,10 +23,10 @@ if '--lang' in argv:
     i = argv.index('--lang')
     LANG = argv[i + 1]
     del argv[i:i + 2]
-if LANG not in ('zh', 'en'):
-    raise SystemExit('--lang 只接受 zh 或 en')
+if LANG not in ('zh', 'en', 'ja', 'ko'):
+    raise SystemExit('--lang 只接受 zh / en / ja / ko')
 if not argv:
-    raise SystemExit('用法: demo-seed.py <db路径> [--lang zh|en]')
+    raise SystemExit('用法: demo-seed.py <db路径> [--lang zh|en|ja|ko]')
 DB = argv[0]
 TODAY = datetime.date.today()
 

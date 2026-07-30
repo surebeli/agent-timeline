@@ -102,16 +102,12 @@ $CANVAS_W_DIP = 859
 $CANVAS_H_DIP = 676
 
 # 语言 → 演示数据集语种 + 成品文件名后缀。
-# 演示数据集只有中英两套（docs/DEMO-DATASET.md），Ja/Ko 只能换界面文案、
-# 内容仍是中文——那种混语图比统一中文图更糟，所以直接拦下而不是悄悄拍出来。
+# 演示数据集现覆盖中英日韩四套（docs/DEMO-DATASET.md，2026-07-30 补齐日韩正文）。
 $seedLang = switch ($Language) {
     'ZhHans' { 'zh' }
     'En'     { 'en' }
-    default  {
-        throw ("-Language $Language 没有对应的演示数据集：docs/DEMO-DATASET.md 目前只有中英两套。" +
-               "只换界面语言会拍出「英文/日文 chrome + 中文内容」的混语图，" +
-               "比统一中文图更糟，故不允许。要拍就先补该语种的演示数据集。")
-    }
+    'Ja'     { 'ja' }
+    'Ko'     { 'ko' }
 }
 # 中文是默认产物、不带后缀（历史文件名不变）；其余语种加 -<lang> 后缀
 $suffix = if ($seedLang -eq 'zh') { '' } else { "-$seedLang" }

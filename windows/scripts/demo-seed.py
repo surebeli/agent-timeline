@@ -1,5 +1,5 @@
 # 演示数据灌注(README 截图专用) —— 数据集规范见 docs/DEMO-DATASET.md
-# 用法: python demo-seed.py [db路径] [--lang zh|en]
+# 用法: python demo-seed.py [db路径] [--lang zh|en|ja|ko]
 #       默认 db = %LOCALAPPDATA%\AgentTimeline\timeline.db，默认 lang = zh
 # 注意: 针对 Windows 端 schema(nodes 整型自增 id / ts 毫秒);mac 端 schema 不同
 # (TEXT id / ts 秒 / 无 summary_pending),需按 macos/Sources/.../Store.swift 适配,
@@ -17,8 +17,8 @@ if '--lang' in argv:
     i = argv.index('--lang')
     LANG = argv[i + 1]
     del argv[i:i + 2]
-if LANG not in ('zh', 'en'):
-    raise SystemExit('--lang 只接受 zh 或 en')
+if LANG not in ('zh', 'en', 'ja', 'ko'):
+    raise SystemExit('--lang 只接受 zh / en / ja / ko')
 DB = argv[0] if argv else os.path.expandvars(r'%LOCALAPPDATA%\AgentTimeline\timeline.db')
 
 # 时间基准按 DEMO-DATASET.md：D = 拍摄当天、D-1 = 前一天，时区取本机本地时区
