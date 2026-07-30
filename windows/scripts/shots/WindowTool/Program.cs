@@ -7,7 +7,7 @@
 //   WindowTool rect   <AutomationId>       报某个控件的屏幕矩形（诊断用）
 //   WindowTool invoke <AutomationId>       UIA 调用一次（用来关掉上一态留下的弹层）
 //   WindowTool shot   <hwnd> <out.png>     按窗口抓取（PrintWindow + PW_RENDERFULLCONTENT）
-//   WindowTool move   <x> <y>              移动指针（本机被拦，见下）
+//   WindowTool move   <x> <y>              移动指针（SendInput → SetCursorPos 依次试，读回坐标为准）
 //   WindowTool shoot  <前缀> [--invoke <AutomationId>] [--settle ms] [--park x,y]
 //                                          UIA 调用 → 前后像素比对校验 → 抓完所有窗口
 //   WindowTool compose <out.png> <W> <H> <in.png@x,y> [...]   合成到统一画布
@@ -27,9 +27,10 @@
 //    于是：抓面板一张就够；mac 那条「词典态必须比时间线态宽」的不变式在
 //    Windows 上**不成立**，照抄只会误报。compose 仍按并集居中，将来若改成
 //    窗口化 popup 也接得住。
-// 2. **合成鼠标输入被吞**：本机 SendInput 连指针都挪不动（实测 move 前后
-//    GetCursorPos 完全不变，DEBUG-PLAYBOOK §2a 记过"合成输入起不动原生 NC 拖拽"）。
-//    所以按钮一律走 **UIA InvokePattern**，不靠点坐标。
+// 2. **合成鼠标输入部分被吞**：SendInput 连指针都挪不动（实测 move 前后 GetCursorPos
+//    完全不变，DEBUG-PLAYBOOK §2a 记过"合成输入起不动原生 NC 拖拽"），但
+//    **SetCursorPos 可用**（2026-07-30 实测）。所以：按钮一律走 UIA InvokePattern、
+//    不靠点坐标；挪指针则两条路依次试、以**读回坐标**为准，不看返回值。
 // 3. **UIA 树会退化**：应用跑久了、或残留 tooltip 之后，面板窗口的 UIA 后代
 //    可能只剩几个节点（实测从 96 掉到 4，按 AutomationId 就找不到控件了）。
 //    因此每一态都从**新启动的应用**拍，且判定弹层是否真开**不看 UIA 树**，
@@ -196,6 +197,7 @@ internal static class WindowTool
         }
         var recommendedIdx = currentIdx - get.curScaleRel;
 
+        // 用法两种：`scale` / `scale get` 只读；`scale set <pct>` 才写。
         if (args.Length < 2 || args[1] == "get")
         {
             var min = DpiSteps[Math.Clamp(recommendedIdx + get.minScaleRel, 0, DpiSteps.Length - 1)];
@@ -203,8 +205,12 @@ internal static class WindowTool
             Console.WriteLine($"scale={currentDpi}% recommended={DpiSteps[recommendedIdx]}% range={min}%..{max}%");
             return 0;
         }
+        if (args[1] != "set" || args.Length < 3)
+        {
+            throw new ArgumentException("用法：scale get | scale set <百分比>");
+        }
 
-        var target = Int(args[1]);
+        var target = Int(args[2]);
         var targetIdx = Array.IndexOf(DpiSteps, target);
         if (targetIdx < 0)
         {
@@ -367,24 +373,27 @@ internal static class WindowTool
         var mw = main.Rect.Right - main.Rect.Left;
         var mh = main.Rect.Bottom - main.Rect.Top;
 
-        // 指针若停在面板上，hover 高亮与 tooltip 都会进成品。本机挪不动指针
-        // （合成输入被吞），所以只能拦下来让人挪——不能默默拍一张带 hover 的图。
-        if (GetCursorPos(out var cursor) &&
-            cursor.X >= main.Rect.Left && cursor.X < main.Rect.Right &&
-            cursor.Y >= main.Rect.Top && cursor.Y < main.Rect.Bottom)
+        // 指针若停在面板上，hover 高亮与 tooltip 都会进成品。自己挪开——
+        // 停放点在没给 --park 时由 ParkSpot 现算，调用方不必记得传。
+        if (GetCursorPos(out var cursor) && InPanel(cursor))
         {
-            if (park is { } q) MovePointer(q.X, q.Y);
+            var q = park ?? ParkSpotPair(main.Rect);
+            MovePointer(q.X, q.Y);
             Thread.Sleep(800);
-            if (GetCursorPos(out cursor) &&
-                cursor.X >= main.Rect.Left && cursor.X < main.Rect.Right &&
-                cursor.Y >= main.Rect.Top && cursor.Y < main.Rect.Bottom)
+            if (GetCursorPos(out cursor) && InPanel(cursor))
             {
                 Console.Error.WriteLine(
-                    $"❌ 指针停在面板上（{cursor.X},{cursor.Y}），会摄进 hover 高亮与 tooltip。" +
-                    "本机合成输入被拦，请手动把鼠标移开面板再重跑。");
+                    $"❌ 指针停在面板上（{cursor.X},{cursor.Y}），会摄进 hover 高亮与 tooltip；" +
+                    $"挪到 {q.X},{q.Y} 没成功（SendInput 与 SetCursorPos 都被拦）。" +
+                    "请手动把鼠标移开面板再重跑——不能默默拍一张带 hover 的图。");
                 return 1;
             }
+            Console.WriteLine($"   指针已移出面板 → {cursor.X},{cursor.Y}");
         }
+
+        bool InPanel(POINT p) =>
+            p.X >= main.Rect.Left && p.X < main.Rect.Right &&
+            p.Y >= main.Rect.Top && p.Y < main.Rect.Bottom;
 
         Bitmap? baseline = null;
         if (invoke is not null)
@@ -546,7 +555,43 @@ internal static class WindowTool
         }
     }
 
-    /// <summary>移动指针。⚠ 本机实测被系统吞掉（前后 GetCursorPos 不变），别指望它。</summary>
+    /// <summary>
+    /// 指针的停放点：面板所在显示器上离面板中心最远的那个角，内缩 12px。
+    /// 取「最远的角」而不是写死左上——面板本身就可能贴在左上。
+    /// </summary>
+    private static (int X, int Y) ParkSpotPair(RECT panel)
+    {
+        var hMon = MonitorFromPoint(
+            new POINT { X = (panel.Left + panel.Right) / 2, Y = (panel.Top + panel.Bottom) / 2 },
+            2 /* MONITOR_DEFAULTTONEAREST */);
+        var info = new MONITORINFOEX { cbSize = Marshal.SizeOf<MONITORINFOEX>() };
+        GetMonitorInfo(hMon, ref info);
+        var m = info.rcWork;
+
+        var cx = (panel.Left + panel.Right) / 2.0;
+        var cy = (panel.Top + panel.Bottom) / 2.0;
+        (int X, int Y) best = default;
+        var bestDist = -1.0;
+        foreach (var (x, y) in new[]
+                 {
+                     (m.Left + 12, m.Top + 12), (m.Right - 12, m.Top + 12),
+                     (m.Left + 12, m.Bottom - 12), (m.Right - 12, m.Bottom - 12),
+                 })
+        {
+            var d = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+            if (d > bestDist) { bestDist = d; best = (x, y); }
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// 把指针挪到指定屏幕坐标，**自己核对是否真的动了**。
+    ///
+    /// 两条路依次试：`SendInput`（会走完整输入栈，某些远程/防护软件会拦）→ `SetCursorPos`
+    /// （直接置位，不产生输入事件）。曾经只有 SendInput 一条路，在某些环境下静默失败——
+    /// 前后 GetCursorPos 完全不变，而调用返回成功。所以这里以**读回坐标**为准，
+    /// 不看返回值；两条都不成才报失败。
+    /// </summary>
     private static int MovePointer(int x, int y)
     {
         var vx = GetSystemMetrics(SM_XVIRTUALSCREEN);
@@ -565,7 +610,23 @@ internal static class WindowTool
             },
         };
         SendInput(1, new[] { input }, Marshal.SizeOf<INPUT>());
-        return 0;
+        Thread.Sleep(120);
+        if (Near(x, y, out var got)) { Console.WriteLine($"pointer → {got.X},{got.Y} (SendInput)"); return 0; }
+
+        SetCursorPos(x, y);
+        Thread.Sleep(120);
+        if (Near(x, y, out got)) { Console.WriteLine($"pointer → {got.X},{got.Y} (SetCursorPos)"); return 0; }
+
+        Console.Error.WriteLine($"失败: 指针挪不动，仍在 {got.X},{got.Y}（目标 {x},{y}）——" +
+                                "SendInput 与 SetCursorPos 都被拦（远程/防护软件常见）");
+        return 1;
+
+        // 容差 2px：某些驱动会把坐标吸附到整数缩放格点上。
+        static bool Near(int tx, int ty, out POINT p)
+        {
+            GetCursorPos(out p);
+            return Math.Abs(p.X - tx) <= 2 && Math.Abs(p.Y - ty) <= 2;
+        }
     }
 
     // ═══════════════════════════════════════════════ 合成到统一画布
@@ -840,6 +901,7 @@ internal static class WindowTool
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT p);
+    [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
     [DllImport("user32.dll")] private static extern bool ClientToScreen(IntPtr hwnd, ref POINT p);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]

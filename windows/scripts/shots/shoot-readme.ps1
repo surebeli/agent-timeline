@@ -26,7 +26,9 @@
   拍完直接覆盖 docs/assets/ 下的成品（默认只写工作目录，便于先目验）。
 
 .PARAMETER Scale
-  期望的显示缩放百分比，默认 200（§3b 规定 1dip = 2px）。
+  期望的显示缩放百分比，**默认 100**——成品就是 100% 拍的（859×676，dip 几何与 mac
+  逐位相同）。2026-07-30 用户定：「恢复到 100%，之前有记录 200% 应该是错误的」。
+  默认值刻意与结论一致：默认 200 的话，谁随手一跑就把机器的全局缩放改掉了。
 
   当前缩放不是这个值时，脚本**自己改**（`WindowTool scale set`，走的是系统「设置」
   同一条 DisplayConfig 路径，立即生效不用注销），不再要人去点界面。两个要知道的后果：
@@ -47,7 +49,7 @@
 [CmdletBinding()]
 param(
     [switch]$Install,
-    [int]$Scale = 200,
+    [int]$Scale = 100,
     [string]$App = '',
     [string]$Work = ''
 )
@@ -144,17 +146,17 @@ if ($actual -ne $Scale) {
     # 脚本自己改，不再要求人去点「设置」。改完**不改回**：约定是把机器留在拍摄缩放上，
     # 免得每次重拍都要来回切、也免得中途失败留下半吊子状态。
     Write-Host "   主显示器 $actual% → $Scale%（会重排屏幕上所有已打开的窗口）"
-    $out = & $tool scale set $Scale 2>&1
+    $scaleOut = & $tool scale set $Scale 2>&1
     if ($LASTEXITCODE -ne 0) {
+        # 只报工具原话，不替它归因——写死一套"可能原因"会把真正的原因盖掉
+        # （实测踩过：参数解析的 bug 被这段文案说成了"虚拟显示器改不动"）。
         throw (
-            "改缩放失败：$out`n" +
-            "  这条路要求主显示器在 Windows 的显示配置库（CCD）里有活动路径。" +
-            "远程会话 / 虚拟显示适配器（GameViewer、向日葵、Parsec 之类）驱动的桌面通常没有，" +
-            "此时系统「设置」里的缩放同样改不动，不是脚本的问题。`n" +
-            "  换成物理显示器直连后重跑；或显式传 -Scale $actual 按当前缩放拍" +
-            "（比例与 dip 几何不变，像素密度减半）。")
+            "改缩放失败：$scaleOut`n" +
+            "  若信息里是「没有活动显示路径」，说明主显示器不在 Windows 显示配置库（CCD）里" +
+            "——远程会话 / 虚拟显示适配器驱动的桌面常见此结果，那种情况下系统「设置」里同样改不动。`n" +
+            "  绕过办法：显式传 -Scale $actual 按当前缩放拍（比例与 dip 几何不变，像素密度减半）。")
     }
-    Write-Host "   $out"
+    Write-Host "   $scaleOut"
     Start-Sleep -Seconds 2   # 等 DWM 把新 DPI 广播下去，否则随后启动的应用仍按旧 DPI 布局
 
     $primary = (& $tool dpi | Select-Object -First 1)
