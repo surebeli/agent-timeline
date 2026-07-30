@@ -1,0 +1,36 @@
+windows/scripts/shots/shoot-readme.ps1
+  0000019fb10dd9ce 1-406
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "3322261b6aab5efe4c46a5fe59ad6eaf63cfbe55",
+  "prompts": {
+    "s_1f723b3f7db3ba::t_094666a9c97aa0": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785381902176605600",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019fb10dd9ce": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785381902798"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 406,
+      "total_deletions": 0,
+      "accepted_lines": 406,
+      "overriden_lines": 0
+    }
+  }
+}
