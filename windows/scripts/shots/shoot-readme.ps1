@@ -32,15 +32,18 @@
   三条 ✅ 全打勾而真实数据已经没了。2026-07-30 实测踩过一次。
 
 .PARAMETER Scale
-  期望的显示缩放百分比，**默认 100**——成品就是 100% 拍的（859×676，dip 几何与 mac
-  逐位相同）。2026-07-30 用户定：「恢复到 100%，之前有记录 200% 应该是错误的」。
-  默认值刻意与结论一致：默认 200 的话，谁随手一跑就把机器的全局缩放改掉了。
+  拍摄用的显示缩放百分比。**不传就用拍摄机的系统当前缩放、脚本不动显示设置**——
+  用户 2026-07-30 定：各端按自己系统的默认设置拍，不再互相强制缩放
+  （见 windows/DEBUG-PLAYBOOK.md §3b）。dip 几何与宽高比与缩放无关，两端 README
+  三列同宽时仍严丝合缝，只是像素密度不同（mac Retina 2x / 本机 100%）。
 
-  当前缩放不是这个值时，脚本**自己改**（`WindowTool scale set`，走的是系统「设置」
-  同一条 DisplayConfig 路径，立即生效不用注销），不再要人去点界面。两个要知道的后果：
+  **只有显式传了才动显示设置**（`WindowTool scale set`，走系统「设置」同一条
+  DisplayConfig 路径，立即生效不用注销）。那时两个后果要知道：
   · 改的是全局缩放，会重排屏幕上所有已打开的窗口；
-  · 拍完**不改回**——约定是把机器留在拍摄缩放上，免得每次重拍来回切、
-    也免得中途失败时留下半吊子状态。要改回自己跑 `WindowTool scale set 100`。
+  · 拍完**不改回**，免得中途失败留下半吊子状态。要改回自己跑 `WindowTool scale set <原值>`。
+
+  早先这个参数默认写死 100 且不匹配就主动改——那在默认 150% 的机器上会把人家全局缩放
+  改成 100% 且不改回。默认值现在与「脚本不改缩放」这条结论一致。
 
   改不动时会停下来说明原因：这条路要求主显示器在 Windows 显示配置库里有活动路径，
   远程会话 / 虚拟显示适配器驱动的桌面通常没有（那种情况下系统「设置」里也改不动）。
@@ -56,7 +59,7 @@
 param(
     [switch]$Install,
     [switch]$Recover,
-    [int]$Scale = 100,
+    [int]$Scale = 0,
     [ValidateSet('ZhHans','En','Ja','Ko')][string]$Language = 'ZhHans',
     [string]$App = '',
     [string]$Work = ''
@@ -113,11 +116,6 @@ $seedLang = switch ($Language) {
 # 中文是默认产物、不带后缀（历史文件名不变）；其余语种加 -<lang> 后缀
 $suffix = if ($seedLang -eq 'zh') { '' } else { "-$seedLang" }
 
-$k = $Scale / 100.0
-$panelW = [int]($PANEL_W_DIP * $k); $panelH = [int]($PANEL_H_DIP * $k)
-$panelX = [int]($PANEL_X_DIP * $k); $panelY = [int]($PANEL_Y_DIP * $k)
-$canvasW = [int]($CANVAS_W_DIP * $k); $canvasH = [int]($CANVAS_H_DIP * $k)
-
 function Stop-App {
     Get-Process AgentTimeline -ErrorAction SilentlyContinue | Stop-Process -Force
     # 浮层打开时不要走优雅退出：模态事件循环会挡住退出消息（mac 上卡到超时两次）。
@@ -156,7 +154,14 @@ function Get-Md5([string]$path) {
     return (Get-FileHash $path -Algorithm MD5).Hash
 }
 
-# ── 前置：缩放必须对，否则产出的是半尺寸/异比例的图，且**看不出来**
+# ── 前置：确定拍摄缩放
+#
+# 默认**用拍摄机的系统当前缩放、脚本不改**（用户 2026-07-30 定：各端按自己系统的默认
+# 设置拍，不再互相强制；见 windows/DEBUG-PLAYBOOK.md §3b）。dip 几何与宽高比与缩放
+# 无关，两端 README 三列同宽时仍严丝合缝，只是像素密度不同。
+#
+# 早先默认写死 100 且不匹配就主动改——那在默认 150% 的机器上会**把人家全局缩放改成
+# 100% 且不改回**。只有显式传了 -Scale 才动显示设置。
 Write-Host '── 显示缩放'
 & dotnet build (Join-Path $PSScriptRoot 'WindowTool\WindowTool.csproj') -c Release -o $bin -v quiet --nologo | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'WindowTool 编译失败' }
@@ -165,10 +170,13 @@ $primary = (& $tool dpi | Select-Object -First 1)
 Write-Host "   $primary"
 $actual = [int]([regex]::Match($primary, 'scale=(\d+)%').Groups[1].Value)
 
-if ($actual -ne $Scale) {
-    # 脚本自己改，不再要求人去点「设置」。改完**不改回**：约定是把机器留在拍摄缩放上，
-    # 免得每次重拍都要来回切、也免得中途失败留下半吊子状态。
-    Write-Host "   主显示器 $actual% → $Scale%（会重排屏幕上所有已打开的窗口）"
+if ($Scale -le 0) {
+    $Scale = $actual
+    Write-Host "   按当前系统缩放 $Scale% 拍（未显式指定 -Scale，脚本不改显示设置）"
+}
+elseif ($actual -ne $Scale) {
+    # 显式指定了才改，且改完**不改回**：免得中途失败留下半吊子状态。
+    Write-Host "   主显示器 $actual% → $Scale%（显式指定；会重排屏幕上所有已打开的窗口，且不会改回）"
     $scaleOut = & $tool scale set $Scale 2>&1
     if ($LASTEXITCODE -ne 0) {
         # 只报工具原话，不替它归因——写死一套"可能原因"会把真正的原因盖掉
@@ -189,6 +197,13 @@ if ($actual -ne $Scale) {
     }
     Write-Host "   已生效：$primary"
 }
+
+# dip → 物理像素的换算**必须放在缩放确定之后**：$Scale 默认 0（= 用当前系统缩放），
+# 早先这段在参数区就算好，默认值下 $k 会是 0、面板尺寸全算成 0（本轮改默认值时踩到）。
+$k = $Scale / 100.0
+$panelW = [int]($PANEL_W_DIP * $k); $panelH = [int]($PANEL_H_DIP * $k)
+$panelX = [int]($PANEL_X_DIP * $k); $panelY = [int]($PANEL_Y_DIP * $k)
+$canvasW = [int]($CANVAS_W_DIP * $k); $canvasH = [int]($CANVAS_H_DIP * $k)
 
 # 面板高度换算成物理像素后不能超出屏幕可用高度：超了 PrintWindow 抓到的下半截是未渲染区，
 # 而产出的图**尺寸完全正常**，属于最坏的静默失败。

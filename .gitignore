@@ -8,3 +8,7 @@ windows/**/.vs/
 
 # 本地/CI 运行期生成的 .NET SDK 钉扎(见 ci/release workflow Pin 步骤)
 global.json
+
+# Python 字节码（scripts/demo_dataset.py 被两端 seed import 时生成）
+__pycache__/
+*.pyc
