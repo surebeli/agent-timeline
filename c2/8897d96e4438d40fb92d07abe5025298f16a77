@@ -1,0 +1,54 @@
+windows/scripts/shots/shoot-readme.ps1
+  s_5f812b192ad64b::t_21594f277ebf9b 1-34,39-39,42-42,47-61,63-200,208-436
+  s_5f812b192ad64b::t_f59e290f28c9e8 35-38,40-41,43-46
+  human 62-62
+  s_5f812b192ad64b::t_c170ebc8774d94 201-207
+.gitignore
+  0000019fb1c740d1 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c28897d96e4438d40fb92d07abe5025298f16a77",
+  "prompts": {
+    "s_5f812b192ad64b::t_21594f277ebf9b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 418,
+      "total_deletions": 0,
+      "accepted_lines": 418,
+      "overriden_lines": 0
+    },
+    "s_86116aa1f537b1::t_b29dc13385ee8e": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785394052160272100",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019fb1c740d1": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785394053329"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 14,
+      "total_deletions": 0,
+      "accepted_lines": 14,
+      "overriden_lines": 0
+    }
+  }
+}
