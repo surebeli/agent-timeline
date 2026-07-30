@@ -4,13 +4,22 @@
 #   macos/scripts/shots/shoot-readme.sh [--install] [--hero] [--app <路径>]
 #
 #   --install   拍完直接覆盖 docs/assets/ 下的成品（默认只写 out 目录，便于先目验）
+#   --recover   救援：用数据目录下的固定备份 .shoot-backup 覆盖真实位置并清中断标记
 #   --hero      额外拍 README 首图 screenshot-dark.png（面板 430×698，不做合成）
 #   --app       指定 .app（默认 macos/dist/AgentTimeline.app）
 #
 # 铁律（照做，别省）：
 #   1. 隐私红线——公开截图只用 docs/DEMO-DATASET.md 的演示数据，真实时间线绝不出镜；
 #   2. 数据安全——真实 db 与设置先备份，拍完立即还原，并用 md5 + 分 agent 计数双重核验；
-#      本脚本用 trap 兜底：中途失败/Ctrl-C 也会还原；
+#      trap 兜底（中途失败/Ctrl-C 也会还原），但 trap **挡不住 SIGKILL**，故另有两道：
+#      · 中断标记 .shoot-in-progress：动真实文件之前立起来，还原三项全对上才清。
+#        下一轮开跑先查它——上一轮没收尾就拒绝取基线，否则会把**演示库当成真实基线**
+#        备份、拍完忠实还原回去：三条 ✅ 全打勾而真实数据被水泥封死。
+#        「校验通过、数据没了」是最坏的一类失败，因为它不报错（Windows 侧 2026-07-30
+#        真丢过一次）；
+#      · $swapped 标志：restore() 只在**真的进入交换阶段**后才动文件。trap 会在备份步骤
+#        之前的任何失败上也触发，那时备份目录是空的，而还原是「先删真实文件再从备份拷回」
+#        —— 删得掉、拷不回。Windows 侧修 bug 1 时正是被这条又删了一次库。
 #   3. 隔离干扰——演示配置 = 纯规则摘要 + 全部 agent 监听关闭 + 回填 0 天；
 #   4. 演示数据在场时间越短越好。
 #
@@ -23,9 +32,11 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 APP="$REPO/macos/dist/AgentTimeline.app"
 INSTALL=0
 HERO=0
+RECOVER=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --install) INSTALL=1 ;;
+    --recover) RECOVER=1 ;;
     --hero)    HERO=1 ;;
     --app)     APP="$2"; shift ;;
     *) echo "未知参数: $1" >&2; exit 2 ;;
@@ -36,6 +47,10 @@ done
 DOMAIN=com.litianyi.agent-timeline
 SUPPORT="$HOME/Library/Application Support/AgentTimeline"
 DB="$SUPPORT/store.sqlite"
+# 中断标记与固定备份都放在**数据目录**里：救援时不必去猜是哪个 mktemp 目录，
+# 也不怕系统把 /tmp 清掉。
+MARKER="$SUPPORT/.shoot-in-progress"
+FIXED_BACKUP="$SUPPORT/.shoot-backup"
 WORK="$(mktemp -d /tmp/agent-timeline-shots.XXXXXX)"
 BACKUP="$WORK/backup"; OUT="$WORK/out"; BIN="$WORK/bin"
 mkdir -p "$BACKUP" "$OUT" "$BIN"
@@ -50,9 +65,17 @@ PROJ_DX=170                       # 「全部」下拉距面板右缘（pt）
 TOOLBAR_DY=15                     # 工具栏按钮距面板顶（pt）
 
 restored=0
+swapped=0        # 只有真的动过真实文件才置 1；restore() 靠它决定要不要还原
 restore() {
   if [ "$restored" = 1 ]; then return 0; fi
   restored=1
+  # ⚠ 关键：trap 会在**备份步骤之前**的任何失败上也触发（swiftc 失败、sqlite3 不在
+  # PATH、参数写错……）。那时 $BACKUP 是空的，而下面是「先 rm 再 cp 回」——
+  # 删得掉、拷不回。没交换过就一个文件都不要动。
+  if [ "$swapped" = 0 ]; then
+    echo "── 未进入交换阶段，真实文件一个都没动"
+    return 0
+  fi
   echo "── 还原真实环境"
   pkill -9 -x AgentTimeline 2>/dev/null || true
   sleep 1
@@ -65,17 +88,69 @@ restore() {
   # 核验：分 agent 计数 + 文件 md5 都必须与备份一致
   sqlite3 "$DB" "select agent,count(*) from nodes group by agent;" > "$WORK/after.txt" 2>/dev/null || true
   sqlite3 "$DB" "select count(*) from codenames;" >> "$WORK/after.txt" 2>/dev/null || true
+  local counts_ok=0
   if diff -q "$BACKUP/counts.txt" "$WORK/after.txt" >/dev/null 2>&1; then
-    echo "   ✅ 节点/词典计数一致"
+    counts_ok=1; echo "   ✅ 节点/词典计数一致"
   else
-    echo "   ❌ 计数不一致！备份仍在 $BACKUP" >&2; diff "$BACKUP/counts.txt" "$WORK/after.txt" >&2 || true
+    echo "   ❌ 计数不一致！备份仍在 $FIXED_BACKUP" >&2
+    diff "$BACKUP/counts.txt" "$WORK/after.txt" >&2 || true
   fi
   local m1 m2
   m1="$(md5 -q "$BACKUP/store.sqlite" 2>/dev/null || echo -)"
   m2="$(md5 -q "$DB" 2>/dev/null || echo -)"
-  [ "$m1" = "$m2" ] && echo "   ✅ md5 一致 $m1" || echo "   ❌ md5 不一致 $m1 vs $m2（备份在 $BACKUP）" >&2
+  local md5_ok=0
+  if [ "$m1" = "$m2" ]; then md5_ok=1; echo "   ✅ md5 一致 $m1"; else
+    echo "   ❌ md5 不一致 $m1 vs $m2（备份在 $FIXED_BACKUP）" >&2
+  fi
+  local defaults_ok=0
+  defaults export "$DOMAIN" "$WORK/defaults-after.plist" 2>/dev/null || true
+  if diff -q "$BACKUP/defaults.plist" "$WORK/defaults-after.plist" >/dev/null 2>&1; then
+    defaults_ok=1; echo "   ✅ 设置一致"
+  else
+    echo "   ❌ 设置不一致（备份在 $FIXED_BACKUP）" >&2
+  fi
+  # 三项全对上才清中断标记。对不上就**留着**——留着好过让下一轮把演示库当成真实基线。
+  if [ "$counts_ok" = 1 ] && [ "$md5_ok" = 1 ] && [ "$defaults_ok" = 1 ]; then
+    rm -f "$MARKER"
+    echo "   ✅ 三项全对，中断标记已清"
+  else
+    echo "   ⚠️ 有项目对不上，**保留**中断标记 $MARKER" >&2
+    echo "      救援：$0 --recover" >&2
+  fi
   open "$APP" 2>/dev/null || true
 }
+# ── 救援：用固定备份覆盖真实位置并清标记。放在 trap 之前——救援本身不该触发还原。
+if [ "$RECOVER" = 1 ]; then
+  if [ ! -d "$FIXED_BACKUP" ]; then echo "没有固定备份 $FIXED_BACKUP，无法救援" >&2; exit 1; fi
+  echo "── 救援：从 $FIXED_BACKUP 覆盖真实位置"
+  pkill -9 -x AgentTimeline 2>/dev/null || true
+  sleep 1
+  for f in store.sqlite store.sqlite-wal store.sqlite-shm; do
+    rm -f "$SUPPORT/$f"
+    if [ -f "$FIXED_BACKUP/$f" ]; then cp "$FIXED_BACKUP/$f" "$SUPPORT/$f"; fi
+  done
+  if [ -f "$FIXED_BACKUP/defaults.plist" ]; then
+    defaults delete "$DOMAIN" 2>/dev/null || true
+    defaults import "$DOMAIN" "$FIXED_BACKUP/defaults.plist"
+  fi
+  echo "   现库 md5=$(md5 -q "$DB" 2>/dev/null || echo -)"
+  [ -f "$FIXED_BACKUP/store.sqlite" ] && echo "   备份 md5=$(md5 -q "$FIXED_BACKUP/store.sqlite")"
+  rm -f "$MARKER"
+  echo "   ✅ 已还原并清除中断标记"
+  exit 0
+fi
+
+# ── 开跑先查中断标记：上一轮没收尾就**拒绝取基线**。
+# 否则会把还留在真实位置的演示库当成真实基线备份，拍完忠实还原回去——
+# 计数与 md5 两条都会打勾，而真实数据已经没了。
+if [ -f "$MARKER" ]; then
+  echo "❌ 发现上一轮的中断标记，拒绝继续（否则会把演示库当成真实基线）" >&2
+  echo "── 标记内容 ──" >&2; sed 's/^/   /' "$MARKER" >&2
+  echo "   救援: $0 --recover" >&2
+  echo "   确认真实数据无误后手工删除标记: rm '$MARKER'" >&2
+  exit 1
+fi
+
 trap restore EXIT INT TERM
 
 echo "── 编译 helper（脚本模式每次重编会超时，先编成二进制）"
@@ -93,6 +168,24 @@ done
 defaults export "$DOMAIN" "$BACKUP/defaults.plist"
 echo "   基线 md5=$(md5 -q "$BACKUP/store.sqlite")"; sed 's/^/   /' "$BACKUP/counts.txt"
 
+# ⚠ 顺序即安全：标记与固定备份必须在**动真实文件之前**立好。立晚了，正好在这中间
+# 被杀，下一轮照样把演示库当基线。
+echo "── 立中断标记 + 固定备份"
+mkdir -p "$FIXED_BACKUP"
+for f in store.sqlite store.sqlite-wal store.sqlite-shm defaults.plist counts.txt; do
+  if [ -f "$BACKUP/$f" ]; then cp "$BACKUP/$f" "$FIXED_BACKUP/$f"; fi
+done
+{
+  echo "started=$(date '+%Y-%m-%d %H:%M:%S')"
+  echo "baseline_md5=$(md5 -q "$BACKUP/store.sqlite" 2>/dev/null || echo -)"
+  echo "fixed_backup=$FIXED_BACKUP"
+  echo "work_dir=$WORK"
+  echo "recover=$0 --recover"
+  echo "--- baseline counts ---"
+  cat "$BACKUP/counts.txt" 2>/dev/null || true
+} > "$MARKER"
+swapped=1          # 自此 restore() 才允许动真实文件
+
 echo "── 灌注演示数据 + 演示配置"
 rm -f "$DB" "$DB-wal" "$DB-shm"
 python3 "$REPO/macos/scripts/demo-seed.py" "$DB"
@@ -105,6 +198,9 @@ defaults write "$DOMAIN" backfillDays -int 0
 defaults write "$DOMAIN" idleOpacity -float 0.97
 defaults write "$DOMAIN" hoverOpacity -float 0.98
 defaults write "$DOMAIN" alwaysOnTop -bool true
+# ⚠ 必须钉死语言：四语接线后默认是「跟随系统」，不钉的话产出语言取决于**拍摄机的
+# 系统 UI 语言**，而图看着完全正常——Windows 侧那台 en-US 机器一跑就拍出了英文图。
+defaults write "$DOMAIN" language -string ZhHans
 
 # 起面板并把它放到 PANEL_X/PANEL_Y_COCOA。
 #
