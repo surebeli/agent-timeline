@@ -1,89 +1,42 @@
-windows/scripts/shots/WindowTool/Program.cs
-  s_5f812b192ad64b::t_1ab48db2d76575 1-9,11-29,34-375,382-382,384-385,389-390,392-393,398-557,595-612,630-902,905-1044
-  human 10-10,380-380,562-562,573-573,582-582
-  s_5f812b192ad64b::t_323b7771f7d4af 30-33
-  s_5f812b192ad64b::t_cf270a550874c4 376-379,381-381,383-383,386-388,391-391,394-397,903-903
-  s_5f812b192ad64b::t_83797c9164bac1 558-558,588-594,613-629
-  s_5f812b192ad64b::t_ba5f7110c6d667 559-561,563-572,574-581,583-587
-windows/scripts/shots/shoot-readme.ps1
-  s_5f812b192ad64b::t_638baf14d1943a 1-299
-windows/SYNC-KICKOFF-PROMPT.md
-  s_5f812b192ad64b::t_4f4309c441208f 1-96,101-132
-  s_5f812b192ad64b::t_ea1e28517269c8 97-100
-macos/SYNC-KICKOFF-PROMPT.md
-  s_5f812b192ad64b::t_1ca21792433a54 1-155
 windows/DEBUG-PLAYBOOK.md
-  s_5f812b192ad64b::t_ae627cb2de3047 1-243
+  s_5f812b192ad64b::t_ae627cb2de3047 217-234
+windows/scripts/shots/WindowTool/Program.cs
+  s_5f812b192ad64b::t_83797c9164bac1 558,588-594,613-629
+  s_5f812b192ad64b::t_cf270a550874c4 376-378,381,383,386-388,391,394-397
+  s_5f812b192ad64b::t_323b7771f7d4af 30-33
+  s_5f812b192ad64b::t_ba5f7110c6d667 559-561,563-572,574-581,583-587
+  s_5f812b192ad64b::t_1ab48db2d76575 200,208-211,213
+  s_cd966b68ab6791::t_bb6c39a581b057 10,380,562,573,582,904
+windows/scripts/shots/shoot-readme.ps1
+  s_5f812b192ad64b::t_638baf14d1943a 151-152,154-157
+  s_5f812b192ad64b::t_e8594a44782671 29-31,52,149,159
+windows/SYNC-KICKOFF-PROMPT.md
+  s_5f812b192ad64b::t_ea1e28517269c8 97-100
+  s_5f812b192ad64b::t_4f4309c441208f 14,16-17,19-32
+macos/SYNC-KICKOFF-PROMPT.md
+  s_5f812b192ad64b::t_1ca21792433a54 32,34-35,37-38,40-45
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.6.16",
   "base_commit_sha": "ea3b2a5bdc158bdf199a4720dd5c2e6937df2fcb",
-  "prompts": {
-    "s_5f812b192ad64b::t_1ab48db2d76575": {
+  "prompts": {},
+  "sessions": {
+    "s_5f812b192ad64b": {
       "agent_id": {
         "tool": "claude",
         "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
         "model": "claude-opus-5"
       },
-      "human_author": "litianyi <litianyi@corp.netease.com>",
-      "messages": [],
-      "total_additions": 968,
-      "total_deletions": 0,
-      "accepted_lines": 968,
-      "overriden_lines": 0
+      "human_author": "litianyi <litianyi@corp.netease.com>"
     },
-    "s_5f812b192ad64b::t_638baf14d1943a": {
+    "s_cd966b68ab6791": {
       "agent_id": {
         "tool": "claude",
-        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "id": "8da61f68-0346-4c51-accf-b83a37ae5672",
         "model": "claude-opus-5"
       },
-      "human_author": "litianyi <litianyi@corp.netease.com>",
-      "messages": [],
-      "total_additions": 299,
-      "total_deletions": 0,
-      "accepted_lines": 299,
-      "overriden_lines": 0
-    },
-    "s_5f812b192ad64b::t_4f4309c441208f": {
-      "agent_id": {
-        "tool": "claude",
-        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
-        "model": "claude-opus-5"
-      },
-      "human_author": "litianyi <litianyi@corp.netease.com>",
-      "messages": [],
-      "total_additions": 128,
-      "total_deletions": 0,
-      "accepted_lines": 128,
-      "overriden_lines": 0
-    },
-    "s_5f812b192ad64b::t_1ca21792433a54": {
-      "agent_id": {
-        "tool": "claude",
-        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
-        "model": "claude-opus-5"
-      },
-      "human_author": "litianyi <litianyi@corp.netease.com>",
-      "messages": [],
-      "total_additions": 155,
-      "total_deletions": 0,
-      "accepted_lines": 155,
-      "overriden_lines": 0
-    },
-    "s_5f812b192ad64b::t_ae627cb2de3047": {
-      "agent_id": {
-        "tool": "claude",
-        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
-        "model": "claude-opus-5"
-      },
-      "human_author": "litianyi <litianyi@corp.netease.com>",
-      "messages": [],
-      "total_additions": 243,
-      "total_deletions": 0,
-      "accepted_lines": 243,
-      "overriden_lines": 0
+      "human_author": "litianyi <litianyi@corp.netease.com>"
     }
   }
 }
