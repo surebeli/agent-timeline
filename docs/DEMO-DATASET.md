@@ -2,7 +2,13 @@
 
 > 公开截图**禁止使用真实时间线**（含真实项目名与命令原文）。两端拍摄一律灌注本数据集，
 > 内容完全虚构且覆盖全部展示特性：5 agent × 4 项目、六种 kind、代号生命周期全状态、
-> 关键点/结果行/✦ 提炼块。Windows 参考实现：`windows/scripts/demo-seed.py`
+> 关键点/结果行/✦ 提炼块。
+>
+> **唯一事实源是 `scripts/demo_dataset.py`**（2026-07-30 抽出）：两端 seed
+> （`macos/scripts/demo-seed.py` / `windows/scripts/demo-seed.py`）都 import 它，
+> 只各自负责 schema 适配与时间单位换算。**不要把数据抄回任一端**——此前两端各存一份时
+> 已经漂过一处（mac 把 REQ-AUTH-3 的 lastContext 写成完整命令原文、Windows 写的是独立
+> 短摘录）。CI 第六关同时校验两端并比对两端产出等价。
 > （Windows schema；mac 端按 `macos/Sources/AgentTimeline/Core/Store.swift` 的 schema 适配，
 > 内容以本文为准）。
 
@@ -21,14 +27,14 @@ README 有中英两版，各自配同语种的截图（英文成品带 `-en` 后
 
 两套之间**只有文字换语言，结构一律共用**：同样 12 条、同样 agent / 项目 / session /
 时间戳、同样 kind、同样代号生命周期。结构一旦分叉，两语的版面与折行就不同，README
-两行也对不齐了。`demo-seed.py` 里因此把结构（`STRUCT`/`CODES`）与文案（`CONTENT`/`DEFS`）
+两行也对不齐了。`scripts/demo_dataset.py` 里因此把结构（`NODES`/`CODES`）与文案（`CONTENT`/`DEFS`）
 分开存放，并有校验脚本核对「结构两语一致、文案两语不同」。
 
 ⚠ **`kind` 与代号 `status` 落库的是中文 rawValue**（`需求`/`任务`/`定义`/`完成`/…），
 两套都一样、**绝不翻译**：那是存储契约，界面靠 `UiText`（win）/ `UiText.swift`（mac）
 映射成当前语言的显示标签。翻了会让 kind 过滤与代号状态机一起失效。
 
-下表列**中文**一套；英文一套逐条对应，以 `demo-seed.py` 的 `CONTENT['en']` 为准。
+下表列**中文**一套；英文一套逐条对应，以 `scripts/demo_dataset.py` 的 `CONTENT['en']` 为准。
 
 ## 节点（12 条，倒序展示时今天在上）
 
