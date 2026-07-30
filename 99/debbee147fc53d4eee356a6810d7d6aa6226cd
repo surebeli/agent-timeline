@@ -1,0 +1,38 @@
+VERSION
+  s_b85ad4e83942fb::t_99c13b0ba05e70 1-1
+CHANGELOG.md
+  s_b85ad4e83942fb::t_aae9749654ce39 10-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "99debbee147fc53d4eee356a6810d7d6aa6226cd",
+  "prompts": {
+    "s_b85ad4e83942fb::t_99c13b0ba05e70": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_aae9749654ce39": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 41,
+      "total_deletions": 0,
+      "accepted_lines": 41,
+      "overriden_lines": 0
+    }
+  }
+}
