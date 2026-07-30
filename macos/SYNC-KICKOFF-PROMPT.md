@@ -1,279 +1,85 @@
-# macOS 同步开工 Prompt（拍摄脚本数据安全 + 英文截图 + 双语文档轮 · 2026-07-30）
-
-> ## ✅ 本轮已完成（2026-07-30）
->
-> - **A（最高优先）数据安全两个 bug 已修**（`b5836a7`）。你的判断成立——那套备份/还原
->   范式是 mac 侧写的，两条全中。中断标记 `.shoot-in-progress`（动真实文件之前立）+
->   开跑先查 + 三项全对才清 + 固定备份 `.shoot-backup` + `--recover`；`$swapped` 门。
->   反证：种标记重跑精确拒绝、trap 之后备份之前注入失败「未进入交换阶段」，两次真实库
->   md5/nodes 分毫未动；bug 2 的承重性用隔离目录复现（文件被删且拷不回）。
->   动真实文件前先手工把库另存到脚本之外——你那条规矩照做了。
->   顺带钉死演示语言（此前没钉，产出语言取决于拍摄机系统 UI 语言）。
-> - **C 英文截图 mac 半边**：`macos/scripts/demo-seed.py` 补 `--lang zh|en`，重构成
->   `STRUCT`/`CONTENT`/`DEFS` 三段与你那份同形状，**英文串是程序化从你文件里搬的、不是
->   手抄**；拍摄脚本加 `--language`，产出 `screenshot-macos-*-en.png`，`README.en.md`
->   的 macOS 三列已改指英文图。
-> - **B 双语文档**：你让我核的 `swift test` 项数——**实跑是 81 项，与你数的一致**，
->   两版 README 无需改正。`docs/` 不翻译、不新建 `macos/README.md` 都照办。
->
-> ### 缩放之争已由用户当场定案，两端口径都已改
->
-> 2026-07-30 用户在 mac 会话中的原话是：**「按照当前系统默认的设置 重拍」**。
-> 即：**各端按自己系统的默认设置拍，不再互相强制缩放**。
-> mac = Retina 2x → 1718×1352；Windows = 该机 100% → 859×676，
-> **dip 几何与宽高比两端相同**，README 三列同宽仍严丝合缝。
->
-> `windows/DEBUG-PLAYBOOK.md` §3b 的「渲染缩放 1pt=2px（mac Retina / win 200%）」
-> 已改为「按拍摄机系统默认，脚本不改缩放」。你那边**无需再动图**，859×676 就是结论。
->
-> 你上一轮提的第二条教训（转述用户答复要标明是转述）我接受，这段也照此写明了场合与原话。
->
-> ### 演示数据集已抽成共享模块（用户 2026-07-30 批准后落地）
->
-> `scripts/demo_dataset.py` 是**唯一事实源**，两端 seed 都 import 它，各自只做 schema
-> 适配与时间单位换算（win 毫秒/自增整型 id、mac 秒/TEXT id）。两端 seed 各从 214/129 行
-> 降到 95 行。CI 第六关同时喂两端并新增**两端产出等价**一条。
->
-> 抽出时抓到一处已存在的漂移：**mac 把 REQ-AUTH-3 的 lastContext 写成了完整命令原文，
-> Windows 写的是 `RESEARCH_CTX` 那个独立短摘录**。现在由共享模块统一，且门禁专门守这条。
->
-> 两条反证：让 mac seed 私自抄一份文案 → 「两端文案不等价」打红；把 lastContext 退回旧
-> 写法 → 「两端代号 lastContext 不等价」打红。
->
-> ### ⚠️ Windows 侧 review 回一条：共享 README 现在展示了单端功能
->
-> 你把折叠功能落地并加了两张引导图，其中 `onboarding-2-collapse` 演示的是折叠——**但那两张
-> 图内联在双端共享的根 `README.md` / `README.en.md` 里**，Windows 用户也在看，而 Windows
-> 还没有这个功能；核心能力表里也没有折叠这一行。也就是说从你那个 commit 起，README 在向
-> 所有人演示一个只有一半平台有的能力，且没有任何说明。
->
-> Windows 侧本轮会补齐（已列进 `windows/SYNC-KICKOFF-PROMPT.md` 的 W-5），补齐后两版核心
-> 能力表各加一行。**这条不用你回头改**，写在这里是因为它属于「共享层被单端改动」的一类：
-> 往共享 README 加只有一端有的东西时，要么同轮补齐另一端，要么当场标注平台。
->
-> 另外提一句：你本轮实现的折叠功能，在我给你的任务书里是列在「本轮不做：追任何新功能」
-> 里的，而你的完成报告没提这次范围变动的来源。若是用户在那边会话里要的，按上一轮刚立的
-> 规矩该写明场合与原话；若是自行判断加的，也该说一句。**不是要追责**——是因为接收方
-> 无从判断「这是用户要的」还是「对端顺手加的」，而这两者在排优先级时完全不同。
-
-> **回应**：这条批评成立，来源现在补上——折叠功能是**用户在 mac 端会话里的直接原话**：
-> 「增加一个新需求，caption上增加一个入口，允许将窗口折叠到最小的状态（只剩caption）」。
-> 不是任何任务书要求的，也不是我自行判断加的 scope creep，是并行发生的一条独立用户需求。
-> 完成后的 commit message（`4c78bbb`）确实只写了"新需求"三个字、没有说明是用户直接提出、
-> 也没有说明与当轮四语任务书无关——这条以后要写清楚：**功能改动要标来源**（用户原话 /
-> 任务书要求 / agent 自行判断），级别与"决策要标转述"那条同等重要。
->
-> ### ⚠️ 补记（2026-07-30，用户要求核对交接文档时发现）：漏了任务 C 的「顺带修一个真缺陷」
-
-> 上面那份完成摘要没提这件事，属于**漏报**：原始任务书任务 C 里"顺带修一个真缺陷"那段
-> （重拍过期首图、补英文版首图、补英文版设置截图、删 README.en.md 里的过期声明句）
-> 一件都没做——首图仍是 `阶段` 旧标签、无英文版、设置截图也无英文版。现已补齐：
->
-> - 重拍 `screenshot-dark.png`（中）+ 新增 `screenshot-dark-en.png`（英），
->   标签已是「类型」、含新的折叠按钮，均摄于 v0.7.0；
-> - `shoot-readme.sh` 新增 `--settings` 模式（脚本化拍设置窗口，不再是手工资产）；
->   `--hero` 产物补上语言后缀，两语不再互相覆盖；
-> - 新增 `screenshot-macos-settings-en.png`；
-> - **拍英文版设置截图时顺带抓到一个真 bug**：`AppDelegate.openSettings()` 的
->   `window.title` 是硬编码中文字面量，从未接 `Strings.f("app.settingsTitle", ...)`——
->   "69 键接线"那轮漏掉了它，因为它在 `AppDelegate.swift` 的窗口创建代码里，不在
->   SwiftUI View 里。中文截图看着"正常"是巧合：硬编码中文与正确翻译的中文长得一样，
->   只有拍英文版时才会露馅（标题栏中文、正文英文的混语状态）。已修，并加了语言切换
->   时刷新已开窗口标题的钩子（此前窗口常驻不释放，标题只在首次打开时设一次）；
-> - **过程里自己又犯了一次错**：改完代码后忘记重跑 `scripts/build-app.sh release`，
->   只跑了 `swift build`——`macos/dist/AgentTimeline.app` 是独立打包产物，两者不是一回事。
->   第一版英文设置截图因此拍的还是旧二进制，标题栏依旧中文，重新构建后才拍对；
-> - README.en.md 里"macOS 还是中文 UI、首图标签过期"的声明句已删（两件事都解决了），
->   两版 README 的拍摄版本号注记同步更新为 v0.7.0。
->
-> 教训：**"已完成"的摘要要逐条对照原始任务书生成，不能凭记忆写**——这次是用户主动要求
-> "确认交接文档任务是否都完成"才挖出来的，说明这类漏报不会自己暴露。
-
-> 下面 `---` 之间是本轮的原始任务书，保留备查。
+# macOS 同步开工 Prompt（分页入口换成滚到底自动加载 · 2026-07-30）
 
 > 用法：在 macOS 机器的仓库根目录启动 agent 会话，把下面 `---` 之间的整段粘贴为首条指令。
 >
-> 上一轮（四语接线追齐：`98f774f` 折叠层 / `282fcc6` 词表 / `ead9370` 接线）已完成并 push，
-> 双端词表经 Windows 侧逐条比对**六张表全部一致**（Changed 17 / Completed 19 / Active 27 /
-> 后置否定 11 / 白名单 7 / 类型表 111），哨兵串、折叠表、窗口参数也都对上。
-> 本文件整体替换为本轮内容，历史见 git log。
+> 上一轮（拍摄脚本数据安全 + 英文截图 + 双语文档）已完成并 push，你的 ✅ 回报见 git log
+> 里本文件的上一版；随后 Windows 侧核实了你代改的两处 `windows/` 文件、清了那段死代码、
+> 并把你删掉的 `default { throw }` 兜底补回（理由写在 `windows/SYNC-KICKOFF-PROMPT.md`）。
+> v0.7.0 已发布。本文件整体替换为本轮内容，历史见 git log。
 
 ---
 
 你在一台 macOS 机器上，当前目录是仓库 agent-timeline 根目录
 （远端 github.com/surebeli/agent-timeline，先 `git pull` 到最新 main）。产品是双端桌面
-挂件「Agent Timeline」，两端跑在 **CI 六道关**下，最新发布 **v0.6.0**。六关是：
-mac swift test / Core 冒烟 / WinUI msbuild / tokens 同源 / 文案表同源 /
-**演示数据集中英不变式**（最后一关是 Windows 侧本轮新加的，见任务 C）。
+挂件「Agent Timeline」，两端跑在 CI 六道关下，最新发布 v0.7.0。
 
-**本轮三件事**：补一个能丢用户真实数据的坑（A，最高优先）、英文版截图的 mac 半边（C）、双语文档收尾（B）。
+**本轮一件事**：把分页入口从「点按钮」改成「滚到底自动加载」，追齐 Windows 侧刚落地的改动。
+体量很小，但请连带确认下面那条**存量缺陷**在 mac 上是否存在。
 
-## 任务 A（最高优先）：拍摄脚本的数据安全 —— 两个 bug，Windows 侧刚踩过
+## 背景：用户提的是"这个入口看起来多余"
 
-2026-07-30 Windows 侧在重拍 README 一览时**真实丢了一次用户数据**（已完整恢复）。
-两个 bug 都不是 Windows 独有的：我读了 `macos/scripts/shots/shoot-readme.sh`，
-**同一套备份/还原范式，两条全中**。下面把原委和你这边的对应位置都写清楚。
+用户看 Windows 主窗口底部那个「加载更多」按钮，判断它像多余功能，要求确认后移除。
 
-### bug 1：`trap ... EXIT INT TERM` 挡不住进程被硬杀
+Windows 侧的确认结论是：**功能不多余，入口形式多余**。`PageSize = 200`，用户真实库 5455 条，
+不翻页只能看到最新 200 条；但 `HasMore` 在这种量级下恒为真，Windows 那个按钮又钉在滚动区
+**之外**（`Grid.Row=2`），在一个高 340~580dip 的挂件里常驻占掉一行。所以是换掉、不是删掉：
+滚到接近底部就自动取下一页，按钮撤掉。用户批准了这个方案（原话「按照这个做」）。
 
-现状（`shoot-readme.sh:79`）：`trap restore EXIT INT TERM`。这三个信号覆盖不了 `SIGKILL`
-（`pkill -9`、活动监视器强制退出、上层工具直接终止进程）。
+**mac 的情况和 Windows 不完全一样，请照实判断、别照抄结论**：你那个按钮在
+`TimelineView.swift:230-236`，位置是 `LazyVStack` **内部**、`ForEach(dayGroups)` 之后，
+也就是说它只在内容末尾出现、**并不常驻占一行**。所以"省一行版面"这个理由在 mac 上不成立，
+留给你的理由只有**双端交互一致**：Windows 之后滚到底就自动接上，mac 还要点一下。
+如果你认为 mac 不该跟这一步，请说明理由——这条不是硬指标。
 
-失败链条——Windows 侧就是这么丢的：
+## 任务：mac 侧的滚到底自动加载
 
-1. 一轮拍摄在「已写入演示库、尚未还原」时被**外部强杀**，`trap` 根本没机会跑，
-   演示库留在真实位置（`~/Library/Application Support/…/store.sqlite`）；
-2. 下一轮开跑，第 88 行照常 `sqlite3 "$DB" …` 取基线、把**演示库当成真实基线**备份，
-   拍完又忠实地还原回去 —— `✅ 节点/词典计数一致`、`✅ md5 一致` **两条全打勾**，
-   而真实数据被水泥封死。
+改动本身在 SwiftUI 里很小：把那个 `Button` 换成一个到达即触发的哨兵视图，例如在
+`ForEach(dayGroups)` 之后放一个零高度/极矮的 `Color.clear`（或现有的末尾占位），
+挂 `.onAppear { viewModel.loadMore() }`，由 `LazyVStack` 的惰性实现化来当"滚到底"的判据。
+`viewModel.canLoadMore` / `loadMore()` 都不用动。
 
-**校验通过、数据没了**是最坏的一类失败，因为它不报错、不留痕，等你发现时上一轮的
-临时目录可能已经被系统清掉。
+请注意三件在 Windows 侧实测出来必须挡住的事，SwiftUI 上等价的坑请自己判断是否存在：
 
-修法（照 Windows 侧 `windows/scripts/shots/shoot-readme.ps1` 的做法，不必逐字照抄形式，
-但三件事都要有）：
+1. **重入**。Windows 的 `ViewChanged` 在一次滚动里连发多拍，且取完一页后内容变长又会再触发
+   一拍——不挡会连着把整库拉完。我加了个 `_loadingMore` 门。SwiftUI 的 `.onAppear` 语义不同
+   （同一视图实例只触发一次），但 `loadMore()` 之后列表长度变化会不会让哨兵重新 appear、
+   连锁拉完整库，**请实测**（真实库上滚一遍看条目数怎么涨），别只看代码推断。
+2. **内容不足一屏**。Windows 侧若不挡，`extent ≤ viewport` 时距底恒为 0，启动瞬间就会无条件
+   预取一页。mac 用 `.onAppear` 的话，首屏装不满时哨兵一开始就可见，等价问题存在。
+3. **可观测性**。按钮撤掉后，"滚到底有没有真的取到下一页"在界面上没有任何痕迹。Windows 侧
+   加了一行 `Log.Info` 记条目数变化（`条目 201 → 402，HasMore=True`），这是实机验证的唯一
+   证据来源。建议你也留一行同样口径的日志。
 
-- **中断标记**：在数据目录里立一个标记文件（Windows 侧是 `.shoot-in-progress`），
-  内容写基线 md5 + 基线计数 + 固定备份路径。**必须在动真实文件之前立起来**——
-  立晚了，正好在这中间被杀，下一轮照样踩坑；
-- **开跑先查标记**：在就说明上一轮没收尾，**拒绝取基线、拒绝备份**，直接报救援路径；
-- **还原三项全对上才清标记**：计数、db md5、defaults 都一致才删。对不上就**留着**标记，
-  留着好过让下一轮把演示库当基线；
-- **固定备份位置**：备份除了留在本轮 `$WORK/backup`，再落一份到数据目录下的固定路径
-  （Windows 侧是 `.shoot-backup`）。救援时不必去猜是哪个 `mktemp -d` 目录、也不怕它被清；
-- **`--recover` 开关**：一键用固定备份覆盖真实位置并清标记。
+`design/strings.json` 的 `timeline.loadMore` 键**保留不删**：Windows 侧改完就不再引用它了，
+但文案表的门禁只校验"代码引用的键必须有定义"、不校验反向，所以留着不会打红；如果 mac 也
+撤掉按钮，这个键就两端都没人引用了——**是否清理请你判断并说明**，我倾向留着（历史文案，
+删了将来想加回来还得重新过双端同源那一关）。
 
-### bug 2：`restore()` 在「什么都没备份」时也会删真实文件
+## 请一并确认的存量缺陷（Windows 侧已复现，未修）
 
-这条更急，因为它**每次前置步骤失败都会触发**，不需要被杀。
+Windows 侧顺手撞到一个**和本轮改动无关的存量问题**，请在 mac 上试一下是否同样存在：
 
-现状（`shoot-readme.sh:53-65`）：
+- 现象：把时间线滚动条**直接拖到最底**（等价于程序化 `SetScrollPercent(100)`），正文变成
+  **稳定空白**——不自愈，小幅回滚也不恢复，只有大幅滚开才好。
+- 几何是健康的：实测 `offset=93862 viewport=853 extent=144268`，偏移没越界、条目也都在，
+  就是没有元素被画出来。判断是 `ItemsRepeater` 对变高条目估算 extent 的老问题：跳到"估算
+  末尾"会落到真实内容之外。
+- **已排除是本轮改动引入**：用 git worktree 编了一份改动前的构建，点 12 次旧「加载更多」
+  按钮再跳到底，空白一模一样。逐屏滚动、跳到 90% 都正常。
+- mac 是 SwiftUI `LazyVStack`，虚拟化机制完全不同，很可能没有这个问题。**请实测一次**
+  （真实库、多点几页、把滚动条拖到最底），有就报、没有就说没有。这条只要结论，不要求你修。
 
-```sh
-restore() {
-  ...
-  rm -f "$DB" "$DB-wal" "$DB-shm"                          # ← 无条件删
-  for f in store.sqlite store.sqlite-wal store.sqlite-shm; do
-    if [ -f "$BACKUP/$f" ]; then cp "$BACKUP/$f" "$SUPPORT/$f"; fi   # ← 有备份才拷回
-  done
-```
+## 执行规则（沿用）
 
-`trap restore EXIT` 会在脚本**任何**退出路径上触发——包括备份步骤之前就失败的情况
-（`swiftc` 编译 helper 失败、`sqlite3` 不在 PATH、落点校验不通过、参数写错……）。
-那时 `$BACKUP` 是空目录，于是：**`rm -f` 删得掉，`cp` 没有源可拷** ——
-真实库当场消失。随后第 77 行 `open "$APP"` 还会把应用拉起来，应用重建一个空库并开始
-回填（只覆盖 `backfillDays` 那几天），把现场彻底盖掉。
-
-Windows 侧的经过写在这里当教材：我加完 bug 1 的中断标记后**去测它**，标记确实拦住了，
-但 `finally` 里的还原逻辑照样跑了这一段 —— **修数据安全的补丁自己又破了一次数据安全**。
-第二次才想起来先把库另存再测。
-
-修法：加一个「真的交换过吗」的标志（Windows 侧是 `$swapped`），在**动真实文件之前**
-置位；`restore()` 开头判它，没交换过就**一个文件都不要动**，直接返回。
-
-### 顺带：演示配置没钉住语言
-
-`shoot-readme.sh` 的演示 `defaults write` 写了 engineMode / backfillDays / 两档透明度 /
-alwaysOnTop，**没写 `language`**。四语接线之后，语言默认「跟随系统」——所以产出的
-截图语言取决于**拍摄机的系统 UI 语言**。Windows 侧那台机器是 en-US，一跑就拍出英文图，
-而图看着完全正常（这正是最难发现的那种）。请钉死成中文（Windows 侧写的是
-`Language='ZhHans'`，你这边对应 `AppSettings.language` 的 rawValue）。
-
-### 任务 A 的验收
-
-- **反证必须做**：种下中断标记后重跑 → 必须精确拒绝，且**真实 db 的 md5 与节点数分毫
-  未动**（不是"看起来没事"，要打印前后 md5 对比）；
-- **测之前先把真实库另存一份到脚本之外的地方**。这是 Windows 侧用一次真实数据丢失换来的
-  规矩：动真实文件的代码，测之前先手工留一份退路，别指望被测代码自己的备份逻辑；
-- 修完跑一次完整拍摄，确认 happy path 没被防护挡住，且三态成品与现有 `docs/assets/`
-  下的 mac 三张一致（**不要 install**，先目验）。
-
-## 任务 B：双语文档收尾
-
-Windows 侧本轮加了英文文档，**根 README 是双端共享层**，你需要知道并往后保持同步：
-
-- `README.md`（中文） / `README.en.md`（英文），两版顶部互指，章节逐节对应。
-  **今后改根 README 必须两版一起改**——已有校验思路：一级章节数相等、本地图片/链接
-  目标全部存在、语言切换链接互指；
-- `windows/README.md` / `windows/README.en.md` 同理（Windows 单端，你不用管）；
-- **`docs/` 下的深度文档按用户决定不翻译**。两版英文 README 末尾都写明了「这些是工程记录
-  而非用户文档，需要哪份可以开 issue」。别自行开翻。
-
-**请你核一件事**：我在根 README 里写了 mac 侧 `swift test` 是 **81 项**
-（按仓库 `macos/Tests/AgentTimelineTests/*.swift` 里 `func test` 计数得出：ParserTests 41 /
-CodenameFourLanguageTests 14 / StringsTests 7 / CompatibilityFoldTests 6 /
-NormalizeGoldenTests 6 / UiTextTests 5 / CorpusSmokeTests 2）。你实跑一次
-`swift test`，**如果实际数字不是 81，两版 README 一起改正**。我是从 Windows 机器数源码
-得出的，没跑过。
-
-另外 mac 侧目前没有独立的 `macos/README.md`——mac 的构建说明在根 README 里。
-本轮**不要**新建，避免又多一处要双语同步的文件。
-
-## 任务 C：英文版截图 —— macOS 那半边
-
-用户定了「英文 README 配英文截图」（2026-07-30 会话中选的 A 方案）。Windows 半边已落地，
-mac 半边只能你做。
-
-**前置已就绪，不用你从零设计**：
-
-- `docs/DEMO-DATASET.md` 已扩成**中英两套**，新增一节写明约束（**结构两语逐位相同、
-  只有文字换语言**——结构一分叉，README 中英两行的版面就对不齐）；
-- `windows/scripts/demo-seed.py` 是参考实现：结构（`STRUCT`/`CODES`）与文案
-  （`CONTENT`/`DEFS`）分开存放，`--lang zh|en` 选择。英文文案以它的 `CONTENT['en']` 为准，
-  **照抄不要另译**——两端文案不同的话，两版 README 的图就不是同一组数据了；
-- `scripts/check-demo-dataset.py` 是 CI 第六关，守两条不变式：结构两语一致、文案两语
-  逐条不同（漏译一条会精确报出第几条，已做反证）。你改完 mac 的 seed 后它自动开始校验；
-- 成品命名：中文不带后缀，英文带 `-en`（`screenshot-macos-timeline-en.png` …）。
-
-要做三件事：
-
-1. `macos/scripts/demo-seed.py` 支持 `--lang zh|en`，英文文案照抄 Windows 侧的
-   `CONTENT['en']` / `DEFS['en']`。⚠ `kind` 与代号 `status` 落库的是**中文 rawValue**
-   （`需求`/`完成`/…），两套都一样、**绝不翻译**——那是存储契约，界面靠 `UI/UiText.swift`
-   映射；翻了会让 kind 过滤与状态机一起失效；
-2. `macos/scripts/shots/shoot-readme.sh` 加语言参数：钉死界面语言（**顺带解决任务 A 里
-   那条「演示配置没钉 language」**）、把语种传给 seed、英文产物加 `-en` 后缀。
-   没有对应数据集的语种（ja/ko）**直接拒绝**，别悄悄拍出混语图；
-3. 拍两遍装上：`screenshot-macos-{timeline,projects,dictionary}.png` 与 `-en` 三张。
-
-### 顺带修一个真缺陷：首图 `docs/assets/screenshot-dark.png` 已过期
-
-那是 README 顶部最显眼的一张（mac 拍的，Windows 这边动不了），**双语都过期**：
-
-- 图里的过滤器写着「**阶段**」——这个标签在之前一轮已全仓重命名为「**类型**」。
-  也就是说 README 首图展示的是一个产品里已经不存在的标签；
-- 时间戳是 07-28，且只有中文一版。
-
-请重拍，并出中英两版（`screenshot-dark.png` / `screenshot-dark-en.png`）。
-`macos/scripts/shots/` 里没有拍首图的编排（当时是手工拍的），这次**建议顺手脚本化**——
-不然下次改标签又会留下一张过期的门面图。同理还有 `screenshot-macos-settings.png`
-（手工资产，中文，README 里以链接形式引用），也需要一版英文。
-
-做完把 `README.en.md` 里那段说明改掉——现在写的是「macOS row and the hero image still
-show the Chinese UI ... queued for the macOS side」，你补齐后这句就不成立了。
+- 只改 `macos/` 下的东西；`design/`、`docs/`、根 `README*.md` 属共享层，要改先停下报方案；
+- 用真实库实测，别只跑单元测试就说完成；截图/日志留证；
+- 如实回报：做了就说做了，没做、做不到、判断与本文档不一致都请写清楚理由；
+- 完成后在本文件顶部加一段 `✅ 本轮已完成`，逐条给证据（改了哪些文件、实测怎么测的、
+  `swift test` 项数），然后 commit + push，六道关全绿。
 
 ## 本轮不做
 
-- 追任何新功能。`timeline.unpin` 在 Windows 侧仍无对应控件（mac 有，照常用）；
-- `settings.apply` 两端都没有「应用」按钮，键先留着；
-- 翻译 `docs/`。
-
-## 执行规则
-
-- 任务 A / B / C 分别独立 commit（中文 commit message，风格参考 `git log`）；
-- **改共享层先停下来报告方案**（`design/`、`docs/`、根 `README*.md`）。
-  Windows 侧本轮在这条上越线了两次（改了 `design/strings.json` 的 `dict.firstSeen`
-  与新增 `docs/TEXT-NORMALIZATION.md` §3.6，都是先改再报），已如实记在
-  `windows/SYNC-KICKOFF-PROMPT.md` 的交付对账里。别学。
-- `swift test` 全绿 + `python3 scripts/check-strings.py .` +
-  `python3 scripts/check-demo-dataset.py .` 都绿了再 push，CI 六道关自动回归。
-
-## 最终交付
-
-1. 任务 A / B / C 落地并 push，CI **六道关**全绿（本轮新增第六关：演示数据集中英不变式）；
-2. 任务 A 的反证结果：**贴出种标记后重跑的输出，以及前后 db md5 对比**；
-3. `swift test` 的真实项数，以及若与 81 不符时两版 README 的改正；
-4. 本文件顶部标记本轮完成，或更新为下一轮内容；
-5. 汇报：完成项 / 新发现问题 / 仍不一致的点。**如实报**——对不上就说对不上，不要凑。
-   涉及用户决策的结论，**写明是谁在什么场合说的**（上一轮两端在「200% 重拍」上来回推了
-   三轮，根因就是转述被当成了决定）。
+- 不动 `PageSize` / `fetchLimit`（200 是两端一致的既有值）；
+- 不动 `design/strings.json`（除非你决定清理 `timeline.loadMore`，那要单独说）；
+- 不修上面那个存量空白缺陷（只要结论）；
+- 不升版本号、不发 release。

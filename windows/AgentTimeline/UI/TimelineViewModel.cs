@@ -514,6 +514,9 @@ public sealed class TimelineViewModel : ObservableObject
     /// Regenerates Items from the ordered node list: one day header per calendar day
     /// (今天 · n条 / 昨天 / MM-dd · ddd), then that day's entries. Wholesale rebuild keeps
     /// grouping trivially correct; entry state lives on the reused NodeViewModels.
+    ///
+    /// 重排结果**增量**套到 <see cref="Items"/> 上（见 <see cref="ApplyItems"/>）——
+    /// 整表重排的可读性保留，但不再每次都给 ItemsRepeater 一发 Reset。
     /// </summary>
     private void RebuildItems()
     {
@@ -524,20 +527,77 @@ public sealed class TimelineViewModel : ObservableObject
             counts[day] = counts.GetValueOrDefault(day) + 1;
         }
 
-        Items.Clear();
+        var next = new List<object>(_ordered.Count + 16);
         DateTime? currentDay = null;
         foreach (var vm in _ordered)
         {
             var day = vm.Timestamp.ToLocalTime().Date;
             if (day != currentDay)
             {
-                Items.Add(new DayHeaderViewModel(DayLabel(day, counts.GetValueOrDefault(day)), day));
+                next.Add(new DayHeaderViewModel(DayLabel(day, counts.GetValueOrDefault(day)), day));
                 currentDay = day;
             }
-            Items.Add(vm);
+            next.Add(vm);
         }
+
+        ApplyItems(next);
         Raise(nameof(IsEmpty)); // Items 是 ObservableCollection，但 IsEmpty 是派生量
     }
+
+    /// <summary>走"掐掉中段再插回"这条路的中段长度上限，超过就改走逐槽替换。</summary>
+    private const int MaxSpliceMiddle = 64;
+
+    /// <summary>
+    /// 把重排结果套到 <see cref="Items"/> 上，集合事件只发真的变了的那些（理由见
+    /// <see cref="ItemDiff"/>：滚到底自动翻页后列表常驻两三千条，而每来一个新节点都要
+    /// 重排一次，整清重加的代价随列表长度线性长）。
+    ///
+    /// 两种形状分开处理：
+    /// · **位移型**（新节点插到头部、分页追到尾部、某小段换掉）——公共前后缀之外的中段
+    ///   很短，掐掉再插回。
+    /// · **就地型**（"今天 · n 件"的计数变了、切界面语言重算所有分隔线标签）——前后缀会
+    ///   双双为 0（首个槽位就变了、末尾也变了），中段等于全表，但**绝大多数槽位其实
+    ///   原位未动**：条目复用同一批 VM 实例、下标也没挪。逐槽比对、只替换真的不同的那
+    ///   几个，再补齐尾部。分页正撞这一档：首页两百条全是今天，翻页后计数一变
+    ///   <c>Items[0]</c> 就对不上，于是前缀直接归零。
+    ///
+    /// ⚠ 顺带记一笔，免得后人误会这里在修什么：把滚动条直接拖到最底（或程序化
+    /// <c>SetScrollPercent(100)</c>）会让正文变成稳定空白——那是 <c>ItemsRepeater</c> 对
+    /// 变高条目估算 extent 的存量问题，**与本方法无关**，也不是自动翻页带来的：改动前的
+    /// 构建（底部还是「加载更多」按钮）点 12 次按钮再跳到底，空白一模一样
+    /// （2026-07-30 双版本对照实测）。逐屏滚动不受影响。
+    /// </summary>
+    private void ApplyItems(List<object> next)
+    {
+        var (prefix, suffix) = ItemDiff.CommonAffixes(Items, next, SameSlot);
+        var middle = Items.Count - prefix - suffix;
+
+        if (middle <= MaxSpliceMiddle)
+        {
+            for (var i = 0; i < middle; i++) Items.RemoveAt(prefix);
+            var at = prefix;
+            for (var i = prefix; i < next.Count - suffix; i++) Items.Insert(at++, next[i]);
+            return;
+        }
+
+        var common = Math.Min(Items.Count, next.Count);
+        for (var i = 0; i < common; i++)
+        {
+            if (!SameSlot(Items[i], next[i])) Items[i] = next[i];   // Replace，只重画这一槽
+        }
+        while (Items.Count > next.Count) Items.RemoveAt(Items.Count - 1);
+        for (var i = Items.Count; i < next.Count; i++) Items.Add(next[i]);
+    }
+
+    /// <summary>
+    /// 两个槽位是否可互换。条目复用同一批 <see cref="NodeViewModel"/> 实例，引用相等即同一条；
+    /// 日期分隔线是不可变值对象（<c>Label</c>/<c>Day</c> 均只读），按值判等——
+    /// 这样"今天 · n 件"的计数变了会被认成不同槽位、正确地换掉那一行。
+    /// </summary>
+    private static bool SameSlot(object a, object b) =>
+        ReferenceEquals(a, b)
+        || (a is DayHeaderViewModel ha && b is DayHeaderViewModel hb
+            && ha.Day == hb.Day && ha.Label == hb.Label);
 
     private static string DayLabel(DateTime day, int count)
     {

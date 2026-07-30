@@ -95,4 +95,33 @@ public static class PanelGeometry
     /// </summary>
     public static bool CanRecordExpandedHeight(int currentHeight, int collapsedHeight) =>
         currentHeight > collapsedHeight;
+
+    // ── 滚到底自动取下一页
+    //
+    // 早先靠底部一个「加载更多」按钮翻页。它不是多余的**功能**（`PageSize=200`，真实库
+    // 5000+ 条，不翻页就只能看到最新 200 条），但作为**入口形式**是多余的：`HasMore`
+    // 在大库上恒为真，按钮钉在滚动区之外、在 340~580dip 高的挂件里常驻占掉一行。
+    // 改成滚到底自动加载后按钮撤掉，功能不丢、版面省一行。
+
+    /// <summary>触发预取的距底阈值（dip）。留一屏的四分之一左右，滚到底前就已经接上。</summary>
+    public const double LoadMoreThresholdDip = 120;
+
+    /// <summary>
+    /// 当前滚动位置是否该取下一页。纯函数，几何量由调用方从 ScrollViewer 读。
+    ///
+    /// 三道闸都必要：
+    /// · <paramref name="hasMore"/>——没有下一页就别问库；
+    /// · <paramref name="loading"/>——`ViewChanged` 在一次滚动里会连发多拍，而取完一页会
+    ///   追加内容、`ExtentHeight` 变大又触发 `ViewChanged`；不挡住会连着把整库拉完；
+    /// · <paramref name="extentHeight"/> ≤ <paramref name="viewportHeight"/>——内容还没
+    ///   撑满一屏时距底恒为 0，会在启动瞬间就无条件预取。
+    /// </summary>
+    public static bool ShouldLoadMore(
+        double verticalOffset, double viewportHeight, double extentHeight,
+        bool hasMore, bool loading, double threshold)
+    {
+        if (!hasMore || loading) return false;
+        if (viewportHeight <= 0 || extentHeight <= viewportHeight) return false;
+        return extentHeight - (verticalOffset + viewportHeight) <= threshold;
+    }
 }

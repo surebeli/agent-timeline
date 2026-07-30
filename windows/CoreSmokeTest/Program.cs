@@ -25,6 +25,8 @@ internal static class Program
         ClauseWindowBoundaries();
         CompatibilityFold();
         PanelCollapse();
+        TimelinePaging();
+        ItemDiffAffixes();
         DefinitionIsNotSelfMention();
         ShortCodeWordBoundaryAndUnknown();
         DefinitionRestatementFlipsToChanged();
@@ -287,6 +289,75 @@ internal static class Program
         //    是**代码里引用的每一个键都在表里**（scripts/check-strings.py 第 7 项），
         //    比手写两条断言覆盖面大。缺键的后果是加载器回显键名、界面上出现
         //    "header.collapse" 字样而不报错，只有跑起来才看得见，必须机器守。
+    }
+
+    /// <summary>
+    /// 滚到底自动取下一页的判据（取代原先底部的「加载更多」按钮）。三道闸各有反证用例。
+    /// </summary>
+    private static void TimelinePaging()
+    {
+        const double th = PanelGeometry.LoadMoreThresholdDip;
+        // 视口 500、内容 2000 → 距底 = 2000 - (offset + 500)
+        bool At(double offset, bool hasMore = true, bool loading = false) =>
+            PanelGeometry.ShouldLoadMore(offset, 500, 2000, hasMore, loading, th);
+
+        Check(At(1500 - th), "paging: 刚进入阈值就预取");
+        Check(At(1500), "paging: 到底当然要取");
+        Check(!At(1500 - th - 1), "paging: 阈值之外不取");
+        Check(!At(0), "paging: 顶部不取");
+
+        // 闸 1：没有下一页就别问库
+        Check(!At(1500, hasMore: false), "paging: HasMore=false 不取");
+        // 闸 2：取页中不重入。ViewChanged 一次滚动连发多拍，且取完一页 ExtentHeight 变大
+        //       又会触发一拍——不挡住会连着把整库拉完
+        Check(!At(1500, loading: true), "paging: 取页进行中不重入");
+        // 闸 3：内容没撑满一屏时距底恒为 0，会在启动瞬间无条件预取
+        Check(!PanelGeometry.ShouldLoadMore(0, 500, 300, true, false, th),
+            "paging: 内容不足一屏不取（否则启动就无条件预取）");
+        Check(!PanelGeometry.ShouldLoadMore(0, 500, 500, true, false, th),
+            "paging: 内容刚好一屏也不取");
+        // 视口尺寸还没量出来时（首帧）不该动
+        Check(!PanelGeometry.ShouldLoadMore(0, 0, 2000, true, false, th),
+            "paging: 视口高度为 0 时不取");
+    }
+
+    /// <summary>
+    /// 列表增量套用的前后缀差分。守的是"分页/新节点这两条日常路径不产生 Reset"——
+    /// ItemsRepeater 在大滚动偏移处吃到 Reset 会把正文画成空白（实机复现过）。
+    /// </summary>
+    private static void ItemDiffAffixes()
+    {
+        static (int, int) Diff(string a, string b) =>
+            ItemDiff.CommonAffixes(a.ToCharArray(), b.ToCharArray(), (x, y) => x == y);
+
+        // 尾部追加（分页）：前缀吃满原列表，中段为 0 → 只有 Add
+        var (p, s) = Diff("abc", "abcde");
+        CheckEqual(p, 3, "diff: 尾部追加 前缀=全部");
+        CheckEqual(3 - p - s, 0, "diff: 尾部追加 中段=0");
+
+        // 头部插入（新节点到来）：后缀吃满原列表 → 只有 Insert(0)
+        (p, s) = Diff("abc", "Xabc");
+        CheckEqual(s, 3, "diff: 头部插入 后缀=全部");
+        CheckEqual(3 - p - s, 0, "diff: 头部插入 中段=0");
+
+        // 中段单点替换（"今天 · n 件"计数变了）
+        (p, s) = Diff("abcd", "aXcd");
+        CheckEqual(p, 1, "diff: 中段替换 前缀");
+        CheckEqual(s, 2, "diff: 中段替换 后缀");
+
+        // 整表换血（切语言）：无公共前后缀
+        (p, s) = Diff("abc", "xyz");
+        CheckEqual(p, 0, "diff: 整表换血 无前缀");
+        CheckEqual(s, 0, "diff: 整表换血 无后缀");
+
+        // 前后缀之和必须被较短列表夹住，否则中段算成负数、插入区间反转。
+        // "aa" → "aaa"：三个位置两两都相等，朴素实现会让 prefix=2 且 suffix=2
+        (p, s) = Diff("aa", "aaa");
+        Check(p + s <= 2, $"diff: 前后缀之和不越界（实得 {p}+{s}）");
+        (p, s) = Diff("", "abc");
+        CheckEqual(p + s, 0, "diff: 空列表不炸");
+        (p, s) = Diff("abc", "");
+        CheckEqual(p + s, 0, "diff: 清空不炸");
     }
 
     private static void CompatibilityFold()

@@ -26,10 +26,11 @@
             </Style>
         </Grid.Resources>
 
+        <!-- 0=头部 1=时间线。原先还有第 2 行放「加载更多」按钮，改成滚到底自动加载后
+             连行一起撤掉了（见文件末尾那段注释）。 -->
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- ═══════════════ System tray (H.NotifyIcon) ═══════════════ -->
@@ -720,14 +721,10 @@
                 Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}" />
         </Grid>
 
-        <!-- ═══════════════ Footer: lazy loading ═══════════════ -->
-        <Button
-            Grid.Row="2"
-            Margin="12,6,12,10"
-            HorizontalAlignment="Stretch"
-            x:Name="LoadMoreButton"
-            Click="LoadMore_Click"
-            FontSize="{StaticResource FontSizeBody}"
-            Visibility="{x:Bind ViewModel.HasMore, Mode=OneWay}" />
+        <!-- 底部原先有个「加载更多」按钮（Grid.Row=2）。它不是多余的**功能**——PageSize=200，
+             真实库 5000+ 条，不翻页就只能看到最新 200 条；多余的是这个**入口形式**：
+             HasMore 在大库上恒为真，按钮钉在滚动区之外、在 340~580dip 高的挂件里常驻占掉一行。
+             已改为滚到接近底部自动取下一页（见 MainWindow.xaml.cs 的 MaybeLoadMore），
+             按钮与它那一行都撤掉。mac 侧仍是按钮，已写进同步任务书待追齐。 -->
     </Grid>
 </Window>

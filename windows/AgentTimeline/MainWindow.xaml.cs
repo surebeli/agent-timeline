@@ -145,7 +145,6 @@ public sealed partial class MainWindow : Window
         ToolTipService.SetToolTip(HidePanelButton, AppStrings.S("header.hideToTray"));
         UpdateCollapseButton();   // 折叠/展开两条文案随状态取，单独刷
 
-        LoadMoreButton.Content = AppStrings.S("timeline.loadMore");
         TimelineEmptyText.Text = AppStrings.S("timeline.empty");
 
         // 折叠态标签跟着当前选中项重算（选项本身是哨兵/落库值，不随语言变）
@@ -741,14 +740,50 @@ public sealed partial class MainWindow : Window
 
     // ─────────────────────────── sticky day header (pinned sections)
 
+    /// <summary>取下一页进行中，挡住 ViewChanged 的连发（见 PanelGeometry.ShouldLoadMore）。</summary>
+    private bool _loadingMore;
+
     private void TimelineScroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
     {
+        MaybeLoadMore();
         UpdateStickyDayHeader();
         // 跳跃式滚动（快速甩动/程序化跳转）时 ItemsRepeater 的再实现化发生在随后的布局拍，
         // 本拍读到的是过期几何，粘性条会以错误状态冻结（实机 M3 复现：跳转后常驻或消失）。
         // 布局队列排空后再校准一次。
         DispatcherQueue.TryEnqueue(
             Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, UpdateStickyDayHeader);
+    }
+
+    /// <summary>
+    /// 滚到接近底部就取下一页，取代原先底部那个「加载更多」按钮。
+    ///
+    /// 判据在 <see cref="PanelGeometry.ShouldLoadMore"/>（纯函数、有冒烟断言）；这里只负责
+    /// 读几何量、上锁、取页。取完一页会追加内容 → `ExtentHeight` 变大 → 再触发一次
+    /// `ViewChanged`：若那时仍在阈值内就继续取，一次滚到底可以连续补几页，这是想要的；
+    /// `_loadingMore` 挡的是**同一拍内**的重入，不是跨拍的连续预取。
+    /// </summary>
+    private void MaybeLoadMore()
+    {
+        if (!PanelGeometry.ShouldLoadMore(
+                TimelineScroller.VerticalOffset, TimelineScroller.ViewportHeight,
+                TimelineScroller.ExtentHeight, ViewModel.HasMore, _loadingMore,
+                PanelGeometry.LoadMoreThresholdDip))
+        {
+            return;
+        }
+        _loadingMore = true;
+        try
+        {
+            var before = ViewModel.Items.Count;
+            ViewModel.LoadMore();
+            // 这条是**唯一可观测的翻页证据**：按钮没了以后，"滚到底有没有真的取到下一页"
+            // 只能靠日志验证（UIA 树在本工程里不可靠，数不到条目数）。取一页写一行，
+            // 有 _loadingMore 挡着不会刷屏。
+            Log.Info($"滚动触底自动翻页：条目 {before} → {ViewModel.Items.Count}，" +
+                     $"HasMore={ViewModel.HasMore}");
+        }
+        catch (Exception ex) { Log.Error("自动加载下一页失败", ex); }
+        finally { _loadingMore = false; }
     }
 
     /// <summary>
@@ -949,8 +984,6 @@ public sealed partial class MainWindow : Window
         KindFilterLabel.Text = UiText.KindOption(option, compact: true) + " ▾";
         ViewModel.SetKindFilter(option);
     }
-
-    private void LoadMore_Click(object sender, RoutedEventArgs e) => ViewModel.LoadMore();
 
     private void HidePanel_Click(object sender, RoutedEventArgs e)
     {
