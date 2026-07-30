@@ -28,6 +28,36 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 
 ## 更新记录
 
+- **2026-07-30 (ii) 折叠到标题栏（追齐 mac，双端功能对齐）**
+  - 头部加第四个图标按钮（chevron，词典之后）：收成只剩标题栏、再点展开回折叠前高度。
+    文案走共享表既有的 `header.collapse` / `header.expand`，随状态取；
+  - **顶边不动**。mac 是 Cocoa 坐标系（Y 轴向上、原点左下），"顶边不动"写成
+    `origin.y += 旧高 - 新高`；Windows 是 Win32 屏幕坐标（**Y 轴向下、原点左上**），
+    顶边就是 `Position.Y` 本身——**只改 Height、不碰 Position**。照抄 mac 那行加法会让
+    窗口往屏幕下方跳。实机：`2719,345 490x910` → `2719,345 490x57`，X/Y/宽全不变；
+  - **折叠态锁住竖向尺寸**。本工程为保留边缘 resize 命中区留了 7px 不可见边框，折叠成
+    一条标题栏后**底边那圈就是 resize 区**，不锁的话一拖就能拉高而 `PanelCollapsed`
+    仍是 true，标志与实际高度脱钩。WindowsAppSDK 1.5 的 `OverlappedPresenter` 没有
+    `PreferredMinimum/MaximumHeight`（更高版本才有），故复用既有的 `OnAppWindowChanged`
+    钳制回路（原先只钳宽度）。实机：强行 `SetWindowPos` 拉到 300 被立刻钳回 57；
+  - **折叠高度按本端实测、不抄 mac 的 41pt**。几何常量放 `Core/PanelGeometry.cs`，
+    运行时以 `HeaderBar.ActualHeight` 为准并与推导值比对，对不上写 `app.log`。
+    这道自检当场就抓到我自己写错的常量：按图标按钮推成 40dip，实测 43px——行里最高的
+    是带文字的过滤按钮不是图标按钮，已订正为 27；
+  - **持久化两个字段** `PanelCollapsed` / `PanelExpandedHeight`。三处坑：
+    ① 启动应用折叠态**不走** `SetCollapsed`——那条路会先"记录折叠前高度"，而此刻高度
+    已是折叠尺寸，会把真值冲掉（mac 实机踩过，判据是"当前高度 > 折叠高度"才允许记）；
+    ② 折叠态下 `SaveWindowBounds` **不写** `WindowHeight`，否则展开高度的第二条线索也没了；
+    ③ 老用户升级时 `PanelExpandedHeight` 缺失，取值优先级为
+    `PanelExpandedHeight` → `WindowHeight`（仅当它大于折叠高度）→ tokens 默认，最后抬到
+    展开最小高度。实机：折叠 → 重启 → 展开，回到 910 且顶边仍在 345；
+  - 几何抽成 `Core/PanelGeometry.cs` 的纯函数，**签名只用基元类型**：交接任务书的伪代码
+    用了 `RectInt32`，但 `CoreSmokeTest` 是 net7.0、不引 Windows App SDK，那个签名在冒烟
+    工程里编不过——「抽纯函数 + 断言」会在写断言时才发现落空。冒烟 400 → **412**；
+  - **文案表关加第 7 项**：代码引用的键必须在表里。缺键时加载器**回显键名**、界面上直接
+    出现 `header.collapse` 字样而不报错，只有跑起来盯着那个控件才看得见。反证：把
+    `header.expand` 打成 `header.expandd` → 精确报出文件与行号。当前扫到 58 个引用键全有定义。
+
 - **2026-07-30 四语接线轮（B 词表 + A 69 键接线 + 一览重拍）**
   - **B 识别词表四语化 + 日韩三条硬伤**（`c72824c`）。否定检测的位置三语不同：中文前置、
     日语后置（完了して**いない**）、韩语两头都有。新增后置否定标记 + 8 字窗口且**遇子句

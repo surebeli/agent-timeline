@@ -167,6 +167,16 @@
                     >
                     <FontIcon FontSize="12" Glyph="&#xE82D;" />
                 </Button>
+                <!-- 折叠到只剩标题栏 / 展开（对齐 mac FloatingPanel.setCollapsed）。
+                     位置与 mac 一致：词典之后、其余按钮之前。字形随状态翻转，
+                     tooltip 走 header.collapse / header.expand 两个键。 -->
+                <Button
+                    x:Name="CollapseButton"
+                    Click="CollapsePanel_Click"
+                    Style="{StaticResource HeaderIconButtonStyle}"
+                    >
+                    <FontIcon x:Name="CollapseIcon" FontSize="12" Glyph="&#xE96D;" />
+                </Button>
                 <Button
                     x:Name="SettingsButton"
                     Click="OpenSettings_Click"

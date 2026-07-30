@@ -24,6 +24,7 @@ internal static class Program
         NegatedStatusKeywords();
         ClauseWindowBoundaries();
         CompatibilityFold();
+        PanelCollapse();
         DefinitionIsNotSelfMention();
         ShortCodeWordBoundaryAndUnknown();
         DefinitionRestatementFlipsToChanged();
@@ -226,6 +227,66 @@ internal static class Program
             "boundary: 真正的 working 仍然命中");
         CheckEqual(CodenameDetector.InferStatus("N2 is done."), CodenameStatus.Completed,
             "boundary: 句末标点不算词边界失败");
+    }
+
+    /// <summary>
+    /// 面板折叠几何（对齐 mac PanelCollapseTests 的 8 项）。窗口起不来，故几何抽成
+    /// <see cref="PanelGeometry"/> 的纯函数在这里验——它只用基元类型、且落在 Core 下，
+    /// 正是为了能被本工程编译（net7.0，不引 Windows App SDK，RectInt32 在这里不存在）。
+    /// </summary>
+    private static void PanelCollapse()
+    {
+        const int collapsed = 41;   // 任取一个"实测折叠高度"，几何不依赖具体值
+        const int minExpanded = 320;
+
+        // 1) 折叠：只改高度。Win32 坐标系 Y 轴向下、原点在左上 → 顶边就是 Y，
+        //    "顶边不动" = 不碰 Y。这条与 mac 相反，抄公式就会让窗口往下跳。
+        CheckEqual(PanelGeometry.TargetHeight(true, collapsed, 640, minExpanded), collapsed,
+            "collapse: 折叠高度即目标高度");
+
+        // 2) 展开回折叠前的高度
+        CheckEqual(PanelGeometry.TargetHeight(false, collapsed, 640, minExpanded), 640,
+            "collapse: 展开还原到折叠前高度");
+
+        // 3) 往返无损
+        var round = PanelGeometry.TargetHeight(
+            false, collapsed, PanelGeometry.TargetHeight(true, collapsed, 580, minExpanded) == collapsed ? 580 : 0,
+            minExpanded);
+        CheckEqual(round, 580, "collapse: 折叠→展开往返无损");
+
+        // 4) 异常展开高度不得把窗口还原成一条缝
+        CheckEqual(PanelGeometry.TargetHeight(false, collapsed, 10, minExpanded), minExpanded,
+            "collapse: 过小的展开高度抬到展开最小高度");
+
+        // 5) 折叠高度与头部布局推导式同步。头部布局改了、这里没跟着改，这条要打红
+        //    （运行时另有一道实测比对，对不上写 app.log）。
+        CheckEqual(PanelGeometry.CollapsedHeightDip,
+            PanelGeometry.HeaderPaddingTop + PanelGeometry.HeaderRowHeight + PanelGeometry.HeaderPaddingBottom,
+            "collapse: 折叠高度 == HeaderBar 上下内边距 + 行高");
+        Check(PanelGeometry.CollapsedHeightDip < PanelGeometry.ExpandedMinHeightDip,
+            "collapse: 折叠高度必须远小于展开最小高度");
+
+        // 6) 展开高度的取值优先级（W-3：老用户升级时 PanelExpandedHeight 缺失）
+        CheckEqual(PanelGeometry.ResolveExpandedHeight(700, 500, 640, collapsed, minExpanded), 700,
+            "collapse: 有 PanelExpandedHeight 就用它");
+        CheckEqual(PanelGeometry.ResolveExpandedHeight(0, 500, 640, collapsed, minExpanded), 500,
+            "collapse: 缺失时退回 WindowHeight（升级路径）");
+        CheckEqual(PanelGeometry.ResolveExpandedHeight(0, collapsed, 640, collapsed, minExpanded), 640,
+            "collapse: WindowHeight 本身就是折叠尺寸时不能采信，退回默认");
+        CheckEqual(PanelGeometry.ResolveExpandedHeight(0, 0, 100, collapsed, minExpanded), minExpanded,
+            "collapse: 默认值也过小时抬到展开最小高度");
+
+        // 7) 回归：启动时应用折叠态不得把展开高度冲成折叠高度
+        Check(!PanelGeometry.CanRecordExpandedHeight(collapsed, collapsed),
+            "collapse: 当前已是折叠尺寸时**不得**记为展开高度（mac 实机踩过的坑）");
+        Check(PanelGeometry.CanRecordExpandedHeight(555, collapsed),
+            "collapse: 真从展开态折叠时要记下来");
+
+        // 8) 「两个新键必须在表里」那条**不在这里**：本工程够不着 AppStrings（它在应用层，
+        //    不在 Core），也不读仓库文件。改由 CI 的文案表关统一守——而且守的不是这两个键，
+        //    是**代码里引用的每一个键都在表里**（scripts/check-strings.py 第 7 项），
+        //    比手写两条断言覆盖面大。缺键的后果是加载器回显键名、界面上出现
+        //    "header.collapse" 字样而不报错，只有跑起来才看得见，必须机器守。
     }
 
     private static void CompatibilityFold()

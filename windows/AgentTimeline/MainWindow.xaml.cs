@@ -109,6 +109,9 @@ public sealed partial class MainWindow : Window
 
         ApplyStrings();
         AppStrings.Changed += OnStringsChanged;
+
+        // 折叠态要等布局出来才能量到 HeaderBar 高度；Loaded 时窗口已完成首次布局。
+        RootGrid.Loaded += (_, _) => RestoreCollapsedState();
     }
 
     private void OnStringsChanged() => DispatcherQueue.TryEnqueue(() =>
@@ -140,6 +143,7 @@ public sealed partial class MainWindow : Window
         ToolTipService.SetToolTip(DictionaryButton, AppStrings.S("header.dictionary"));
         ToolTipService.SetToolTip(SettingsButton, AppStrings.S("header.settings"));
         ToolTipService.SetToolTip(HidePanelButton, AppStrings.S("header.hideToTray"));
+        UpdateCollapseButton();   // 折叠/展开两条文案随状态取，单独刷
 
         LoadMoreButton.Content = AppStrings.S("timeline.loadMore");
         TimelineEmptyText.Text = AppStrings.S("timeline.empty");
@@ -203,6 +207,108 @@ public sealed partial class MainWindow : Window
         appWindow.Changed += OnAppWindowChanged;
     }
 
+    // ═══════════════════════════════════════════════ 折叠到只剩标题栏
+
+    /// <summary>当前是否折叠。真值随设置持久化，但**以窗口实际高度为准**由锁保证不脱钩。</summary>
+    private bool _collapsed;
+
+    /// <summary>折叠目标高度（物理像素）。构造期用推导值，界面布局出来后换成实测值。</summary>
+    private int _collapsedHeightPx;
+
+    private int Scale => (int)Math.Round(WindowInterop.GetWindowScale(_hwnd) * 100);
+
+    private int Dip(int dip) => (int)Math.Round(dip * WindowInterop.GetWindowScale(_hwnd));
+
+    /// <summary>
+    /// 折叠高度取**实测的 HeaderBar 高度**，推导常量只作兜底与断言基准。
+    /// 两者对不上说明头部布局改了而 <see cref="PanelGeometry"/> 没跟着改——写进日志，
+    /// 别静默用一个过期数字（冒烟里另有一条断言守推导式本身）。
+    /// </summary>
+    private void MeasureCollapsedHeight()
+    {
+        var derived = Dip(PanelGeometry.CollapsedHeightDip);
+        var measured = HeaderBar.ActualHeight > 0
+            ? (int)Math.Round(HeaderBar.ActualHeight * WindowInterop.GetWindowScale(_hwnd))
+            : derived;
+        // 窗口矩形比客户区大：四周各有不可见边框（实测左上偏移 7,7 / 总差 14×14）。
+        // 折叠目标是**窗口**高度，故要把上下两条边框算进去。
+        var chrome = AppWindow.Size.Height - (int)Math.Round(
+            (RootGrid.ActualHeight > 0 ? RootGrid.ActualHeight : 0) * WindowInterop.GetWindowScale(_hwnd));
+        if (chrome < 0 || chrome > Dip(40)) chrome = 0;   // 量不准就不补，宁可少 1px 也别跳
+        _collapsedHeightPx = measured + chrome;
+
+        if (Math.Abs(measured - derived) > Dip(2))
+        {
+            Log.Error(
+                $"折叠高度推导值与实测不符：PanelGeometry.CollapsedHeightDip={PanelGeometry.CollapsedHeightDip}dip " +
+                $"(={derived}px) vs HeaderBar 实测 {measured}px @{Scale}%。" +
+                "头部布局改了就同步改 PanelGeometry 里的三个常量。", null);
+        }
+    }
+
+    private void CollapsePanel_Click(object sender, RoutedEventArgs e) => SetCollapsed(!_collapsed);
+
+    /// <summary>
+    /// 折叠 / 展开。**顶边不动**——Win32 坐标系 Y 轴向下、原点在左上，顶边就是 Y 本身，
+    /// 所以只改 Height、不碰 Position（mac 是 Cocoa 坐标系要改 origin.y，方向相反，
+    /// 那行公式不能照搬）。
+    /// </summary>
+    private void SetCollapsed(bool collapsed)
+    {
+        var s = App.Settings;
+        var current = AppWindow.Size.Height;
+
+        // 只有**当前确实是展开态**时才记录折叠前高度。启动时若上次是折叠的，当前高度
+        // 已经是折叠尺寸，无条件记一次就会把用户真正的高度冲掉（mac 实机踩过）。
+        if (collapsed && PanelGeometry.CanRecordExpandedHeight(current, _collapsedHeightPx))
+        {
+            s.PanelExpandedHeight = current;
+        }
+
+        _collapsed = collapsed;
+        s.PanelCollapsed = collapsed;
+
+        var expanded = PanelGeometry.ResolveExpandedHeight(
+            s.PanelExpandedHeight, s.WindowHeight, Dip((int)App.Tokens.PanelDefaultHeight),
+            _collapsedHeightPx, Dip(PanelGeometry.ExpandedMinHeightDip));
+        var target = PanelGeometry.TargetHeight(
+            collapsed, _collapsedHeightPx, expanded, Dip(PanelGeometry.ExpandedMinHeightDip));
+
+        // 竖向尺寸的锁在 OnAppWindowChanged 里做（与既有的宽度钳制同一套机制）：
+        // WindowsAppSDK 1.5 的 OverlappedPresenter **没有** PreferredMinimum/MaximumHeight，
+        // 那是更高版本才有的 API；本工程钉在 1.5，故复用已验证的"改完再钳回去"回路。
+        _clampingSize = true;
+        try { AppWindow.Resize(new SizeInt32(AppWindow.Size.Width, target)); }
+        finally { _clampingSize = false; }
+
+        UpdateCollapseButton();
+        s.Save();
+    }
+
+    private void UpdateCollapseButton()
+    {
+        CollapseIcon.Glyph = _collapsed ? "" : "";   // ChevronDown / ChevronUp
+        ToolTipService.SetToolTip(
+            CollapseButton, AppStrings.S(_collapsed ? "header.expand" : "header.collapse"));
+    }
+
+    /// <summary>
+    /// 启动时应用上次的折叠态。**不走 <see cref="SetCollapsed"/>**——那条路会先记录
+    /// "折叠前高度"，而此刻窗口高度已经是折叠尺寸，会把真值冲掉。这里只应用尺寸。
+    /// </summary>
+    private void RestoreCollapsedState()
+    {
+        MeasureCollapsedHeight();
+        _collapsed = App.Settings.PanelCollapsed;
+        if (_collapsed)
+        {
+            _clampingSize = true;
+            try { AppWindow.Resize(new SizeInt32(AppWindow.Size.Width, _collapsedHeightPx)); }
+            finally { _clampingSize = false; }
+        }
+        UpdateCollapseButton();
+    }
+
     private void RestoreWindowBounds()
     {
         var s = App.Settings;
@@ -242,7 +348,10 @@ public sealed partial class MainWindow : Window
             s.WindowX = AppWindow.Position.X;
             s.WindowY = AppWindow.Position.Y;
             s.WindowWidth = AppWindow.Size.Width;
-            s.WindowHeight = AppWindow.Size.Height;
+            // 折叠态下**不要**把折叠尺寸写进 WindowHeight：那是"展开态的窗口高度"字段，
+            // 覆盖掉之后，PanelExpandedHeight 万一也丢了就再没有第二条线索还原
+            // （ResolveExpandedHeight 的第 2 优先级正是它）。折叠态就保持上次的值不动。
+            if (!_collapsed) s.WindowHeight = AppWindow.Size.Height;
             s.Save();
         }
         catch (Exception ex)
@@ -267,12 +376,24 @@ public sealed partial class MainWindow : Window
         var size = sender.Size;
         // min/max tokens 同为逻辑像素 → 按当前 DPI 换算成物理像素再钳制。
         var scale = WindowInterop.GetWindowScale(_hwnd);
-        var clamped = Math.Clamp(size.Width,
+        var clampedW = Math.Clamp(size.Width,
             (int)Math.Round(t.PanelMinWidth * scale),
             (int)Math.Round(t.PanelMaxWidth * scale));
-        if (clamped == size.Width) return;
+
+        // 竖向：折叠态**锁死**在折叠高度，展开态不得低于展开最小高度。
+        //
+        // 折叠态这条不是洁癖：本工程为保留边缘 resize 命中区留了 7px 不可见边框，
+        // 折叠成一条标题栏后**底边那圈就是 resize 区**，用户随手一拖就能把折叠态拉高，
+        // 而 PanelCollapsed 仍是 true —— 标志与实际高度脱钩，下次点展开会按错的基准算。
+        // mac 用 minSize/maxSize 锁，WindowsAppSDK 1.5 的 OverlappedPresenter 没有对应
+        // 属性，故复用这条已验证的钳制回路。
+        var clampedH = _collapsedHeightPx > 0 && _collapsed
+            ? _collapsedHeightPx
+            : Math.Max(size.Height, (int)Math.Round(PanelGeometry.ExpandedMinHeightDip * scale));
+
+        if (clampedW == size.Width && clampedH == size.Height) return;
         _clampingSize = true;
-        try { sender.Resize(new SizeInt32(clamped, size.Height)); }
+        try { sender.Resize(new SizeInt32(clampedW, clampedH)); }
         finally { _clampingSize = false; }
     }
 

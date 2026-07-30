@@ -49,6 +49,16 @@ public sealed class AppSettings
     public int WindowWidth { get; set; } = 0;
     public int WindowHeight { get; set; } = 0;
 
+    /// <summary>面板是否折叠到只剩标题栏（对齐 mac <c>panelCollapsed</c>）。</summary>
+    public bool PanelCollapsed { get; set; }
+
+    /// <summary>
+    /// 折叠**之前**的窗口高度（物理像素）。必须单独存：折叠后 <see cref="WindowHeight"/>
+    /// 存的就是折叠尺寸了，只靠它还原不回去。取值优先级见
+    /// <see cref="PanelGeometry.ResolveExpandedHeight"/>（含老用户升级时该字段缺失的情况）。
+    /// </summary>
+    public int PanelExpandedHeight { get; set; }
+
     // --- Watching / backfill (F1) ---
     public int BackfillDays { get; set; } = 7;
     public bool EnableClaude { get; set; } = true;
