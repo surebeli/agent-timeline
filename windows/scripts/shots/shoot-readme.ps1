@@ -25,6 +25,12 @@
 .PARAMETER Install
   拍完直接覆盖 docs/assets/ 下的成品（默认只写工作目录，便于先目验）。
 
+.PARAMETER Recover
+  只做救援：用 %LOCALAPPDATA%\AgentTimeline\.shoot-backup 覆盖真实位置并清掉中断标记。
+  上一轮被硬杀（进程被外部终止，try/finally 没机会跑）时用它——那种情况下真实位置
+  留着的是演示库，**千万不要直接重跑**，重跑会把演示库当基线备份下来再"忠实还原"，
+  三条 ✅ 全打勾而真实数据已经没了。2026-07-30 实测踩过一次。
+
 .PARAMETER Scale
   期望的显示缩放百分比，**默认 100**——成品就是 100% 拍的（859×676，dip 几何与 mac
   逐位相同）。2026-07-30 用户定：「恢复到 100%，之前有记录 200% 应该是错误的」。
@@ -49,6 +55,7 @@
 [CmdletBinding()]
 param(
     [switch]$Install,
+    [switch]$Recover,
     [int]$Scale = 100,
     [string]$App = '',
     [string]$Work = ''
@@ -175,10 +182,83 @@ if ($screenH -gt 0 -and ($PANEL_H_DIP * $Scale / 100) -gt $screenH) {
            "超过主显示器的 ${screenH}px。换更高的屏，或用更低的 -Scale。")
 }
 
+# ── 断电级保护：try/finally 挡不住进程被硬杀
+#
+# 2026-07-30 实测踩过一次真实数据丢失，链条是这样的：
+#   1. 一轮拍摄在「已写入演示库、尚未还原」时被**外部强杀**（不是异常、不是 Ctrl-C，
+#      finally 根本没机会跑）→ 演示库留在了真实位置；
+#   2. 下一轮开跑，把**演示库当成真实基线**备份下来，拍完又忠实地还原回去
+#      → 真实数据被水泥封死，而且那三条 ✅ 全部打勾，因为它确实"原样还原"了。
+# 第 2 步才是要命的：校验通过、数据没了。
+#
+# 所以加两样东西：
+#   · 进行中标记：写在数据目录里、还原成功才删。开跑先看它，在就说明上一轮没收尾，
+#     **拒绝备份当前库**并指出救援路径；
+#   · 稳定备份位置：备份除了留在本轮临时目录，再放一份到数据目录下的固定路径，
+#     救援时不必去猜是哪个 at-shots-* 目录。
+$marker    = Join-Path $data '.shoot-in-progress'
+$safeBackup = Join-Path $data '.shoot-backup'
+
+function Clear-Marker {
+    if (Test-Path $marker) { Remove-Item -LiteralPath $marker -Force }
+}
+
+function Set-Marker {
+    $body = "  基线 md5=$script:beforeDbMd5",
+            "  基线计数=$($script:beforeCounts -replace "`r?`n", ' / ')",
+            "  固定备份=$safeBackup"
+    $body -join "`n" | Set-Content -LiteralPath $marker -Encoding UTF8
+}
+
+function Test-StaleRun {
+    if (-not (Test-Path $marker)) { return }
+    $info = (Get-Content $marker -Raw).Trim()
+    throw (
+        "上一轮拍摄没有收尾就被中断，**当前 timeline.db 很可能是演示库**，不能拿它当基线。`n" +
+        "  中断标记: $marker`n$info`n" +
+        "  救援：先确认 $safeBackup\timeline.db 的节点数是你的真实量级，" +
+        "再用它覆盖 $db（连 -wal/-shm 一起删掉重来），然后删除标记文件重跑。`n" +
+        "  或者跑 `-Recover` 让脚本替你做这件事。")
+}
+
+function Invoke-Recover {
+    $bakDb = Join-Path $safeBackup 'timeline.db'
+    if (-not (Test-Path $bakDb)) { throw "没有可用的救援备份：$bakDb 不存在" }
+    Write-Host '── 救援：用固定备份覆盖真实位置'
+    Stop-App
+    Write-Host "   备份: $(Get-DbCounts $bakDb)"
+    # 演示库的 -wal/-shm 必须删掉：留着会被当成新库的日志重放
+    foreach ($f in $dbFiles) {
+        $live = Join-Path $data $f
+        if (Test-Path $live) { Remove-Item $live -Force }
+    }
+    Copy-Item $bakDb $db -Force
+    $s = Join-Path $safeBackup 'settings.json'
+    if (Test-Path $s) { Copy-Item $s $settings -Force }
+    Write-Host "   还原后: $(Get-DbCounts $db)"
+    Clear-Marker
+    Write-Host '   ✅ 已还原并清除中断标记；起一次应用会按 file_offsets 重扫补齐空窗期'
+    Start-Process $App
+}
+
 $restored = $false
+$swapped = $false      # 真的动过真实文件了吗
 function Restore-Real {
     if ($script:restored) { return }
     $script:restored = $true
+
+    # ⚠ 没进入交换阶段就**一个文件都不要动**。
+    #
+    # finally 会在 try 里**任何**位置抛出时跑到这里——包括备份步骤之前（比如
+    # Test-StaleRun 拦下来的那种）。那时 $backup 是空目录，而下面的循环是
+    # 「先删真实文件、再从备份拷回」——删得掉、拷不回，等于直接毁数据；
+    # 随后的 Start-Process 还会让应用重建一个空库并开始回填，把现场彻底盖掉。
+    # 2026-07-30 实测踩过一次：加防护的那次测试自己把真实库删了。
+    if (-not $script:swapped -or -not (Test-Path (Join-Path $backup 'timeline.db'))) {
+        Write-Host '── 未进入交换阶段，真实环境未被改动，无需还原'
+        return
+    }
+
     Write-Host '── 还原真实环境'
     Stop-App
     # 文件级交换，不删目录（win 端曾因子目录被进程占用导致目录级还原失败）
@@ -201,10 +281,21 @@ function Restore-Real {
     else { Write-Warning "   ❌ db md5 不一致 $script:beforeDbMd5 vs $afterDbMd5（备份在 $backup）" }
     if ($afterSetMd5 -eq $script:beforeSetMd5) { Write-Host '   ✅ settings.json md5 一致' }
     else { Write-Warning "   ❌ settings.json md5 不一致（备份在 $backup）" }
+    # 三项都对上才算收尾，标记才能清——留着标记好过让下一轮把演示库当成基线
+    if ($afterCounts -eq $script:beforeCounts -and $afterDbMd5 -eq $script:beforeDbMd5 `
+        -and $afterSetMd5 -eq $script:beforeSetMd5) {
+        Clear-Marker
+    }
+    else {
+        Write-Warning "   ⚠ 还原未完全对上，**保留**中断标记 $marker；固定备份在 $safeBackup"
+    }
     Start-Process $App
 }
 
+if ($Recover) { Invoke-Recover; return }
+
 try {
+    Test-StaleRun
     Write-Host '── 备份真实 db 与设置'
     Stop-App
     $script:beforeCounts = Get-DbCounts $db
@@ -215,14 +306,26 @@ try {
         if (Test-Path $live) { Copy-Item $live (Join-Path $backup $f) -Force }
     }
     if (Test-Path $settings) { Copy-Item $settings (Join-Path $backup 'settings.json') -Force }
+    # 再落一份到固定位置：救援时不必去猜是哪个 at-shots-* 临时目录
+    New-Item -ItemType Directory -Force -Path $safeBackup | Out-Null
+    Get-ChildItem $backup -File | ForEach-Object { Copy-Item $_.FullName $safeBackup -Force }
     Write-Host "   基线 db md5=$script:beforeDbMd5"
     Write-Host "   $($script:beforeCounts -replace "`r?`n", ' / ')"
     if ($script:beforeDbMd5 -eq '<无>') { throw '没有真实 db 可备份，先跑一次应用' }
 
+    # 标记与 $swapped 都必须在**动真实文件之前**立起来：
+    # 标记立晚了、正好在这中间被杀，下一轮会把演示库当基线；
+    # $swapped 立晚了，还原逻辑会以为没交换过而跳过还原，演示库就留在真实位置。
+    Set-Marker
+    $script:swapped = $true
     Write-Host '── 演示配置 + 演示数据'
     # ⚠ 键名以 AppSettings 属性名为准：写错等于没关，真实 session 会混进演示库
     $demo = [ordered]@{
         Engine = 'Rule'; CliCommand = 'auto'
+        # 语言必须**钉死**，不能留「跟随系统」：否则产出的语言取决于拍摄机的系统 UI 语言
+        # （本机是 en-US，一跑就拍出英文图），而这是最坏的一类失败——图看着完全正常。
+        # README 三张是中文说明的配图，故钉 ZhHans。
+        Language = 'ZhHans'
         ProviderBaseUrl = ''; ProviderApiKey = ''; ProviderModel = ''
         HoverOpacity = 0.98; IdleOpacity = 0.97; AlwaysOnTop = $true
         WindowX = $panelX; WindowY = $panelY; WindowWidth = $panelW; WindowHeight = $panelH
