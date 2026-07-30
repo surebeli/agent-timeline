@@ -10,7 +10,12 @@ enum StringsData {
     "drift": "建表时发现两端在单中文下已漂移 8 处以上（纯规则'不调用 LLM'vs'不调用模型'、退出/显隐/加载更多/项目过滤等）。此表已统一取词，两端今后只认这里。",
     "storage": "kind.* 与 status.* 只是**显示标签**。落库值仍是中文枚举（nodes.kind / codenames.status），切语言不改历史数据，也不需要迁移。"
   },
-  "languages": ["zh-Hans", "en", "ja", "ko"],
+  "languages": [
+    "zh-Hans",
+    "en",
+    "ja",
+    "ko"
+  ],
   "strings": {
     "app.settingsTitle": {
       "zh-Hans": "Agent Timeline 设置 · v{0}",
@@ -18,7 +23,6 @@ enum StringsData {
       "ja": "Agent Timeline 設定 · v{0}",
       "ko": "Agent Timeline 설정 · v{0}"
     },
-
     "tray.showHide": {
       "zh-Hans": "显示 / 隐藏",
       "en": "Show / Hide",
@@ -43,7 +47,6 @@ enum StringsData {
       "ja": "終了",
       "ko": "종료"
     },
-
     "header.projectFilter": {
       "zh-Hans": "项目过滤",
       "en": "Filter by project",
@@ -61,6 +64,18 @@ enum StringsData {
       "en": "Codename dictionary",
       "ja": "コードネーム辞書",
       "ko": "코드명 사전"
+    },
+    "header.collapse": {
+      "zh-Hans": "折叠到标题栏",
+      "en": "Collapse to title bar",
+      "ja": "タイトルバーに折りたたむ",
+      "ko": "제목 표시줄로 접기"
+    },
+    "header.expand": {
+      "zh-Hans": "展开",
+      "en": "Expand",
+      "ja": "展開",
+      "ko": "펼치기"
     },
     "header.settings": {
       "zh-Hans": "设置",
@@ -80,7 +95,6 @@ enum StringsData {
       "ja": "メニューバーに収納",
       "ko": "메뉴 막대로 숨기기"
     },
-
     "header.allProjects": {
       "zh-Hans": "全部",
       "en": "All",
@@ -105,7 +119,6 @@ enum StringsData {
       "ja": "すべての種別",
       "ko": "모든 유형"
     },
-
     "entry.expandCollapse": {
       "zh-Hans": "展开 / 收起",
       "en": "Expand / Collapse",
@@ -136,7 +149,6 @@ enum StringsData {
       "ja": "{0} を定義したノードへ移動",
       "ko": "{0} 정의 노드로 이동"
     },
-
     "timeline.todayWithCount": {
       "zh-Hans": "今天 · {0} 条",
       "en": "Today · {0}",
@@ -167,7 +179,6 @@ enum StringsData {
       "ja": "最前面表示を解除",
       "ko": "항상 위 고정 해제"
     },
-
     "dict.title": {
       "zh-Hans": "代号词典（{0}）",
       "en": "Codenames ({0})",
@@ -222,7 +233,6 @@ enum StringsData {
       "ja": "定義ノードへ移動",
       "ko": "정의 노드로 이동"
     },
-
     "settings.section.engine": {
       "zh-Hans": "摘要引擎",
       "en": "Summary engine",
@@ -337,7 +347,6 @@ enum StringsData {
       "ja": "適用",
       "ko": "적용"
     },
-
     "settings.language": {
       "zh-Hans": "语言",
       "en": "Language",
@@ -356,7 +365,6 @@ enum StringsData {
       "ja": "切り替えるとインターフェースと新しく生成される要約にすぐ反映されます。保存済みの要約は元の言語のまま残り、再生成されません。",
       "ko": "전환하면 인터페이스와 새로 생성되는 요약에 즉시 적용됩니다. 이미 저장된 요약은 원래 언어를 유지하며 다시 생성되지 않습니다."
     },
-
     "kind.requirement": {
       "zh-Hans": "需求",
       "en": "Requirement",
@@ -399,7 +407,6 @@ enum StringsData {
       "ja": "その他",
       "ko": "기타"
     },
-
     "status.defined": {
       "zh-Hans": "定义",
       "en": "Defined",
@@ -430,7 +437,6 @@ enum StringsData {
       "ja": "言及",
       "ko": "언급됨"
     },
-
     "rule.emptyCommand": {
       "zh-Hans": "(空命令)",
       "en": "(empty command)",

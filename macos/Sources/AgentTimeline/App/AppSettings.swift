@@ -19,6 +19,8 @@ enum SettingsKey {
     static let agentKimiEnabled = "agentKimiEnabled"
     static let agentZcodeEnabled = "agentZcodeEnabled"
     static let language = "language"                    // AppLanguage rawValue
+    static let panelCollapsed = "panelCollapsed"        // 折叠到只剩 caption
+    static let panelExpandedHeight = "panelExpandedHeight"  // 折叠前的高度，供还原
 }
 
 struct AppSettings: Sendable {
@@ -39,6 +41,8 @@ struct AppSettings: Sendable {
             SettingsKey.agentKimiEnabled: true,
             SettingsKey.agentZcodeEnabled: true,
             SettingsKey.language: AppLanguage.system.rawValue,
+            SettingsKey.panelCollapsed: false,
+            SettingsKey.panelExpandedHeight: DesignTokens.shared.panel.defaultHeight,
         ])
     }
 
@@ -62,6 +66,15 @@ struct AppSettings: Sendable {
     static var language: AppLanguage {
         AppLanguage(rawValue: UserDefaults.standard.string(forKey: SettingsKey.language) ?? "")
             ?? .system
+    }
+
+    /// 面板是否折叠到只剩 caption。
+    static var panelCollapsed: Bool { UserDefaults.standard.bool(forKey: SettingsKey.panelCollapsed) }
+
+    /// 折叠前的高度。折叠后 `panelFrame` 存的是折叠尺寸，不另存这一项就还原不回去。
+    static var panelExpandedHeight: Double {
+        let saved = UserDefaults.standard.double(forKey: SettingsKey.panelExpandedHeight)
+        return saved > FloatingPanel.collapsedHeight ? saved : DesignTokens.shared.panel.defaultHeight
     }
 
     static func isAgentEnabled(_ agent: AgentKind) -> Bool {

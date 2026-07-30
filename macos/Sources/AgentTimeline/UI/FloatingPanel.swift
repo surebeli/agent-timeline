@@ -11,7 +11,19 @@ final class FloatingPanel: NSPanel, NSWindowDelegate {
     /// is open, so the panel stays readable even though the mouse left it.
     static let holdReadableNotification = Notification.Name("PanelHoldReadable")
 
+    /// 折叠态的窗口高度：只留 caption 那一行。
+    ///
+    /// = 头部 `padding(.top, 4)` + `frame(height: 28)` + `padding(.bottom, 8)` + 分隔线 1
+    /// （见 `TimelineView.body`）。这三个数与 Windows 侧头部布局同源，改一处要两端同改。
+    static let collapsedHeight: CGFloat = 41
+
+    /// 展开态的最小高度。折叠是**显式操作**，不能让人用拖拽把窗口缩到折叠尺寸——
+    /// 那样 collapsed 标志与实际高度就脱钩了。
+    private static let expandedMinHeight: CGFloat = 320
+
     private var hovering = false
+
+    private(set) var isCollapsed = false
 
     var holdReadable = false {
         didSet { updateTrackingAndOpacity(animated: true) }
@@ -48,7 +60,7 @@ final class FloatingPanel: NSPanel, NSWindowDelegate {
         isFloatingPanel = true
         animationBehavior = .utilityWindow
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        minSize = NSSize(width: tokens.panel.minWidth, height: 320)
+        minSize = NSSize(width: tokens.panel.minWidth, height: Self.expandedMinHeight)
         maxSize = NSSize(width: tokens.panel.maxWidth, height: 4000)
 
         // Blur backdrop + rounded corners, content hosted above it.
@@ -137,6 +149,45 @@ final class FloatingPanel: NSPanel, NSWindowDelegate {
         }
     }
 
+    /// 折叠/展开后的目标 frame。**顶边不动**——挂件通常贴着屏幕某处放，折叠时应该像
+    /// 卷帘一样往上收，而不是原地缩到一半再跳。纯函数，供单测直接验几何。
+    static func collapsedFrame(
+        from frame: NSRect, collapsed: Bool, expandedHeight: CGFloat
+    ) -> NSRect {
+        let target = collapsed ? collapsedHeight : max(expandedMinHeight, expandedHeight)
+        var out = frame
+        out.origin.y += frame.height - target      // 顶边 = origin.y + height 保持不变
+        out.size.height = target
+        return out
+    }
+
+    /// 折叠到只剩 caption / 还原。折叠态**锁住竖向尺寸**（min=max=collapsedHeight），
+    /// 否则可以拖着边缘把「折叠中」的窗口拉高，标志与实际高度脱钩。
+    func setCollapsed(_ collapsed: Bool, animated: Bool) {
+        // 折叠前把当前高度记下来：折叠后 persistFrame 存进 panelFrame 的是折叠尺寸。
+        // ⚠ 必须先确认当前**确实是展开态**：启动时若上次是折叠的，restoreFrame 还原的就是
+        // 41pt 的帧，这里再无条件记一次就把用户真正的高度冲成 41——展开后只剩一条缝。
+        // （实机测出来的：设 600、折叠、重启、展开，回到的是默认 640 而不是 600，
+        // 说明 600 已经被 41 覆盖、只是被 AppSettings 的回退兜住了。）
+        if collapsed, !isCollapsed, frame.height > Self.collapsedHeight {
+            UserDefaults.standard.set(frame.height, forKey: SettingsKey.panelExpandedHeight)
+        }
+        isCollapsed = collapsed
+        UserDefaults.standard.set(collapsed, forKey: SettingsKey.panelCollapsed)
+
+        let target = Self.collapsedFrame(
+            from: frame, collapsed: collapsed,
+            expandedHeight: CGFloat(AppSettings.panelExpandedHeight))
+        // 先放开约束再改 frame，否则 minSize 会把折叠挡住
+        minSize = NSSize(
+            width: minSize.width,
+            height: collapsed ? Self.collapsedHeight : Self.expandedMinHeight)
+        maxSize = NSSize(
+            width: maxSize.width,
+            height: collapsed ? Self.collapsedHeight : 4000)
+        setFrame(target, display: true, animate: animated)
+    }
+
     func applyLevel() {
         level = AppSettings.alwaysOnTop ? .floating : .normal
     }
@@ -152,7 +203,10 @@ final class FloatingPanel: NSPanel, NSWindowDelegate {
     private func restoreFrame() {
         if let saved = UserDefaults.standard.string(forKey: Self.frameKey) {
             let rect = NSRectFromString(saved)
-            if rect.width > 100, rect.height > 100 {
+            // 下界取折叠高度而不是写死 100：折叠态存下来的就是 41pt，用 100 会把它判成
+            // 垃圾帧、退回「贴主屏右缘 + 默认宽」的默认分支——折叠位置与宽度一起丢。
+            // （这条是加折叠功能时实机测出来的：重启后 430×41 变成了 340×41 并跳到屏幕右上。）
+            if rect.width > 100, rect.height >= Self.collapsedHeight {
                 setFrame(rect, display: false)
                 return
             }

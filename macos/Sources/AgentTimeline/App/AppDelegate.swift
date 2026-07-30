@@ -160,6 +160,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let timelineView = TimelineView(
             viewModel: viewModel,
             onTogglePin: { [weak self] in self?.panel.applyLevel() },
+            onToggleCollapse: { [weak self] in
+                guard let self else { return }
+                self.panel.setCollapsed(!self.panel.isCollapsed, animated: true)
+            },
             onOpenSettings: { [weak self] in self?.openSettings() })
         let hosting = HoverReportingHostingView(rootView: AnyView(timelineView))
         // SwiftUI 默认为标题栏留安全区，会把头部整体下压一个标题栏高度，
@@ -169,6 +173,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel = FloatingPanel(contentView: hosting)
         hosting.onHoverChange = { [weak self] hovering in
             self?.panel.setHovering(hovering)
+        }
+        // 折叠态跨重启保持：panelFrame 存的已经是折叠尺寸，这里只需把标志与约束对上，
+        // 故不做动画、也不重算 frame（animated:false + 当前 frame 即目标）。
+        if AppSettings.panelCollapsed {
+            panel.setCollapsed(true, animated: false)
         }
         panel.orderFrontRegardless()
     }
@@ -205,7 +214,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if panel.isVisible {
             panel.orderOut(nil)
         } else {
-            panel.orderFrontRegardless()
+            // 折叠态跨重启保持：panelFrame 存的已经是折叠尺寸，这里只需把标志与约束对上，
+        // 故不做动画、也不重算 frame（animated:false + 当前 frame 即目标）。
+        if AppSettings.panelCollapsed {
+            panel.setCollapsed(true, animated: false)
+        }
+        panel.orderFrontRegardless()
         }
     }
 
