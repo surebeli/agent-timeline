@@ -5,6 +5,12 @@
 #
 #   --install   拍完直接覆盖 docs/assets/ 下的成品（默认只写 out 目录，便于先目验）
 #   --recover   救援：用数据目录下的固定备份 .shoot-backup 覆盖真实位置并清中断标记
+#   --language <ZhHans|En>  演示语言（默认 ZhHans）。En 时产出装到 *-en.png，
+#               供 README.en.md 用；与 win shoot-readme.ps1 -Language 同语义
+#
+# 缩放：**按拍摄机系统默认**，脚本不改显示缩放（用户 2026-07-30 决定：各端用自己系统
+# 的默认设置，不再互相强制）。mac 上 Retina 2x → 1718×1352；Windows 100% → 859×676，
+# dip 几何与比例两端相同。
 #   --hero      额外拍 README 首图 screenshot-dark.png（面板 430×698，不做合成）
 #   --app       指定 .app（默认 macos/dist/AgentTimeline.app）
 #
@@ -33,10 +39,12 @@ APP="$REPO/macos/dist/AgentTimeline.app"
 INSTALL=0
 HERO=0
 RECOVER=0
+LANGUAGE=ZhHans
 while [ $# -gt 0 ]; do
   case "$1" in
     --install) INSTALL=1 ;;
     --recover) RECOVER=1 ;;
+    --language) LANGUAGE="$2"; shift ;;
     --hero)    HERO=1 ;;
     --app)     APP="$2"; shift ;;
     *) echo "未知参数: $1" >&2; exit 2 ;;
@@ -134,7 +142,7 @@ if [ "$RECOVER" = 1 ]; then
     defaults import "$DOMAIN" "$FIXED_BACKUP/defaults.plist"
   fi
   echo "   现库 md5=$(md5 -q "$DB" 2>/dev/null || echo -)"
-  [ -f "$FIXED_BACKUP/store.sqlite" ] && echo "   备份 md5=$(md5 -q "$FIXED_BACKUP/store.sqlite")"
+  if [ -f "$FIXED_BACKUP/store.sqlite" ]; then echo "   备份 md5=$(md5 -q "$FIXED_BACKUP/store.sqlite")"; fi
   rm -f "$MARKER"
   echo "   ✅ 已还原并清除中断标记"
   exit 0
@@ -188,7 +196,12 @@ swapped=1          # 自此 restore() 才允许动真实文件
 
 echo "── 灌注演示数据 + 演示配置"
 rm -f "$DB" "$DB-wal" "$DB-shm"
-python3 "$REPO/macos/scripts/demo-seed.py" "$DB"
+case "$LANGUAGE" in
+  ZhHans) SEED_LANG=zh ;;
+  En)     SEED_LANG=en ;;
+  *) echo "--language 只支持 ZhHans / En —— docs/DEMO-DATASET.md 目前只有中英两套" >&2; exit 2 ;;
+esac
+python3 "$REPO/macos/scripts/demo-seed.py" "$DB" --lang "$SEED_LANG"
 # ⚠ key 名以 AppSettings.SettingsKey 为准：写错 key 等于没关，真实 session 会混进演示库
 for k in agentClaudeEnabled agentCodexEnabled agentGrokEnabled agentKimiEnabled agentZcodeEnabled; do
   defaults write "$DOMAIN" "$k" -bool false
@@ -200,7 +213,7 @@ defaults write "$DOMAIN" hoverOpacity -float 0.98
 defaults write "$DOMAIN" alwaysOnTop -bool true
 # ⚠ 必须钉死语言：四语接线后默认是「跟随系统」，不钉的话产出语言取决于**拍摄机的
 # 系统 UI 语言**，而图看着完全正常——Windows 侧那台 en-US 机器一跑就拍出了英文图。
-defaults write "$DOMAIN" language -string ZhHans
+defaults write "$DOMAIN" language -string "$LANGUAGE"
 
 # 起面板并把它放到 PANEL_X/PANEL_Y_COCOA。
 #
@@ -259,9 +272,11 @@ if [ "$w_dict" -le "$w_time" ]; then
   exit 1
 fi
 CW=$((CW + PAD * 2)); CH=$((CH + PAD * 2))
-echo "── 合成到统一画布 ${CW}×${CH}"
+SUFFIX=""
+if [ "$LANGUAGE" = "En" ]; then SUFFIX="-en"; fi
+echo "── 合成到统一画布 ${CW}×${CH}（语言 ${LANGUAGE}，产出后缀 '${SUFFIX}'）"
 for f in timeline projects dictionary; do
-  "$BIN/compose" "$OUT/raw-$f.png" "$OUT/screenshot-macos-$f.png" "$CW" "$CH"
+  "$BIN/compose" "$OUT/raw-$f.png" "$OUT/screenshot-macos-$f$SUFFIX.png" "$CW" "$CH"
 done
 
 if [ "$HERO" = 1 ]; then
@@ -273,7 +288,7 @@ fi
 if [ "$INSTALL" = 1 ]; then
   echo "── 安装到 docs/assets"
   for f in timeline projects dictionary; do
-    cp "$OUT/screenshot-macos-$f.png" "$REPO/docs/assets/screenshot-macos-$f.png"
+    cp "$OUT/screenshot-macos-$f$SUFFIX.png" "$REPO/docs/assets/screenshot-macos-$f$SUFFIX.png"
   done
   if [ "$HERO" = 1 ]; then cp "$OUT/screenshot-dark.png" "$REPO/docs/assets/screenshot-dark.png"; fi
 else

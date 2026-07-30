@@ -84,7 +84,7 @@ Settings (three summary engines / opacity / per-agent toggles):
 
 | Dual-ink ledger · kind accents · codename badges | Project dropdown · most-recent-agent badges | Codename dictionary · a lifecycle at a glance |
 |:---:|:---:|:---:|
-| <img src="docs/assets/screenshot-macos-timeline.png" width="290" alt="macOS ledger timeline: five agents interleaved, kind accents, N2✓/N3△ status badges, diamond anchors for decisions" /> | <img src="docs/assets/screenshot-macos-projects.png" width="290" alt="Project dropdown with CL/CO/GR/KI source badges following the most recently active agent" /> | <img src="docs/assets/screenshot-macos-dictionary.png" width="290" alt="Codename dictionary: definitions, done/in-progress/changed states and provenance for N1/N2/N3/T1/T2/REQ-AUTH-3" /> |
+| <img src="docs/assets/screenshot-macos-timeline-en.png" width="290" alt="macOS ledger timeline: five agents interleaved, kind accents, N2✓/N3△ status badges, diamond anchors for decisions" /> | <img src="docs/assets/screenshot-macos-projects-en.png" width="290" alt="Project dropdown with CL/CO/GR/KI source badges following the most recently active agent" /> | <img src="docs/assets/screenshot-macos-dictionary-en.png" width="290" alt="Codename dictionary: definitions, done/in-progress/changed states and provenance for N1/N2/N3/T1/T2/REQ-AUTH-3" /> |
 
 Settings: [screenshot-macos-settings.png](docs/assets/screenshot-macos-settings.png).
 
