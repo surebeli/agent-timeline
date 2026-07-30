@@ -1,0 +1,57 @@
+.github/workflows/ci.yml
+  s_5f812b192ad64b::t_d182549d3ef14b 1-101
+macos/SYNC-KICKOFF-PROMPT.md
+  0000019fb123dbe0 1-188
+windows/README.en.md
+  0000019fb123dbe0 1-555
+windows/README.md
+  0000019fb123dbe0 1-427
+windows/SYNC-KICKOFF-PROMPT.md
+  0000019fb123dbe0 1-186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ee7608ddf923ec94b2aa1872f3ab6a388c259ecc",
+  "prompts": {
+    "s_5f812b192ad64b::t_d182549d3ef14b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 101,
+      "total_deletions": 0,
+      "accepted_lines": 101,
+      "overriden_lines": 0
+    },
+    "s_74bfdeeab3f3b8::t_8eb939f974253d": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785383344459007400",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019fb123dbe0": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785383345120"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 1356,
+      "total_deletions": 0,
+      "accepted_lines": 1356,
+      "overriden_lines": 0
+    }
+  }
+}
