@@ -14,7 +14,7 @@
 ![.NET](https://img.shields.io/badge/.NET-8-10A37F)
 [![License: MIT](https://img.shields.io/badge/license-MIT-86909C)](LICENSE)
 
-<img src="docs/assets/screenshot-dark.png" width="380" alt="Agent Timeline floating panel: five agents interleaved, dual-ink ledger, codename status badges" />
+<img src="docs/assets/screenshot-dark-en.png" width="380" alt="Agent Timeline floating panel: five agents interleaved, dual-ink ledger, codename status badges" />
 
 </div>
 
@@ -97,21 +97,18 @@ Settings (three summary engines / opacity / per-agent toggles):
 |:---:|:---:|:---:|
 | <img src="docs/assets/screenshot-macos-timeline-en.png" width="290" alt="macOS ledger timeline: five agents interleaved, kind accents, N2✓/N3△ status badges, diamond anchors for decisions" /> | <img src="docs/assets/screenshot-macos-projects-en.png" width="290" alt="Project dropdown with CL/CO/GR/KI source badges following the most recently active agent" /> | <img src="docs/assets/screenshot-macos-dictionary-en.png" width="290" alt="Codename dictionary: definitions, done/in-progress/changed states and provenance for N1/N2/N3/T1/T2/REQ-AUTH-3" /> |
 
-Settings: [screenshot-macos-settings.png](docs/assets/screenshot-macos-settings.png).
+Settings: [screenshot-macos-settings-en.png](docs/assets/screenshot-macos-settings-en.png).
 
 > Both rows are shot from the same demo dataset ([docs/DEMO-DATASET.md](docs/DEMO-DATASET.md)),
 > with the same dip geometry and the same backplate, so the two rows line up exactly.
-> macOS was captured at v0.5.1 on a Retina display (2×, 1718×1352); Windows was recaptured at
+> macOS was recaptured at v0.7.0 on a Retina display (2×, 1618×1352); Windows was recaptured at
 > v0.6.0 on a 100%-scaled display (859×676 — identical dip geometry, half the pixel density).
 > At the 290px width used above the two look the same. Capture scripts:
 > `macos/scripts/shots/` and `windows/scripts/shots/`.
 >
 > **Language of the screenshots.** The demo dataset exists in Chinese and English, and the capture
 > script takes the language as an explicit input, so this page shows the **English** UI with English
-> sample data — the Windows row above is `…-en.png`. The **macOS row and the hero image at the top
-> still show the Chinese UI**: they can only be recaptured on a Mac, and doing so is queued for the
-> macOS side. The hero image is additionally out of date on both pages — it shows a filter labelled
-> 「阶段」, which was renamed to 「类型」 (kind) in an earlier round.
+> sample data throughout — hero, macOS row, and Windows row are all `…-en.png`.
 
 ## How it works
 

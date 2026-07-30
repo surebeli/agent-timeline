@@ -5,6 +5,7 @@
 #
 #   --install   拍完直接覆盖 docs/assets/ 下的成品（默认只写 out 目录，便于先目验）
 #   --recover   救援：用数据目录下的固定备份 .shoot-backup 覆盖真实位置并清中断标记
+#   --settings  额外拍设置窗口（screenshot-macos-settings$SUFFIX.png）
 #   --language <ZhHans|En>  演示语言（默认 ZhHans）。En 时产出装到 *-en.png，
 #               供 README.en.md 用；与 win shoot-readme.ps1 -Language 同语义
 #
@@ -46,6 +47,7 @@ while [ $# -gt 0 ]; do
     --recover) RECOVER=1 ;;
     --language) LANGUAGE="$2"; shift ;;
     --hero)    HERO=1 ;;
+    --settings) SETTINGS=1 ;;
     --app)     APP="$2"; shift ;;
     *) echo "未知参数: $1" >&2; exit 2 ;;
   esac
@@ -70,6 +72,7 @@ HERO_W=430;  HERO_H=698
 PAD=96                            # 合成画布四边留白（px，即 48pt @2x）
 DICT_DX=101                       # 词典按钮距面板右缘（pt，命中框放大后的实测值）
 COLLAPSE_DX=80                    # 折叠/展开按钮距面板右缘（pt，横扫实测命中区间 72-88）
+SETTINGS_DX=22                    # 设置按钮距面板右缘（pt，实测同 onboarding-spec.py SETTINGS_X）
 PROJ_DX=170                       # 「全部」下拉距面板右缘（pt）
 TOOLBAR_DY=15                     # 工具栏按钮距面板顶（pt）
 
@@ -299,7 +302,23 @@ done
 if [ "$HERO" = 1 ]; then
   echo "── 拍首图（面板 ${HERO_W}×${HERO_H}pt，不做合成）"
   read -r ID X Y W H <<< "$(launch_panel "$HERO_W" "$HERO_H")"
-  park; screencapture -x -o -l "$ID" "$OUT/screenshot-dark.png"
+  park; screencapture -x -o -l "$ID" "$OUT/screenshot-dark$SUFFIX.png"
+fi
+
+if [ "$SETTINGS" = 1 ]; then
+  echo "── 拍设置窗口"
+  read -r ID X Y W H <<< "$(launch_panel "$PANEL_W" "$PANEL_H")"
+  # 设置窗是独立 NSWindow（宽度固定 420pt、按内容自适应高度），点齿轮才会出现，
+  # 故不能像面板那样提前枚举——先点开，再从「新出现的窗口」里找它：宽度 420pt
+  # （SettingsView 的 .frame(width: 420)）是唯一标识，比"最后一个窗口"更不脆弱。
+  "$BIN/window-tool" click $((X + W - SETTINGS_DX)) $((Y + TOOLBAR_DY))
+  sleep 2
+  SID=$("$BIN/window-tool" list | awk '$4==420{print $1; exit}')   # SettingsView 固定宽 420pt
+  if [ -z "$SID" ]; then
+    echo "❌ 没找到设置窗口（宽度不是预期的 420pt，SettingsView 布局是否改过？）" >&2
+    exit 1
+  fi
+  screencapture -x -o -l "$SID" "$OUT/screenshot-macos-settings$SUFFIX.png"
 fi
 
 if [ "$INSTALL" = 1 ]; then
@@ -307,7 +326,13 @@ if [ "$INSTALL" = 1 ]; then
   for f in timeline projects dictionary; do
     cp "$OUT/screenshot-macos-$f$SUFFIX.png" "$REPO/docs/assets/screenshot-macos-$f$SUFFIX.png"
   done
-  if [ "$HERO" = 1 ]; then cp "$OUT/screenshot-dark.png" "$REPO/docs/assets/screenshot-dark.png"; fi
+  if [ "$HERO" = 1 ]; then
+    cp "$OUT/screenshot-dark$SUFFIX.png" "$REPO/docs/assets/screenshot-dark$SUFFIX.png"
+  fi
+  if [ "$SETTINGS" = 1 ]; then
+    cp "$OUT/screenshot-macos-settings$SUFFIX.png" \
+       "$REPO/docs/assets/screenshot-macos-settings$SUFFIX.png"
+  fi
 else
   echo "── 未安装（加 --install 覆盖 docs/assets）"
 fi

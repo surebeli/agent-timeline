@@ -51,10 +51,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         // 菜单栏菜单是代码构建的，不会随语言自动刷新——切换后整体重建。
+        // 设置窗的标题栏同理：NSWindow.title 是命令式赋值，SwiftUI 的 body 重算救不到它，
+        // 窗口本身又常驻不释放（isReleasedWhenClosed = false），不重设标题会一直停留在
+        // 打开那一刻的语言（实机拍引导图时发现：标题栏"设置"、正文却是英文的混语状态）。
         NotificationCenter.default.addObserver(
             forName: Strings.didChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.rebuildStatusMenu() }
+            MainActor.assumeIsolated {
+                self?.rebuildStatusMenu()
+                self?.refreshSettingsWindowTitle()
+            }
         }
         NotificationCenter.default.addObserver(
             forName: FloatingPanel.holdReadableNotification, object: nil, queue: .main
@@ -238,7 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let window = NSWindow(contentViewController: NSHostingController(rootView: view))
             // 版本信息统一放在设置窗 caption（双端同文案）
             let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
-            window.title = "Agent Timeline 设置 · v\(version)"
+            window.title = Strings.f("app.settingsTitle", version)
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
             settingsWindow = window
@@ -246,6 +252,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.center()
         settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    private func refreshSettingsWindowTitle() {
+        guard let window = settingsWindow else { return }
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        window.title = Strings.f("app.settingsTitle", version)
     }
 }
 

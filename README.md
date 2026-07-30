@@ -97,7 +97,7 @@ swift test                                # 81 项单测
 设置界面：[screenshot-macos-settings.png](docs/assets/screenshot-macos-settings.png)。两端同一演示数据集拍摄（[docs/DEMO-DATASET.md](docs/DEMO-DATASET.md)），视觉规范同源 `design/design-tokens.json`。
 
 > 两端同一演示数据、同一 dip 几何、同一背板，画布宽高比逐位相同故两行等高。
-> macOS 摄于 v0.5.1、Retina 2x（1718×1352）；Windows 摄于 v0.6.0、主屏 100% 缩放
+> macOS 摄于 v0.7.0、Retina 2x（1618×1352）；Windows 摄于 v0.6.0、主屏 100% 缩放
 > （859×676，dip 几何与 mac 一致、像素密度为其一半）；README 显示宽度 290 下观感无差异。拍摄脚本：mac `macos/scripts/shots/`、Windows `windows/scripts/shots/`。
 
 ## 工作原理
