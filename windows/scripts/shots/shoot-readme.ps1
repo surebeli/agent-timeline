@@ -108,6 +108,13 @@ $seedLang = switch ($Language) {
     'En'     { 'en' }
     'Ja'     { 'ja' }
     'Ko'     { 'ko' }
+    # 兜底分支要留着：`switch` 无匹配又无 default 时返回 $null，会一路传成 `--lang $null`
+    # ——那是"看着跑完了、其实灌错语种"的静默失败。现在四档都有正文，这里不可达
+    # （ValidateSet 先拦），但将来 AppLanguage 加第五档时，忘了补演示正文就会撞到这条。
+    default  {
+        throw ("-Language $Language 在 docs/DEMO-DATASET.md 里没有对应语种的演示正文。" +
+               "只换界面语言会拍出「该语言 chrome + 中文内容」的混语图，先补数据集再拍。")
+    }
 }
 # 中文是默认产物、不带后缀（历史文件名不变）；其余语种加 -<lang> 后缀
 $suffix = if ($seedLang -eq 'zh') { '' } else { "-$seedLang" }

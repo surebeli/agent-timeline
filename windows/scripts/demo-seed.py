@@ -64,16 +64,11 @@ for i, (agent, proj, sess, when, kind, codes) in enumerate(DATA.NODES):
          title, kp(*points), codenames, result, kind))
     ids[i] = cur.lastrowid
 
-# (代号, 定义节点, 首见时间, 次数, 状态, 状态节点, 更新时间, lastContext 取自哪条命令)
-CODES = [
-    ("N1",         0, ms(-1, 20, 10), 2, "定义",   None, None,           None),
-    ("N2",         0, ms(-1, 20, 10), 3, "完成",   11,   ms(0, 11, 52),  11),
-    ("N3",         0, ms(-1, 20, 10), 3, "变更",   11,   ms(0, 11, 52),  11),
-    ("T1",         1, ms(-1, 21, 3),  3, "完成",   5,    ms(0, 10, 24),  5),
-    ("T2",         1, ms(-1, 21, 3),  3, "进行中", 5,    ms(0, 10, 24),  5),
-    ("REQ-AUTH-3", 2, ms(-1, 18, 40), 2, "进行中", 2,    ms(-1, 18, 40), 'research'),
-]
-
+# 代号定义表在共享模块里（DATA.CODES），本文件只做 schema 适配。
+# ⚠ 曾经这里留着一份同名的本地 CODES 副本——抽共享模块时漏删的，循环读的一直是
+#   DATA.CODES。它是死代码，但**看起来像权威定义**：谁去改那份局部表都会以为改了行为，
+#   实际什么都不会变。这类"看着生效其实没接线"的残留比缺代码更难查，已删。
+#   （mac 侧 review 时指出，2026-07-30）
 for name, def_idx, first_when, occ, status, status_idx, upd_when, ctx_from in DATA.CODES:
     first_ts = ms(*first_when)
     upd_ts = ms(*upd_when) if upd_when is not None else None
