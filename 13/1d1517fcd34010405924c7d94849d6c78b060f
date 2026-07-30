@@ -1,0 +1,51 @@
+windows/AgentTimeline/App.xaml
+  s_5f812b192ad64b::t_fae09f6bc836e1 1-55
+windows/SYNC-KICKOFF-PROMPT.md
+  0000019fb2016a36 1-269
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "131d1517fcd34010405924c7d94849d6c78b060f",
+  "prompts": {
+    "s_5f812b192ad64b::t_fae09f6bc836e1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 55,
+      "total_deletions": 0,
+      "accepted_lines": 55,
+      "overriden_lines": 0
+    },
+    "s_8fe52eaf5ded93::t_23a19fd3b8be80": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785397864379123000",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019fb2016a36": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785397865014"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 269,
+      "total_deletions": 0,
+      "accepted_lines": 269,
+      "overriden_lines": 0
+    }
+  }
+}
