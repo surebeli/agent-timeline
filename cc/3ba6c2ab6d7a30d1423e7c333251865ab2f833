@@ -1,0 +1,36 @@
+macos/SYNC-KICKOFF-PROMPT.md
+  0000019fb216975b 1-253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "cc3ba6c2ab6d7a30d1423e7c333251865ab2f833",
+  "prompts": {
+    "s_dedbb3710ec48d::t_6fd5721fa4c58f": {
+      "agent_id": {
+        "tool": "mock_ai",
+        "id": "ai-thread-1785399252540453000",
+        "model": "unknown"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "0000019fb216975b": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-sonnet-5",
+        "id": "ai-thread-claude-claude-sonnet-5-1785399252827"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 253,
+      "total_deletions": 0,
+      "accepted_lines": 253,
+      "overriden_lines": 0
+    }
+  }
+}
