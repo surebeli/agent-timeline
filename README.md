@@ -6,6 +6,8 @@
 
 **常驻桌面的半透明时间线挂件 — 让长周期 AI 编程会话里"你说过的每句话"随时可回溯**
 
+**中文** · [English](README.en.md)
+
 [![CI](https://github.com/surebeli/agent-timeline/actions/workflows/ci.yml/badge.svg)](https://github.com/surebeli/agent-timeline/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20%7C%20Windows%2011-4F6BF0)
 ![Swift](https://img.shields.io/badge/Swift-5.9%2B-D97757)
@@ -33,7 +35,8 @@
 | 🕰 **命令时间线** | 每条你的原话 = 一个节点（最新在上），LLM 提炼标题 / 关键点 / 执行结果一句话；按 需求·任务·调研·学习·决策·修复 归类过滤 |
 | 📖 **代号词典** | `N1: 登录改版` 式定义自动登记（命令与 agent 回复双通道）；`N2完成`、`T1 完成接下去执行T2` 自动流转状态（✓完成 / ▶进行中 / △变更）；点击回看定义与出处 |
 | 🫧 **双墨线台账** | `❯ + 实线彩墨线 + 纸面块` = 你的话，`✦ + 虚线灰墨线` = 机器话 —— 失焦半透明时，屏幕上唯一清晰的就是你说过的话 |
-| 🪟 **挂件级窗口** | menu bar / 托盘常驻；hover ≈95% 可读、失焦 ≈25% 不挡事；置顶开关；点击不抢焦点；全文划选复制；任意明暗背景自稳对比（scrim + 描边） |
+| 🪟 **挂件级窗口** | menu bar / 托盘常驻；hover ≈95% 可读、失焦 ≈25% 不挡事，快淡入慢淡出；置顶开关；点击不抢焦点；全文划选复制；任意明暗背景自稳对比（scrim + 描边） |
+| 🌏 **四语界面** | 简体中文 · English · 日本語 · 한국어，设置里切换**即时生效**。状态关键词与类型识别**四语常开**——中文界面照样读得懂日文 agent 回复；已入库的历史保持原语言不重写 |
 | 🔌 **零配置摘要** | 默认复用本机 `claude -p`（备选 `codex exec`）headless；可换任意 OpenAI 兼容 provider；LLM 不可用时规则降级不断线 |
 | 🔒 **本地优先** | session 解析、存储（SQLite）、词典全部本地；仅摘要调用产生模型请求 |
 
@@ -56,13 +59,13 @@ cd macos
 scripts/build-app.sh release              # 产出 macos/dist/AgentTimeline.app
 cp -R dist/AgentTimeline.app /Applications/
 open /Applications/AgentTimeline.app      # menu bar 时钟图标 ⏱
-swift test                                # 48 项单测
+swift test                                # 81 项单测
 ```
 
 ### Windows（WinUI 3 / .NET 8）
 
-完整源码在 [`windows/`](windows/)，**已完成实机运行验证（M3，2026-07-26）**：Core 解析层跨平台
-冒烟 354 断言，WinUI 层过 CI 的 VS msbuild 硬门禁，分层验证清单全项注记见
+完整源码在 [`windows/`](windows/)，**已完成实机运行验证**：Core 解析层跨平台
+冒烟 400 断言，WinUI 层过 CI 的 VS msbuild 硬门禁，分层验证清单全项注记见
 [windows/DEBUG-PLAYBOOK.md](windows/DEBUG-PLAYBOOK.md)。开发构建用 Visual Studio 2022 打开
 `windows/AgentTimeline.sln`，详见 [windows/README.md](windows/README.md)。
 
@@ -82,10 +85,9 @@ swift test                                # 48 项单测
 
 设置界面：[screenshot-macos-settings.png](docs/assets/screenshot-macos-settings.png)。两端同一演示数据集拍摄（[docs/DEMO-DATASET.md](docs/DEMO-DATASET.md)），视觉规范同源 `design/design-tokens.json`。
 
-> 两端一览均摄于 v0.5.1（五家 agent 混排，同一演示数据、同一 dip 几何、同一背板，
-> 画布宽高比逐位相同故两行等高）。macOS 为 Retina 2x（1718×1352），Windows 本轮拍摄机
-> 主屏为 100% 缩放（859×676，dip 几何与 mac 一致、像素密度为其一半）；README 显示宽度
-> 290 下两端观感无差异。拍摄脚本：mac `macos/scripts/shots/`、Windows `windows/scripts/shots/`。
+> 两端同一演示数据、同一 dip 几何、同一背板，画布宽高比逐位相同故两行等高。
+> macOS 摄于 v0.5.1、Retina 2x（1718×1352）；Windows 摄于 v0.6.0、主屏 100% 缩放
+> （859×676，dip 几何与 mac 一致、像素密度为其一半）；README 显示宽度 290 下观感无差异。拍摄脚本：mac `macos/scripts/shots/`、Windows `windows/scripts/shots/`。
 
 ## 工作原理
 
@@ -101,18 +103,19 @@ flowchart LR
 ```
 
 - **增量解析**：按字节偏移 tail，重启不重读不丢行；各家 session 格式规范见 [docs/SESSION-FORMATS.md](docs/SESSION-FORMATS.md)
-- **双端同源**：视觉规范唯一事实源 [design/design-tokens.json](design/design-tokens.json)（mac 构建期嵌入二进制，win 生成 XAML 资源），CI 强制校验同源
+- **双端同源**：视觉规范唯一事实源 [design/design-tokens.json](design/design-tokens.json)（mac 构建期嵌入二进制，win 生成 XAML 资源）、界面文案唯一事实源 [design/strings.json](design/strings.json)（69 键 × 4 语言），两者副本漂移 CI 直接拦下
 - 需求文档 [docs/PRD.md](docs/PRD.md) · 架构 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · 变更 [CHANGELOG.md](CHANGELOG.md)
 
 ## 设置
 
-菜单栏图标 → 设置：摘要引擎（CLI 模型 / 自定义 provider）、透明度两档、置顶、回填天数、五家 agent 开关。各家 session 路径均**内建自动发现**（不是可配项——路径是产品事实不是用户偏好），格式规范见 [docs/SESSION-FORMATS.md](docs/SESSION-FORMATS.md)。
+菜单栏图标 → 设置：摘要引擎（CLI 模型 / 自定义 provider）、界面语言、透明度两档、置顶、回填天数、五家 agent 开关。各家 session 路径均**内建自动发现**（不是可配项——路径是产品事实不是用户偏好），格式规范见 [docs/SESSION-FORMATS.md](docs/SESSION-FORMATS.md)。
 
 ## Roadmap
 
 - **M2**：代号按项目命名空间（跨项目同名短码隔离）、搜索、词典管理界面
 - ~~**M3**：Windows 端实机调试与双端视觉对齐验收~~ ✅ 完成（2026-07-26，11 处实机修复 + 全清单注记留档）
 - ~~**M4**：mac 端 zcode 解析器同步、Codex 技能回显路径剥离~~ ✅ 完成（2026-07-28）；剩真实鼠标交互项人值守复测收尾
+- ~~**M4.5**：四语界面与识别词表，双端同轮落地~~ ✅ 完成（2026-07-30）
 - **M5**：结果详情富文本渲染（代码块 / 表格 / 可点链接，即 [TEXT-NORMALIZATION Phase D](docs/TEXT-NORMALIZATION.md)）。
   **前置**：需先加 `nodes.full_text` 列——L2 规整不可逆、agent 回复原文当前不落库，
   历史节点无源可依；该列同时解锁「结果行读完整回复」与代号重放读原文（§5.2-1）。
