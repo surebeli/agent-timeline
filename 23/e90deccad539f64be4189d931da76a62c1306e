@@ -1,0 +1,134 @@
+macos/scripts/shots/shoot-readme.sh
+  s_b85ad4e83942fb::t_8ed1b10cf30524 71-72,265-269
+  s_b85ad4e83942fb::t_7f76a6cc791985 112-112
+  s_b85ad4e83942fb::t_a3b3120fbc5108 115-115,117-127,130-130,144-145,170-170,241-241,247-248
+macos/scripts/shots/annotate.py
+  s_b85ad4e83942fb::t_67ac4173ad2cf5 1-5,9-10,13-32,34-34,36-39,41-42,48-66,68-74,88-88,109-109,113-116,118-145
+  s_b85ad4e83942fb::t_ca51a11edd1433 6-8,11-12,33-33,35-35,40-40,43-47,67-67,75-87,89-108,110-112,117-117
+macos/scripts/shots/onboarding-spec.py
+  s_b85ad4e83942fb::t_a36ab3fccd730a 1-152
+README.md
+  s_b85ad4e83942fb::t_850ab690b98c2d 30-39
+README.en.md
+  s_b85ad4e83942fb::t_53f010d7f33bca 30-39
+docs/assets/onboarding-1-overview-en.png
+  0000019fb1acb2ac 1-1467
+docs/assets/onboarding-1-overview.png
+  0000019fb1acb2ac 1-1330
+docs/assets/onboarding-2-collapse-en.png
+  0000019fb1acb2ac 1-1084
+docs/assets/onboarding-2-collapse.png
+  0000019fb1acb2ac 1-989
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "23e90deccad539f64be4189d931da76a62c1306e",
+  "prompts": {
+    "s_b85ad4e83942fb::t_8ed1b10cf30524": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 0,
+      "accepted_lines": 7,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_67ac4173ad2cf5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 94,
+      "total_deletions": 0,
+      "accepted_lines": 94,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_a36ab3fccd730a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 152,
+      "total_deletions": 0,
+      "accepted_lines": 152,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_850ab690b98c2d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 0,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_53f010d7f33bca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 0,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    },
+    "0000019fb1acb2ac": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-sonnet-5",
+        "id": "ai-thread-claude-claude-sonnet-5-1785392313004"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 4870,
+      "total_deletions": 0,
+      "accepted_lines": 4870,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_7f76a6cc791985": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_a3b3120fbc5108": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 19,
+      "total_deletions": 0,
+      "accepted_lines": 19,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_ca51a11edd1433": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 51,
+      "total_deletions": 0,
+      "accepted_lines": 51,
+      "overriden_lines": 0
+    }
+  }
+}
