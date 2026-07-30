@@ -214,7 +214,13 @@ rm -f "$DB" "$DB-wal" "$DB-shm"
 case "$LANGUAGE" in
   ZhHans) SEED_LANG=zh ;;
   En)     SEED_LANG=en ;;
-  *) echo "--language 只支持 ZhHans / En —— docs/DEMO-DATASET.md 目前只有中英两套" >&2; exit 2 ;;
+  # Ja/Ko：demo-dataset 没有日/韩正文（DEMO-DATASET.md 明确注明），演示内容退回
+  # 英文，只有**界面 chrome**切成日/韩。这不是将就——它恰好实拍出「界面语言与
+  # 识别/内容语言无关」这条产品能力本身：日语 chrome 认得懂英文 agent 的回复，
+  # 比伪造一批日语假数据更真实、也更贴切「四语言」这个卖点。
+  Ja)     SEED_LANG=en ;;
+  Ko)     SEED_LANG=en ;;
+  *) echo "--language 只支持 ZhHans / En / Ja / Ko" >&2; exit 2 ;;
 esac
 python3 "$REPO/macos/scripts/demo-seed.py" "$DB" --lang "$SEED_LANG"
 # ⚠ key 名以 AppSettings.SettingsKey 为准：写错 key 等于没关，真实 session 会混进演示库
@@ -229,6 +235,9 @@ defaults write "$DOMAIN" alwaysOnTop -bool true
 # ⚠ 必须钉死语言：四语接线后默认是「跟随系统」，不钉的话产出语言取决于**拍摄机的
 # 系统 UI 语言**，而图看着完全正常——Windows 侧那台 en-US 机器一跑就拍出了英文图。
 defaults write "$DOMAIN" language -string "$LANGUAGE"
+# ⚠ 必须钉死未折叠：折叠状态是跨重启持久化的（这是它的设计初衷），但拍摄机上一次
+# 会话若恰好停在折叠态，这里不重置就会整批拍出 640×41 的窗口——实测踩过。
+defaults write "$DOMAIN" panelCollapsed -bool false
 
 # 起面板并把它放到 PANEL_X/PANEL_Y_COCOA。
 #
@@ -292,8 +301,12 @@ if [ "$w_dict" -le "$w_time" ]; then
   exit 1
 fi
 CW=$((CW + PAD * 2)); CH=$((CH + PAD * 2))
-SUFFIX=""
-if [ "$LANGUAGE" = "En" ]; then SUFFIX="-en"; fi
+case "$LANGUAGE" in
+  En) SUFFIX="-en" ;;
+  Ja) SUFFIX="-ja" ;;
+  Ko) SUFFIX="-ko" ;;
+  *)  SUFFIX="" ;;
+esac
 echo "── 合成到统一画布 ${CW}×${CH}（语言 ${LANGUAGE}，产出后缀 '${SUFFIX}'）"
 for f in timeline projects dictionary; do
   "$BIN/compose" "$OUT/raw-$f.png" "$OUT/screenshot-macos-$f$SUFFIX.png" "$CW" "$CH"
