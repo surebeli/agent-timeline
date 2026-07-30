@@ -318,6 +318,11 @@ public sealed partial class MainWindow : Window
         var scale = WindowInterop.GetWindowScale(_hwnd);
         var width = s.WindowWidth > 0 ? s.WindowWidth : (int)Math.Round(t.PanelDefaultWidth * scale);
         var height = s.WindowHeight > 0 ? s.WindowHeight : (int)Math.Round(t.PanelDefaultHeight * scale);
+        // 记忆高度也要过一遍展开最小高度：竖向钳制挂在 AppWindow.Changed 上，而这里跑在
+        // 订阅**之前**——存量/被手工改过的 settings 里一个畸小的值会让窗口起成一条缝，
+        // 且不会被任何回路救回来（实测：WindowHeight=57 且未折叠 → 起来就是 57px 高）。
+        // 折叠态随后由 RestoreCollapsedState 收下去，不受这条影响。
+        height = Math.Max(height, (int)Math.Round(PanelGeometry.ExpandedMinHeightDip * scale));
 
         int x = 0, y = 0;
         var restored = s.WindowX != int.MinValue && s.WindowY != int.MinValue;
