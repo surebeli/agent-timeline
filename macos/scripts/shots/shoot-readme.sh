@@ -68,7 +68,8 @@ PANEL_W=640; PANEL_H=580          # pt；640 宽命令原文不被弹层截断�
 PANEL_X=500; PANEL_Y_COCOA=365    # 屏幕上的落点（Cocoa 左下原点）
 HERO_W=430;  HERO_H=698
 PAD=96                            # 合成画布四边留白（px，即 48pt @2x）
-DICT_DX=61                        # 词典按钮距面板右缘（pt）
+DICT_DX=101                       # 词典按钮距面板右缘（pt，命中框放大后的实测值）
+COLLAPSE_DX=80                    # 折叠/展开按钮距面板右缘（pt，横扫实测命中区间 72-88）
 PROJ_DX=170                       # 「全部」下拉距面板右缘（pt）
 TOOLBAR_DY=15                     # 工具栏按钮距面板顶（pt）
 
@@ -108,14 +109,25 @@ restore() {
   m2="$(md5 -q "$DB" 2>/dev/null || echo -)"
   local md5_ok=0
   if [ "$m1" = "$m2" ]; then md5_ok=1; echo "   ✅ md5 一致 $m1"; else
-    echo "   ❌ md5 不一致 $m1 vs $m2（备份在 $FIXED_BACKUP）" >&2
+    echo "   ❌ md5 不一致 $m1 vs ${m2}（备份在 ${FIXED_BACKUP}）" >&2
   fi
   local defaults_ok=0
+  sleep 1     # 等 cfprefsd 把 import 落盘，否则 export 拿到的是半旧状态
   defaults export "$DOMAIN" "$WORK/defaults-after.plist" 2>/dev/null || true
-  if diff -q "$BACKUP/defaults.plist" "$WORK/defaults-after.plist" >/dev/null 2>&1; then
+  # 比较**解析后的键值**而不是文件字节：plist 的键序与格式不稳定，字节比对会误判
+  if python3 - "$BACKUP/defaults.plist" "$WORK/defaults-after.plist" <<'PYEOF'
+import plistlib, sys
+try:
+    a = plistlib.load(open(sys.argv[1], 'rb'))
+    b = plistlib.load(open(sys.argv[2], 'rb'))
+except Exception:
+    sys.exit(1)
+sys.exit(0 if a == b else 1)
+PYEOF
+  then
     defaults_ok=1; echo "   ✅ 设置一致"
   else
-    echo "   ❌ 设置不一致（备份在 $FIXED_BACKUP）" >&2
+    echo "   ❌ 设置不一致（备份在 ${FIXED_BACKUP}）" >&2
   fi
   # 三项全对上才清中断标记。对不上就**留着**——留着好过让下一轮把演示库当成真实基线。
   if [ "$counts_ok" = 1 ] && [ "$md5_ok" = 1 ] && [ "$defaults_ok" = 1 ]; then
@@ -129,8 +141,8 @@ restore() {
 }
 # ── 救援：用固定备份覆盖真实位置并清标记。放在 trap 之前——救援本身不该触发还原。
 if [ "$RECOVER" = 1 ]; then
-  if [ ! -d "$FIXED_BACKUP" ]; then echo "没有固定备份 $FIXED_BACKUP，无法救援" >&2; exit 1; fi
-  echo "── 救援：从 $FIXED_BACKUP 覆盖真实位置"
+  if [ ! -d "$FIXED_BACKUP" ]; then echo "没有固定备份 ${FIXED_BACKUP}，无法救援" >&2; exit 1; fi
+  echo "── 救援：从 ${FIXED_BACKUP} 覆盖真实位置"
   pkill -9 -x AgentTimeline 2>/dev/null || true
   sleep 1
   for f in store.sqlite store.sqlite-wal store.sqlite-shm; do
@@ -155,7 +167,7 @@ if [ -f "$MARKER" ]; then
   echo "❌ 发现上一轮的中断标记，拒绝继续（否则会把演示库当成真实基线）" >&2
   echo "── 标记内容 ──" >&2; sed 's/^/   /' "$MARKER" >&2
   echo "   救援: $0 --recover" >&2
-  echo "   确认真实数据无误后手工删除标记: rm '$MARKER'" >&2
+  echo "   确认真实数据无误后手工删除标记: rm '${MARKER}'" >&2
   exit 1
 fi
 
@@ -226,14 +238,14 @@ launch_panel() {   # $1=宽 $2=高 → 回显 "id x y w h"
   for try in 1 2 3; do
     pkill -9 -x AgentTimeline 2>/dev/null || true
     sleep 2
-    defaults write "$DOMAIN" panelFrame -string "{{$PANEL_X, $PANEL_Y_COCOA}, {$1, $2}}"
+    defaults write "$DOMAIN" panelFrame -string "{{${PANEL_X}, $PANEL_Y_COCOA}, {$1, $2}}"
     defaults read "$DOMAIN" panelFrame >/dev/null   # 逼 cfprefsd 落盘
     open "$APP"
     sleep 7
     line="$("$BIN/window-tool" list | tail -1)"
     x="$(echo "$line" | awk '{print $2}')"
-    if [ "${x:-0}" = "$PANEL_X" ]; then echo "$line"; return 0; fi
-    echo "   ⚠ 第 $try 次落点是 x=${x:-?}（期望 $PANEL_X），重试" >&2
+    if [ "${x:-0}" = "${PANEL_X}" ]; then echo "$line"; return 0; fi
+    echo "   ⚠ 第 $try 次落点是 x=${x:-?}（期望 ${PANEL_X}），重试" >&2
   done
   echo "$line"   # 三次都不对：交给后面的不变式校验拦截
 }
@@ -250,6 +262,11 @@ park; screencapture -x -o -l "$ID" "$OUT/raw-projects.png"
 "$BIN/window-tool" click $((X + W - PROJ_DX)) $((Y + TOOLBAR_DY)); sleep 2   # 关下拉
 "$BIN/window-tool" click $((X + W - DICT_DX)) $((Y + TOOLBAR_DY)); sleep 2   # 开词典
 park; screencapture -x -o -l "$ID" "$OUT/raw-dictionary.png"
+"$BIN/window-tool" click $((X + W - DICT_DX)) $((Y + TOOLBAR_DY)); sleep 2   # 关词典
+# 折叠态：引导图要展示折叠前后对比。按钮在词典与置顶之间，距右缘 COLLAPSE_DX。
+"$BIN/window-tool" click $((X + W - COLLAPSE_DX)) $((Y + TOOLBAR_DY)); sleep 2
+park; screencapture -x -o -l "$ID" "$OUT/raw-collapsed.png"
+"$BIN/window-tool" click $((X + W - COLLAPSE_DX)) $((Y + TOOLBAR_DY)); sleep 2   # 展开回去
 
 # 画布 = 三态并集 + 四边 PAD。词典态最宽：弹层以按钮为中心展开，
 # 恒定超出面板右缘 122pt，与面板宽度无关。

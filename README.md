@@ -27,6 +27,16 @@
 
 **Agent Timeline** 实时跟踪本机 agent 的 session 文件，把**你提交过的每条命令**提炼成时间线节点，把**任务代号**收进一本自动维护的词典 —— 忘了就点一下。
 
+## 新手引导
+
+<div align="center">
+
+<img src="docs/assets/onboarding-1-overview.png" width="720" alt="标题栏六个入口逐一聚焦讲解：项目过滤、类型过滤、代号词典、折叠面板、窗口置顶、设置" />
+
+<img src="docs/assets/onboarding-2-collapse.png" width="720" alt="折叠演示：点击折叠按钮收成只剩标题栏，再点一次展开回原来的高度，顶边位置不变" />
+
+</div>
+
 ## 核心能力
 
 | | |

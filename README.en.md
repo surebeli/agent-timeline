@@ -27,6 +27,16 @@ If you run long tasks through agent CLIs — Claude Code, Codex, Grok Build, Kim
 
 **Agent Timeline** tails your local agent session files in real time, turns **every prompt you submitted** into a timeline entry, and keeps **your task codenames** in a dictionary that maintains itself — so when you forget, it's one click away.
 
+## First-run tour
+
+<div align="center">
+
+<img src="docs/assets/onboarding-1-overview-en.png" width="720" alt="Six title-bar entry points spotlighted one by one: project filter, kind filter, codename dictionary, collapse panel, always on top, settings" />
+
+<img src="docs/assets/onboarding-2-collapse-en.png" width="720" alt="Collapse demo: click the collapse button to shrink to just the title bar, click again to expand back to its previous height in the exact same spot" />
+
+</div>
+
 ## What it does
 
 | | |
