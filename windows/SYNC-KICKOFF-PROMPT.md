@@ -111,6 +111,83 @@ Windows 的 `HeaderIconButtonStyle`（`App.xaml:27`）现在是 `Padding="4"` +
 不一样）。本轮不强制处理，若你顺手实测发现确实难点，可以一并放大 `Padding`；
 如果不动，请在报告里说明「已检查，结论是 XX」，不要跳过不提。
 
+## 接收方 review 补充（Windows 侧 2026-07-30 读完任务书 + 对照 mac 实现与本端现状后补）
+
+> 以下五条是**我的 review 结论**，不是用户决定。前四条会让执行者踩空或让任务书的核心
+> 要求落空，请与上面的正文同等对待；第五条是文档真实性问题，需要决定怎么处理。
+
+**W-1 · 伪代码里的 `RectInt32` 在冒烟工程里编不过 —— 这条会让「抽纯函数 + 断言」整条落空**
+
+任务书要求「几何抽成纯函数并在 `CoreSmokeTest` 里断言」，给的伪代码签名是
+`static RectInt32 CollapsedFrame(RectInt32 current, ...)`。但 `CoreSmokeTest.csproj` 是
+**`net7.0`（不带 `-windows`）、只引 `Microsoft.Data.Sqlite`、只编译
+`../AgentTimeline/Core/**/*.cs` + `Interop/FileIdentity.cs`** ——
+`Windows.Graphics.RectInt32` 来自 Windows App SDK 投影，那里拿不到。
+
+照伪代码写，会在写完断言时才发现编不过，然后大概率退化成「函数留在 `MainWindow.xaml.cs`
+里、断言算了」。要求改成：
+
+- 纯函数**放在 `windows/AgentTimeline/Core/` 下**（否则不在冒烟工程的 glob 里，比如
+  `Core/PanelGeometry.cs`）；
+- 签名**只用基元类型**（`(int x, int y, int w, int h)` 或 Core 本地的小 record），
+  `RectInt32` 的转换留在 `MainWindow` 一侧。
+
+**W-2 · mac 锁了折叠态的竖向尺寸，任务书没把这条列成 Windows 要求**
+
+mac `setCollapsed` 里显式写了 `minSize.height = maxSize.height = collapsedHeight`，
+注释给的理由是**否则 `collapsed` 标志会与实际高度脱钩**。任务书让读 `setCollapsed`，
+但没把这条提成 Windows 的必做项，而 Windows 这边**更容易踩**：
+
+本工程为了保留边缘 resize 命中区，特意留了 7px 的不可见边框（`WindowTool border`
+实测「左上偏移 7,7 / 总宽高差 14×14」）。折叠成 ~41px 高之后，**底边那 7px 就是 resize
+区**——用户随手一拖就能把折叠态拉高到 300px，而 `panelCollapsed` 仍是 `true`。下一次点
+chevron 会按"展开"走，或者更糟：把 300 记成"折叠前高度"。
+
+Windows 侧的对应机制是 `OverlappedPresenter.PreferredMinimumHeight` /
+`PreferredMaximumHeight`（`MainWindow` 已经持有 `_presenter`，见 `InitializeWindowChrome`）。
+折叠时把两者都设成折叠高度、展开时放开。**这条要有实机验证**：折叠后试着拖底边，
+确认拖不动。
+
+**W-3 · 老用户升级路径没定：`panelExpandedHeight` 缺失时展开高度从哪来**
+
+任务书的 bug 2 说的是「折叠时不能把展开高度冲成折叠高度」，方向是**写**。但还有一个
+**读**的缺口：已有用户升级上来时，`settings.json` 里有 `WindowHeight`、没有
+`panelExpandedHeight`。mac 那边是靠 `AppSettings` 的默认值兜住的（它自己的注释里提到
+「被 AppSettings 的回退兜住了」）。
+
+Windows 要显式定优先级，建议：`panelExpandedHeight` 缺失（0）时，取 `WindowHeight`
+——但**仅当它大于折叠高度**（否则说明用户上次退出时正处折叠态，那个值是折叠尺寸），
+再不行取 tokens 的 `PanelDefaultHeight`。这条也该有断言。
+
+**W-4 · 实时钳制不会打回折叠（已核实，不用担心）**
+
+顺手核过 `OnAppWindowChanged`：它**只钳制宽度**，且 `Resize` 时原样带回
+`size.Height`。所以折叠不会被这个回路救回去。任务书没提，这里记一下免得执行者去猜。
+
+**W-5 · 共享的根 README 现在展示了一个 Windows 没有的功能**
+
+任务书把引导图列为「mac-only 文档改动、不需要 Windows 配一套」——**作为拍摄任务**这没错，
+但那两张图是内联在**双端共享**的根 `README.md` / `README.en.md` 里的，Windows 用户也在看，
+而 `onboarding-2-collapse` 演示的正是折叠。核心能力表里也**没有**折叠这一行。
+
+也就是说：从 mac 那个 commit 起到 Windows 补齐之前，README 在向所有人演示一个只有一半平台
+有的能力，且没有任何说明。两条路选一条：
+
+- 本轮把 Windows 补齐，README 不用改（推荐——反正就是本轮任务）；
+- 或者在补齐前，README 那节加一句「折叠目前仅 macOS」。
+
+顺带：折叠是个用户可见能力，**补齐后核心能力表该加一行**（两版 README 一起加）。
+
+**W-6 · 交付清单漏了 mac 的第 8 项断言**
+
+清单说「参照 mac `PanelCollapseTests` 的 8 项」，但列出来的短语只有 7 个覆盖点。
+mac 实际的 8 个 `func test` 里，漏掉的是 **`testCollapseStringsExist`**——校验
+`header.collapse` / `header.expand` 两个键真的在表里。
+
+我已核实这两个键在 `windows/AgentTimeline/Assets/strings.json` 第 65 / 71 行，副本同源
+（`check-strings` 71 键通过）。但仍该有断言：文案表将来再生成时漏了键，界面会**回显键名**
+而不报错，只有跑起来才看得见。
+
 ## 执行规则
 
 - 独立 commit（中文 commit message，风格参考 `git log`）；
@@ -134,13 +211,17 @@ Windows 的 `HeaderIconButtonStyle`（`App.xaml:27`）现在是 `Padding="4"` +
 ## 最终交付
 
 1. 折叠/展开功能落地并 push，CI 六道关全绿；
-2. 几何纯函数 + 断言，覆盖点对齐 mac `PanelCollapseTests`；
+2. 几何纯函数 + 断言，覆盖点对齐 mac `PanelCollapseTests` 的**全部 8 项**（含 W-6 那条
+   文案键存在性）；纯函数须落在 `Core/` 下、签名不带 WinUI 类型（W-1）；
 3. 两条反证用例的结果（合法帧校验 / 应用折叠态不冲展开高度）；
-4. 命中区检查结论（处理了还是没处理，为什么）；
-5. `windows/README.md` 更新记录追加本轮条目；
-6. 本文件顶部标记本轮完成，或更新为下一轮内容；
-7. 汇报：完成项 / 实机验证数据 / 新发现问题 / 与 mac 行为的任何不一致点。**如实报**——
-   对不上就说对不上，不要凑。
+4. **W-2 折叠态竖向尺寸锁**：实机拖底边确认拖不动，贴实测数值；
+5. **W-3 升级路径**：`panelExpandedHeight` 缺失时的取值优先级 + 断言；
+6. **W-5 README**：折叠补齐后在两版核心能力表各加一行；若本轮未补齐，说明 README 怎么处理；
+7. 命中区检查结论（处理了还是没处理，为什么）；
+8. `windows/README.md` 更新记录追加本轮条目；
+9. 本文件顶部标记本轮完成，或更新为下一轮内容；
+10. 汇报：完成项 / 实机验证数据 / 新发现问题 / 与 mac 行为的任何不一致点。**如实报**——
+    对不上就说对不上，不要凑。
 
 ## 已知分叉（本轮不做，仅供参照）
 
