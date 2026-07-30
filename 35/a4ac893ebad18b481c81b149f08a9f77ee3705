@@ -1,0 +1,53 @@
+windows/scripts/shots/shoot-readme.ps1
+  s_5f812b192ad64b::t_8af86ba39dc018 1-27,34-57,59-184,244-244,246-248,262-283,292-294,297-297,299-308,312-315,321-404
+  s_5f812b192ad64b::t_f87056e0837e49 28-33
+  s_5f812b192ad64b::t_3eb0e9bc7f2a75 58-58
+  s_5f812b192ad64b::t_8ab9fe87cd34b7 185-201,213-238,240-243
+  s_5f812b192ad64b::t_ba335e54d53d7c 202-212
+  s_5f812b192ad64b::t_bbd461d261f7b8 239-239
+  s_5f812b192ad64b::t_5e654067fdd720 245-245,249-261
+  s_5f812b192ad64b::t_f5fd8b559a8994 284-291
+  s_5f812b192ad64b::t_e709dacd598aef 295-296,298-298
+  s_5f812b192ad64b::t_b743018bfa6077 309-311
+  s_5f812b192ad64b::t_53be0aa0edced7 316-318,320-320
+  s_5f812b192ad64b::t_06262a485c7f3d 319-319
+docs/assets/screenshot-windows-dictionary.png
+  0000019fb0ed2f3d 1-1423
+docs/assets/screenshot-windows-projects.png
+  0000019fb0ed2f3d 1-856
+docs/assets/screenshot-windows-timeline.png
+  0000019fb0ed2f3d 1-684
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "35a4ac893ebad18b481c81b149f08a9f77ee3705",
+  "prompts": {
+    "s_5f812b192ad64b::t_8af86ba39dc018": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 305,
+      "total_deletions": 0,
+      "accepted_lines": 305,
+      "overriden_lines": 0
+    },
+    "0000019fb0ed2f3d": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785379761981"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 2963,
+      "total_deletions": 0,
+      "accepted_lines": 2963,
+      "overriden_lines": 0
+    }
+  }
+}
