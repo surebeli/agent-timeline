@@ -57,6 +57,7 @@ param(
     [switch]$Install,
     [switch]$Recover,
     [int]$Scale = 100,
+    [ValidateSet('ZhHans','En','Ja','Ko')][string]$Language = 'ZhHans',
     [string]$App = '',
     [string]$Work = ''
 )
@@ -323,9 +324,10 @@ try {
     $demo = [ordered]@{
         Engine = 'Rule'; CliCommand = 'auto'
         # 语言必须**钉死**，不能留「跟随系统」：否则产出的语言取决于拍摄机的系统 UI 语言
+    # （由 -Language 参数指定，默认 ZhHans）
         # （本机是 en-US，一跑就拍出英文图），而这是最坏的一类失败——图看着完全正常。
         # README 三张是中文说明的配图，故钉 ZhHans。
-        Language = 'ZhHans'
+        Language = $Language
         ProviderBaseUrl = ''; ProviderApiKey = ''; ProviderModel = ''
         HoverOpacity = 0.98; IdleOpacity = 0.97; AlwaysOnTop = $true
         WindowX = $panelX; WindowY = $panelY; WindowWidth = $panelW; WindowHeight = $panelH
