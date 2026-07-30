@@ -25,12 +25,29 @@
             </Style>
 
             <!-- Frameless icon button used in the panel header -->
+            <!--
+                头部图标按钮。命中区**给死尺寸**而不是靠 Padding 撑：
+                12px 字形 + Padding=4 实测只有 20×20dip，mac 因"太难点"已把同类按钮放大到
+                21×26pt，Windows 竖向反而比它小 23%。这里对齐到 22×26。
+
+                为什么不改 Padding：Padding 撑出来的尺寸随字形大小漂，换个 Glyph 就变；
+                给死 Width/Height 才是稳定的命中框（mac 用的也是"固定 frame + contentShape"，
+                不是 padding 正负抵消）。
+
+                不影响版面：头部行高由**带文字的过滤按钮**决定（实测 27dip），26 仍在其下，
+                所以 HeaderBar 高度、折叠高度、三张 README 一览图都不动。
+                背景是 Transparent，静止态零视觉变化，变大的只有 hover 高亮与命中范围。
+            -->
             <Style x:Key="HeaderIconButtonStyle" TargetType="Button">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="Padding" Value="4" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Width" Value="22" />
+                <Setter Property="Height" Value="26" />
                 <Setter Property="MinHeight" Value="0" />
                 <Setter Property="MinWidth" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
             </Style>
         </ResourceDictionary>
