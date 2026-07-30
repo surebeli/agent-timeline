@@ -98,6 +98,21 @@ $PANEL_Y_DIP = 30
 $CANVAS_W_DIP = 859
 $CANVAS_H_DIP = 676
 
+# 语言 → 演示数据集语种 + 成品文件名后缀。
+# 演示数据集只有中英两套（docs/DEMO-DATASET.md），Ja/Ko 只能换界面文案、
+# 内容仍是中文——那种混语图比统一中文图更糟，所以直接拦下而不是悄悄拍出来。
+$seedLang = switch ($Language) {
+    'ZhHans' { 'zh' }
+    'En'     { 'en' }
+    default  {
+        throw ("-Language $Language 没有对应的演示数据集：docs/DEMO-DATASET.md 目前只有中英两套。" +
+               "只换界面语言会拍出「英文/日文 chrome + 中文内容」的混语图，" +
+               "比统一中文图更糟，故不允许。要拍就先补该语种的演示数据集。")
+    }
+}
+# 中文是默认产物、不带后缀（历史文件名不变）；其余语种加 -<lang> 后缀
+$suffix = if ($seedLang -eq 'zh') { '' } else { "-$seedLang" }
+
 $k = $Scale / 100.0
 $panelW = [int]($PANEL_W_DIP * $k); $panelH = [int]($PANEL_H_DIP * $k)
 $panelX = [int]($PANEL_X_DIP * $k); $panelY = [int]($PANEL_Y_DIP * $k)
@@ -349,7 +364,7 @@ try {
     $borderW = [int]$b[2]; $borderH = [int]$b[3]
     Write-Host "   不可见边框: 左上偏移 $($b[0]),$($b[1])  总宽高差 ${borderW}x${borderH}"
     Stop-App
-    python (Join-Path $repo 'windows\scripts\demo-seed.py') $db
+    python (Join-Path $repo 'windows\scripts\demo-seed.py') $db --lang $seedLang
     if ($LASTEXITCODE -ne 0) { throw '灌注演示数据失败' }
     # AppSettings 存的是窗口矩形，可见面板是客户区 → 反推，让**客户区**正好 640×580dip
     $demo.WindowWidth  = $panelW + $borderW
@@ -386,15 +401,15 @@ try {
             $p = $line -split ' ', 8
             "$($p[7])@$($p[2]),$($p[3])"
         })
-        & $tool compose (Join-Path $out "screenshot-windows-$($s.name).png") $canvasW $canvasH @specs
+        & $tool compose (Join-Path $out "screenshot-windows-$($s.name)$suffix.png") $canvasW $canvasH @specs
         if ($LASTEXITCODE -ne 0) { throw "合成 $($s.name) 失败" }
     }
 
     if ($Install) {
         Write-Host '── 安装到 docs/assets'
         foreach ($s in $states) {
-            Copy-Item (Join-Path $out "screenshot-windows-$($s.name).png") `
-                      (Join-Path $repo "docs\assets\screenshot-windows-$($s.name).png") -Force
+            Copy-Item (Join-Path $out "screenshot-windows-$($s.name)$suffix.png") `
+                      (Join-Path $repo "docs\assets\screenshot-windows-$($s.name)$suffix.png") -Force
         }
     } else {
         Write-Host '── 未安装（加 -Install 覆盖 docs/assets）'

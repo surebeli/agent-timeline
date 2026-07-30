@@ -1,4 +1,4 @@
-# macOS 同步开工 Prompt（拍摄脚本数据安全 + 双语文档轮 · 2026-07-30）
+# macOS 同步开工 Prompt（拍摄脚本数据安全 + 英文截图 + 双语文档轮 · 2026-07-30）
 
 > 用法：在 macOS 机器的仓库根目录启动 agent 会话，把下面 `---` 之间的整段粘贴为首条指令。
 >
@@ -11,9 +11,9 @@
 
 你在一台 macOS 机器上，当前目录是仓库 agent-timeline 根目录
 （远端 github.com/surebeli/agent-timeline，先 `git pull` 到最新 main）。产品是双端桌面
-挂件「Agent Timeline」，两端跑在 CI 五道关下，最新发布 **v0.6.0**。
+挂件「Agent Timeline」，两端跑在 CI 六道关下（本轮新增第六关：演示数据集中英不变式），最新发布 **v0.6.0**。
 
-**本轮不是追功能，是补一个能丢用户真实数据的坑，外加双语文档收尾。**
+**本轮三件事**：补一个能丢用户真实数据的坑（A，最高优先）、英文版截图的 mac 半边（C）、双语文档收尾（B）。
 
 ## 任务 A（最高优先）：拍摄脚本的数据安全 —— 两个 bug，Windows 侧刚踩过
 
@@ -116,6 +116,49 @@ NormalizeGoldenTests 6 / UiTextTests 5 / CorpusSmokeTests 2）。你实跑一次
 另外 mac 侧目前没有独立的 `macos/README.md`——mac 的构建说明在根 README 里。
 本轮**不要**新建，避免又多一处要双语同步的文件。
 
+## 任务 C：英文版截图 —— macOS 那半边
+
+用户定了「英文 README 配英文截图」（2026-07-30 会话中选的 A 方案）。Windows 半边已落地，
+mac 半边只能你做。
+
+**前置已就绪，不用你从零设计**：
+
+- `docs/DEMO-DATASET.md` 已扩成**中英两套**，新增一节写明约束（**结构两语逐位相同、
+  只有文字换语言**——结构一分叉，README 中英两行的版面就对不齐）；
+- `windows/scripts/demo-seed.py` 是参考实现：结构（`STRUCT`/`CODES`）与文案
+  （`CONTENT`/`DEFS`）分开存放，`--lang zh|en` 选择。英文文案以它的 `CONTENT['en']` 为准，
+  **照抄不要另译**——两端文案不同的话，两版 README 的图就不是同一组数据了；
+- `scripts/check-demo-dataset.py` 是 CI 第六关，守两条不变式：结构两语一致、文案两语
+  逐条不同（漏译一条会精确报出第几条，已做反证）。你改完 mac 的 seed 后它自动开始校验；
+- 成品命名：中文不带后缀，英文带 `-en`（`screenshot-macos-timeline-en.png` …）。
+
+要做三件事：
+
+1. `macos/scripts/demo-seed.py` 支持 `--lang zh|en`，英文文案照抄 Windows 侧的
+   `CONTENT['en']` / `DEFS['en']`。⚠ `kind` 与代号 `status` 落库的是**中文 rawValue**
+   （`需求`/`完成`/…），两套都一样、**绝不翻译**——那是存储契约，界面靠 `UI/UiText.swift`
+   映射；翻了会让 kind 过滤与状态机一起失效；
+2. `macos/scripts/shots/shoot-readme.sh` 加语言参数：钉死界面语言（**顺带解决任务 A 里
+   那条「演示配置没钉 language」**）、把语种传给 seed、英文产物加 `-en` 后缀。
+   没有对应数据集的语种（ja/ko）**直接拒绝**，别悄悄拍出混语图；
+3. 拍两遍装上：`screenshot-macos-{timeline,projects,dictionary}.png` 与 `-en` 三张。
+
+### 顺带修一个真缺陷：首图 `docs/assets/screenshot-dark.png` 已过期
+
+那是 README 顶部最显眼的一张（mac 拍的，Windows 这边动不了），**双语都过期**：
+
+- 图里的过滤器写着「**阶段**」——这个标签在之前一轮已全仓重命名为「**类型**」。
+  也就是说 README 首图展示的是一个产品里已经不存在的标签；
+- 时间戳是 07-28，且只有中文一版。
+
+请重拍，并出中英两版（`screenshot-dark.png` / `screenshot-dark-en.png`）。
+`macos/scripts/shots/` 里没有拍首图的编排（当时是手工拍的），这次**建议顺手脚本化**——
+不然下次改标签又会留下一张过期的门面图。同理还有 `screenshot-macos-settings.png`
+（手工资产，中文，README 里以链接形式引用），也需要一版英文。
+
+做完把 `README.en.md` 里那段说明改掉——现在写的是「macOS row and the hero image still
+show the Chinese UI ... queued for the macOS side」，你补齐后这句就不成立了。
+
 ## 本轮不做
 
 - 追任何新功能。`timeline.unpin` 在 Windows 侧仍无对应控件（mac 有，照常用）；
@@ -124,16 +167,17 @@ NormalizeGoldenTests 6 / UiTextTests 5 / CorpusSmokeTests 2）。你实跑一次
 
 ## 执行规则
 
-- 任务 A / B 分两个 commit（中文 commit message，风格参考 `git log`）；
+- 任务 A / B / C 分别独立 commit（中文 commit message，风格参考 `git log`）；
 - **改共享层先停下来报告方案**（`design/`、`docs/`、根 `README*.md`）。
   Windows 侧本轮在这条上越线了两次（改了 `design/strings.json` 的 `dict.firstSeen`
   与新增 `docs/TEXT-NORMALIZATION.md` §3.6，都是先改再报），已如实记在
   `windows/SYNC-KICKOFF-PROMPT.md` 的交付对账里。别学。
-- `swift test` 全绿 + `python3 scripts/check-strings.py .` 绿了再 push，CI 五道关自动回归。
+- `swift test` 全绿 + `python3 scripts/check-strings.py .` +
+  `python3 scripts/check-demo-dataset.py .` 都绿了再 push，CI 六道关自动回归。
 
 ## 最终交付
 
-1. 任务 A / B 落地并 push，CI 五道关全绿；
+1. 任务 A / B / C 落地并 push，CI **六道关**全绿（本轮新增第六关：演示数据集中英不变式）；
 2. 任务 A 的反证结果：**贴出种标记后重跑的输出，以及前后 db md5 对比**；
 3. `swift test` 的真实项数，以及若与 81 不符时两版 README 的改正；
 4. 本文件顶部标记本轮完成，或更新为下一轮内容；

@@ -75,7 +75,7 @@ VS-msbuild gate in CI. Per-item verification notes are in
 
 | Dual-ink ledger · kind accents · codename badges | Project dropdown · most-recent-agent badges | Codename dictionary · a lifecycle at a glance |
 |:---:|:---:|:---:|
-| <img src="docs/assets/screenshot-windows-timeline.png" width="290" alt="Windows ledger timeline: five agents interleaved, kind accents, N2✓/N3△ status badges, diamond anchors for decisions" /> | <img src="docs/assets/screenshot-windows-projects.png" width="290" alt="Project dropdown with CL/CO/GR/KI source badges following the most recently active agent" /> | <img src="docs/assets/screenshot-windows-dictionary.png" width="290" alt="Codename dictionary: definitions, done/in-progress/changed states and provenance for N1/N2/N3/T1/T2/REQ-AUTH-3" /> |
+| <img src="docs/assets/screenshot-windows-timeline-en.png" width="290" alt="Windows ledger timeline: five agents interleaved, kind accents, N2✓/N3△ status badges, diamond anchors for decisions" /> | <img src="docs/assets/screenshot-windows-projects-en.png" width="290" alt="Project dropdown with CL/CO/GR/KI source badges following the most recently active agent" /> | <img src="docs/assets/screenshot-windows-dictionary-en.png" width="290" alt="Codename dictionary: definitions, done/in-progress/changed states and provenance for N1/N2/N3/T1/T2/REQ-AUTH-3" /> |
 
 Settings (three summary engines / opacity / per-agent toggles):
 [screenshot-windows-settings.png](docs/assets/screenshot-windows-settings.png).
@@ -94,6 +94,13 @@ Settings: [screenshot-macos-settings.png](docs/assets/screenshot-macos-settings.
 > v0.6.0 on a 100%-scaled display (859×676 — identical dip geometry, half the pixel density).
 > At the 290px width used above the two look the same. Capture scripts:
 > `macos/scripts/shots/` and `windows/scripts/shots/`.
+>
+> **Language of the screenshots.** The demo dataset exists in Chinese and English, and the capture
+> script takes the language as an explicit input, so this page shows the **English** UI with English
+> sample data — the Windows row above is `…-en.png`. The **macOS row and the hero image at the top
+> still show the Chinese UI**: they can only be recaptured on a Mac, and doing so is queued for the
+> macOS side. The hero image is additionally out of date on both pages — it shows a filter labelled
+> 「阶段」, which was renamed to 「类型」 (kind) in an earlier round.
 
 ## How it works
 

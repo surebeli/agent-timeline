@@ -67,6 +67,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: 四语齐全 · 占位符一致 · 副本同源
         run: python3 scripts/check-strings.py .
+      # 演示数据集的双语不变式：结构两语必须逐字段一致（否则中英两版 README 的
+      # 截图版面对不齐）、文案两语必须逐条不同（漏译会拍出「英文 chrome + 中文内容」
+      # 的混语图，而图看着完全正常）。kind/status 仍须是落库 rawValue。
+      - name: 演示数据集 · 中英结构一致且文案不同
+        run: python3 scripts/check-demo-dataset.py .
 
   tokens-sync:
     name: Design tokens · 双端同源校验
