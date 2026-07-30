@@ -1,39 +1,22 @@
-windows/SYNC-KICKOFF-PROMPT.md
-  s_5f812b192ad64b::t_783b290cdb6216 1-150,180-186
-  s_5f812b192ad64b::t_3479dca159dbad 151-179
 macos/SYNC-KICKOFF-PROMPT.md
-  s_5f812b192ad64b::t_823f5682d76ea1 1-1,5-8,14-123,127-132,137-138,140-142
+  s_5f812b192ad64b::t_823f5682d76ea1 1,5-8,14-123,127-132,137-138,140-142
+windows/SYNC-KICKOFF-PROMPT.md
+  s_5f812b192ad64b::t_3479dca159dbad 151-179
+  s_5f812b192ad64b::t_783b290cdb6216 3,13-37
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.6.16",
   "base_commit_sha": "ec06fde5e788ed9256051c68716f276d6658cbcf",
-  "prompts": {
-    "s_5f812b192ad64b::t_783b290cdb6216": {
+  "prompts": {},
+  "sessions": {
+    "s_5f812b192ad64b": {
       "agent_id": {
         "tool": "claude",
         "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
         "model": "claude-opus-5"
       },
-      "human_author": "litianyi <litianyi@corp.netease.com>",
-      "messages": [],
-      "total_additions": 157,
-      "total_deletions": 0,
-      "accepted_lines": 157,
-      "overriden_lines": 0
-    },
-    "s_5f812b192ad64b::t_823f5682d76ea1": {
-      "agent_id": {
-        "tool": "claude",
-        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
-        "model": "claude-opus-5"
-      },
-      "human_author": "litianyi <litianyi@corp.netease.com>",
-      "messages": [],
-      "total_additions": 126,
-      "total_deletions": 0,
-      "accepted_lines": 126,
-      "overriden_lines": 0
+      "human_author": "litianyi <litianyi@corp.netease.com>"
     }
   }
 }
