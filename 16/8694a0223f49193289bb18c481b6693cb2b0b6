@@ -1,0 +1,30 @@
+windows/AgentTimeline/Assets/strings.json
+  s_b85ad4e83942fb::t_4b6bab60785890 185-196
+macos/Sources/AgentTimeline/UI/StringsData.swift
+  s_b85ad4e83942fb::t_47ff1d968e3194 188-199
+design/strings.json
+  s_b85ad4e83942fb::t_171b2931acca29 185-196
+macos/Sources/AgentTimeline/UI/TimelineViewModel.swift
+  s_b85ad4e83942fb::t_ee934a8e474498 76
+  s_b85ad4e83942fb::t_20d6e6e3d358bb 70-75,77-85
+macos/Sources/AgentTimeline/UI/CodenameDictionaryView.swift
+  s_b85ad4e83942fb::t_0d1931d78bbac0 15-23,26,29-33,39-43,47,57-85
+macos/Tests/AgentTimelineTests/TimelineViewModelTests.swift
+  s_b85ad4e83942fb::t_caea5946c88886 58-104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "168694a0223f49193289bb18c481b6693cb2b0b6",
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}

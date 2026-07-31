@@ -1,0 +1,19 @@
+windows/SYNC-KICKOFF-PROMPT.md
+  s_b85ad4e83942fb::t_c628edbf2405d4 1,5-8,14-44,47-80,82-83,85,87-91,93,95-104,108-115,119-123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "72e6b741b2300e25b0812b244c711b3ab92b5a53",
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
