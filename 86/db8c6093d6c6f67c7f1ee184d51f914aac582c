@@ -1,0 +1,39 @@
+windows/SYNC-KICKOFF-PROMPT.md
+  s_5f812b192ad64b::t_251f45ba9bdd2c 3-61
+windows/AgentTimeline/Core/LoginItem.cs
+  s_5f812b192ad64b::t_eb1958058de251 1-72
+windows/AgentTimeline/Core/AppSettings.cs
+  s_5f812b192ad64b::t_4ac3d8cfb1f602 46-55
+windows/README.md
+  s_5f812b192ad64b::t_ae90c16a6f16b9 31-60
+windows/AgentTimeline/SettingsWindow.xaml.cs
+  s_5f812b192ad64b::t_b9f666ad3930a9 97-100
+  s_5f812b192ad64b::t_03dcdd8707b62d 235
+  s_5f812b192ad64b::t_5f523501e7d71d 252-256
+  s_5f812b192ad64b::t_c9b9f0d827a160 186
+windows/AgentTimeline/SettingsWindow.xaml
+  s_5f812b192ad64b::t_976be25b737460 76-78
+windows/CoreSmokeTest/Program.cs
+  s_5f812b192ad64b::t_d9c8010d905de2 364-403
+  s_5f812b192ad64b::t_41f455698e3596 30
+windows/AgentTimeline/Interop/StartupRegistry.cs
+  s_5f812b192ad64b::t_f40dad313366ad 1-82
+windows/AgentTimeline/App.xaml.cs
+  s_5f812b192ad64b::t_54d76c992e1789 56-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.18",
+  "base_commit_sha": "86db8c6093d6c6f67c7f1ee184d51f914aac582c",
+  "prompts": {},
+  "sessions": {
+    "s_5f812b192ad64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
