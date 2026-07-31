@@ -356,6 +356,21 @@ final class Store: @unchecked Sendable {
         }
     }
 
+    /// One-time cleanup support (see `AppDelegate.cleanUpLeakedSummarizerNodesIfNeeded`).
+    /// Returns the number of rows removed.
+    @discardableResult
+    func deleteNodes(withCwd cwd: String) -> Int {
+        queue.sync {
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, "DELETE FROM nodes WHERE cwd = ?", -1, &stmt, nil) == SQLITE_OK
+            else { return 0 }
+            defer { sqlite3_finalize(stmt) }
+            bind(stmt, 1, cwd)
+            sqlite3_step(stmt)
+            return Int(sqlite3_changes(db))
+        }
+    }
+
     /// One-time backfill support (see `AppDelegate.backfillProjectPinsIfNeeded`):
     /// existing nodes' `project` was derived from whatever `cwd` was active on the
     /// line that produced them, so history stays split across the fragments the old

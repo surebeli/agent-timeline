@@ -30,6 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
             return
         }
+        // 必须先跑：这条清的是 nodes 表本身的污染源，下面的项目名回填/codename 重放
+        // 都读同一份节点历史，污染节点不清掉，回填会白读它们、重放会照单全收重新长出
+        // 一样的幽灵代号。
+        cleanUpLeakedSummarizerNodesIfNeeded()
         // 必须在 TimelineViewModel 读库之前同步跑完：它下面 init 就会 reload()，
         // 晚一步的话这次启动看到的还是回填前的旧分组（Windows 侧同轮踩出来的教训）。
         backfillProjectPinsIfNeeded()
@@ -86,6 +90,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Wiring
 
+    /// Bump when a shipped bug let content that should have been filtered
+    /// (`ParsedFileContext.disabled`) slip into the store, so already-affected
+    /// installs get cleaned up once. Separate marker from the other two below —
+    /// unrelated concerns.
+    private static let summarizerLeakCleanupVersion = 1
+
+    /// One-time: v0.7.5 shipped with a real regression — `ClaudeParser.makeContext`'s
+    /// new head-scan pre-fills `context.cwd`, so `parse()`'s "cwd just *changed*" guard
+    /// around the summarizer-scratch-dir disable check never fires for a session whose
+    /// cwd is the scratch dir from line 1 and never changes (the normal case for our
+    /// own headless summarizer calls). Confirmed on real data: the summarizer's own
+    /// prompts ("你是一个命令摘要器…") leaked into the visible timeline as project
+    /// "summarizer", growing every few seconds the app ran, and spurious codename
+    /// entries got created from mentions inside those prompts (e.g. a real command
+    /// mentioning `T-PLUGIN-00` gets echoed into the summarizer's own prompt text,
+    /// which then reads as *another* mention).
+    ///
+    /// Deletes the leaked nodes by `cwd == scratch dir` — an app-internal path no real
+    /// user repo could ever legitimately be, so this can't misfire on real data. Bumps
+    /// `codenameReplayVersion` too (see below) so the codenames table gets rebuilt from
+    /// the now-clean node history instead of hand-patching individual rows — a codename
+    /// defined by a real node but whose occurrence count/status got inflated by leaked
+    /// mentions self-corrects once the replay only sees real nodes.
+    private func cleanUpLeakedSummarizerNodesIfNeeded() {
+        let key = "summarizerLeakCleanupVersion"
+        guard UserDefaults.standard.integer(forKey: key) < Self.summarizerLeakCleanupVersion else { return }
+        let deleted = store.deleteNodes(withCwd: AppSettings.summarizerScratchDir)
+        if deleted > 0 {
+            print("[AppDelegate] 清理泄漏节点：删除 \(deleted) 个挂在摘要器 scratch dir 下的节点")
+        }
+        UserDefaults.standard.set(Self.summarizerLeakCleanupVersion, forKey: key)
+    }
+
     /// Bump when the claude project-pin rule changes enough that history deserves
     /// a re-run. Separate marker from `codenameReplayVersion` below — unrelated
     /// concerns, no reason to force one to re-run the other.
@@ -122,8 +159,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.set(Self.projectPinBackfillVersion, forKey: key)
     }
 
-    /// Bump when detection semantics change enough that history deserves a re-run.
-    private static let codenameReplayVersion = 3
+    /// Bump when detection semantics change enough that history deserves a re-run —
+    /// or (4) when upstream node data just got cleaned up (see
+    /// `cleanUpLeakedSummarizerNodesIfNeeded`) and codenames derived from the leaked
+    /// nodes need to fall out of the rebuild rather than be hand-patched.
+    private static let codenameReplayVersion = 4
 
     /// One-time per replay version: rebuild the dictionary from stored history
     /// oldest-first so short codes, statuses and definitions light up. The done

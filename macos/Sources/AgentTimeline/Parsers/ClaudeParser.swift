@@ -24,6 +24,19 @@ struct ClaudeParser: AgentSessionParser {
             context.cwd = cwd
             context.project = ParserSupport.projectName(fromCwd: cwd, fallback: slug)
             context.projectPinned = true
+            // Never surface our own summarizer's headless sessions. Must check here
+            // too, not just in parse()'s per-line update below: that check only fires
+            // on `context.cwd != cwd` (a *change*), but head-scan just pre-filled
+            // context.cwd with this same value — so for the common case (a summarizer
+            // session whose cwd is the scratch dir from line 1 and never changes),
+            // parse() would never see a "change" and would never disable it. Confirmed
+            // this was a real, active regression on real data before this fix landed:
+            // summarizer prompts leaking into the visible timeline as project
+            // "summarizer" (self-talk like "你是一个命令摘要器…"), growing every few
+            // seconds while the buggy build ran.
+            if cwd == AppSettings.summarizerScratchDir {
+                context.disabled = true
+            }
         }
         return context
     }

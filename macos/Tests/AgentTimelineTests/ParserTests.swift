@@ -191,6 +191,61 @@ final class ParserTests: XCTestCase {
         XCTAssertTrue(context.projectPinned)
     }
 
+    /// 回归：头部扫描钉项目名那轮引入过一次真实的数据污染——`makeContext` 预填了
+    /// `context.cwd`，导致 `parse()` 里"cwd 变了才检查是不是摘要器自己的会话"这条判据
+    /// 永远不会触发（摘要器会话的 cwd 从第一行起就是 scratch dir、全程不变，
+    /// 根本没有"变化"这个事件）。实机验证过：真实库里摘要器的自问自答
+    /// （"你是一个命令摘要器…"）以 project="summarizer" 的身份泄漏进了可见时间线，
+    /// 且只要 app 开着就每隔几秒新增一条。`makeContext` 头部扫描出 scratch dir 时必须
+    /// 当场禁用，不能只指望 parse() 里那条待"变化"的检查。
+    func testClaudeMakeContextDisablesSummarizerSessionFoundViaHeadScan() throws {
+        let projectsDir = NSHomeDirectory() + "/.claude/projects/-tmp-pin-test-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: projectsDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: projectsDir) }
+        let path = projectsDir + "/session-summarizer.jsonl"
+        let scratch = AppSettings.summarizerScratchDir
+        let content = """
+        {"type":"user","message":{"role":"user","content":"你是一个命令摘要器"},"timestamp":"2026-07-31T09:00:00.000Z","cwd":"\(scratch)","sessionId":"session-summarizer"}
+        {"type":"user","message":{"role":"user","content":"下一条摘要请求"},"timestamp":"2026-07-31T09:00:05.000Z","cwd":"\(scratch)","sessionId":"session-summarizer"}
+        """
+        try content.write(toFile: path, atomically: true, encoding: .utf8)
+
+        let parser = ClaudeParser()
+        var context = try XCTUnwrap(parser.makeContext(for: URL(fileURLWithPath: path)))
+        XCTAssertTrue(context.disabled, "makeContext 头部扫描到 scratch dir 时就该当场禁用")
+
+        // 全程 cwd 不变（真实摘要器会话就是这样）：确认 parse() 不会因为已经
+        // disabled 而重新泄漏事件。
+        let line = #"{"type":"user","message":{"role":"user","content":"不该出现的节点"},"timestamp":"2026-07-31T09:00:10.000Z","cwd":"\#(scratch)","sessionId":"session-summarizer"}"#
+        XCTAssertTrue(parser.parse(line: line, context: &context).isEmpty)
+    }
+
+    /// `Store.deleteNodes(withCwd:)` 支持上面那次真实事故的一次性清理迁移
+    /// （`AppDelegate.cleanUpLeakedSummarizerNodesIfNeeded`）：只删 cwd 精确匹配的行，
+    /// 不误删其它节点。
+    func testStoreDeleteNodesByCwd() throws {
+        let dbPath = NSTemporaryDirectory() + "at-test-\(UUID().uuidString).sqlite"
+        defer { try? FileManager.default.removeItem(atPath: dbPath) }
+        let store = try Store(path: dbPath)
+        let scratch = "/scratch/summarizer"
+        let leaked1 = UserCommand(agent: .claude, project: "summarizer", cwd: scratch,
+                                   sessionId: "s1", timestamp: Date(), text: "leak 1", sourceFile: "/f1")
+        let leaked2 = UserCommand(agent: .claude, project: "summarizer", cwd: scratch,
+                                   sessionId: "s1", timestamp: Date().addingTimeInterval(1),
+                                   text: "leak 2", sourceFile: "/f1")
+        let real = UserCommand(agent: .claude, project: "realproject", cwd: "/Users/x/realproject",
+                                sessionId: "s2", timestamp: Date().addingTimeInterval(2),
+                                text: "real command", sourceFile: "/f2")
+        store.insertNodeIfNew(leaked1)
+        store.insertNodeIfNew(leaked2)
+        store.insertNodeIfNew(real)
+
+        XCTAssertEqual(store.deleteNodes(withCwd: scratch), 2)
+        let remaining = store.fetchNodes(limit: 10)
+        XCTAssertEqual(remaining.count, 1)
+        XCTAssertEqual(remaining.first?.command.text, "real command")
+    }
+
     /// 规整器与 .NET 的行为对齐：哨兵回填必须 ordinal；行尾 trim 覆盖全部 Unicode 空白。
     func testNormalizerUnicodeParity() {
         // 闭合反引号后紧跟组合字符：哨兵必须回填，绝不能把私用区字符写出去
