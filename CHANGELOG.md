@@ -7,6 +7,43 @@
 > tag↔VERSION↔CHANGELOG 一致性、跑双端测试、出 macOS `.app` zip 与 Windows x64 zip
 > 并挂到 GitHub Release。
 
+## [0.7.2] - 2026-07-31
+
+开机自启动轮：双端支持开机自启，设置页新增开关、默认打开；修一个 macOS 侧长期存在的
+「退不掉」bug。
+
+### 新增（双端）
+
+- **开机自启动**，设置页新增开关，**默认打开**。用户直接提的需求。两端机制不同，各自按
+  平台的推荐做法实现，不是互抄代码：
+  - **macOS**：`SMAppService.mainApp`（macOS 13+ 起注册主 app 本身，不再需要 helper
+    bundle；`LSSharedFileList` / `SMLoginItemSetEnabled` 均已废弃）。开关**即时生效**——
+    mac 设置是 `@AppStorage` 直写模型，本就没有「未保存」状态。用 `sfltool dumpbtm` 读系统
+    的 Background Task Management 记录实机验证：全新安装启动一次即出现
+    `[enabled, allowed, notified]`，关掉变 `[disabled, …]`，再开变回来；
+  - **Windows**：`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 注册表项。**不用**
+    `Windows.ApplicationModel.StartupTask`——那是 WinRT API，要求包身份（MSIX）并在包清单
+    里声明扩展，而本端是非打包分发（自包含、解压到任意目录直接跑 exe）。开关**跟随本端
+    既有的缓冲式保存**（改完点「保存」才生效、点「取消」什么都没发生），不照抄 mac 的即时
+    生效——那会造成「拨了开关又点取消，注册表已经被动过而界面显示没改」这种用户看不见的
+    不一致。判据是纯函数 `Core/LoginItem.Decide`（10 条断言，冒烟 432 → 442），并且**比对
+    命令行内容而不只是「注册了没有」**：非打包分发下用户随时可能挪目录或换构建，只判有无
+    会留下一条指向旧副本的自启动项。写入的路径**必须带引号**——默认安装位置就带空格，
+    不加引号时 Windows 按空格拆开去找，开机时静默失败且没有任何界面反馈。六个场景在真实
+    注册表上验过（含「拨了点取消 → 纹丝不动」「关掉后重启 → 没被默认值重新打开」）;
+  - 两端「默认打开」的语义一致：**只有从没显式存过这个偏好时才用默认值**（mac
+    `UserDefaults.register(defaults:)` / Windows 属性初始化器 + System.Text.Json 缺键保留
+    初始值），所以主动关掉过的用户不会被升级重新打开。
+
+### 修复（macOS）
+
+- **应用退不掉**：托盘菜单「退出」点不动、Cmd+Q 也没反应（v0.7.1 用户上报，实为从加这个
+  状态栏菜单起就一直存在的 bug）。`rebuildStatusMenu()` 末尾把每一项的 `target` 都强制指向
+  `AppDelegate`，包括 action 为 `NSApplication.terminate(_:)` 的退出项；`AppDelegate` 不实现
+  这个方法，AppKit 的菜单自动校验一发现 target 不响应就把菜单项置灰——退出从来没真的生效
+  过。退出项现单独 `target = NSApp`。Cmd+Q 是另一件事：accessory 策略的 app 没有菜单栏、
+  从没设过 `NSApp.mainMenu`，这个系统标准快捷键没有任何条目承载，补了本地按键监听。
+
 ## [0.7.1] - 2026-07-30
 
 分页交互轮：双端「加载更多」按钮改为滚到底自动加载；修一个设置窗口的 i18n 遗留 bug。
