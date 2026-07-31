@@ -1,0 +1,47 @@
+macos/Sources/AgentTimeline/App/AppDelegate.swift
+  s_b85ad4e83942fb::t_4ada680ffd7da1 41-41
+  s_b85ad4e83942fb::t_c470809fd7700d 199-236
+  s_b85ad4e83942fb::t_6c0ec5cdda9849 254-254
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "8aefa1981845413cbc772a01a02cc0f3481d931e",
+  "prompts": {
+    "s_b85ad4e83942fb::t_c470809fd7700d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 38,
+      "total_deletions": 0,
+      "accepted_lines": 38,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_4ada680ffd7da1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "s_b85ad4e83942fb::t_6c0ec5cdda9849": {
+      "agent_id": null,
+      "human_author": null,
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
