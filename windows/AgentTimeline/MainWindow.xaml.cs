@@ -1058,33 +1058,84 @@ public sealed partial class MainWindow : Window
     {
         var entries = App.Registry.All();
         var root = new StackPanel { Spacing = 6, MinWidth = 280, MaxWidth = 340 };
-        root.Children.Add(new TextBlock
+        // 标题计数显示的是**当前可见条数**（不过滤时与总数相等，复用同一个格式串）。
+        var title = new TextBlock
         {
             Text = AppStrings.F("dict.title", entries.Count),
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-        });
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(title, "DictionaryTitle");
+        root.Children.Add(title);
 
         var flyout = new Flyout { Content = root, Placement = FlyoutPlacementMode.Bottom };
         RegisterPanelFlyout(flyout);
+
         if (entries.Count == 0)
         {
-            root.Children.Add(SecondaryText(
-                AppStrings.S("dict.empty")));
+            // 词典本来就空：没东西可搜，连搜索框都不摆出来。
+            root.Children.Add(SecondaryText(AppStrings.S("dict.empty")));
+            flyout.ShowAt(DictionaryButton);
+            return;
         }
-        else
+
+        // 常驻搜索框，不做成开关——这个面板本来就是用户主动点开的，再套一层开关是白费一次
+        // 点击。选 AutoSuggestBox 而不是裸 TextBox：它自带"有内容才出现的清空按钮"，
+        // 正是这里要的（我们不用它的候选列表，Suggestion 相关一律不接）。
+        var search = new AutoSuggestBox
         {
+            PlaceholderText = AppStrings.S("dict.searchPlaceholder"),
+            // ⚠ 不要设 QueryIcon。AutoSuggestBox 的模板里查询按钮与清空按钮**占同一个位置**，
+            // 设了 QueryIcon 就再也不出清空的 ×（实机 UIA 实测：设了之后控件内一个 Button
+            // 都不暴露）。清空按钮是本轮明确要的，放大镜图标不是。
+        };
+        // 纯代码构建的控件默认没有 AutomationId，实机验证时在 UIA 树里只能靠猜。
+        // 这个面板的验证全靠 UIA 驱动（本工程没有 UI 测试框架），给它一个稳定的锚点。
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(search, "DictionarySearchBox");
+        root.Children.Add(search);
+
+        var host = new ContentControl { HorizontalContentAlignment = HorizontalAlignment.Stretch };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(host, "DictionaryResults");
+        root.Children.Add(host);
+
+        void Render(string query)
+        {
+            var shown = CodenameSearch.Filter(entries, query);
+            title.Text = AppStrings.F("dict.title", shown.Count);
+            if (shown.Count == 0)
+            {
+                // 与 dict.empty 分开：词典有条目、只是没搜到，用同一句空文案会让用户
+                // 以为自己的代号丢了。
+                var miss = SecondaryText(AppStrings.S("dict.searchEmpty"));
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(miss, "DictionaryResults");
+                host.Content = miss;
+                return;
+            }
             var list = new StackPanel { Spacing = 2 };
-            foreach (var entry in entries)
+            foreach (var entry in shown)
             {
                 list.Children.Add(DictionaryRow(entry, flyout));
             }
-            root.Children.Add(new ScrollViewer
+            var scroller = new ScrollViewer
             {
                 Content = list,
                 MaxHeight = 380,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            });
+            };
+            // 结果区的 UIA 锚点（空态与列表态共用同一个 id，探针不必分情况找）。
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(scroller, "DictionaryResults");
+            host.Content = scroller;
         }
+
+        // 不按 args.Reason 过滤：清空按钮触发的变更归哪一类没有硬保证，漏掉就会出现
+        // "点了×但列表还是过滤态"。这里没有任何程序性改文本的路径，重画一次不会自激。
+        search.TextChanged += (s, _) => Render(s.Text);
+        // 打开即聚焦，可以直接打字。挂 Loaded 而不是 flyout.Opened：控件每次开都是新建的，
+        // Loaded 必然在它真正进入可视树之后触发，聚焦不会落空。
+        search.Loaded += (_, _) => search.Focus(FocusState.Programmatic);
+
+        // 搜索词不跨 Flyout 重开保留（每次点开都是全新构建，天然如此）——这是"随手查一下"
+        // 的入口，不是常驻筛选器。
+        Render("");
         flyout.ShowAt(DictionaryButton);
     }
 

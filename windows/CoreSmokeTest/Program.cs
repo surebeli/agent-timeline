@@ -36,6 +36,7 @@ internal static class Program
         RuleSummarizerLifecycle();
         GuessKindFallback();
         RegistryProcessTextEndToEnd();
+        CodenameSearchSemantics();
         StoreKindColumnAndFilter();
         StoreCompoundCursorPaging();
         StoreLatestNodeId();
@@ -577,6 +578,52 @@ internal static class Program
         // 折叠：全角/半角形态不该让分类失效
         CheckEqual(RuleSummarizer.GuessKind("本番へﾃﾞﾌﾟﾛｲする"), "任务", "guessKind fold: 半角カナ デプロイ");
         CheckEqual(RuleSummarizer.GuessKind("ＰＲＤ を書く"), "需求", "guessKind fold: 全角 PRD");
+    }
+
+    /// <summary>
+    /// 代号词典关键字搜索的判据，**与 mac `filterCodenames` 逐字一致**
+    /// （windows/SYNC-KICKOFF-PROMPT.md 2026-08-01 轮第 2 节列的 6 个场景，逐条对齐）。
+    /// 判据散在 UI 事件处理里就没法验证，所以抽成 `Core/CodenameSearch`。
+    /// </summary>
+    private static void CodenameSearchSemantics()
+    {
+        var entries = new List<CodenameEntry>
+        {
+            new() { Name = "N1", Definition = "登录改造", LastContext = "" },
+            new() { Name = "REQ-AUTH-3", Definition = "鉴权需求", LastContext = "" },
+            // 名字里没有 N1，只有"最近提及"里提到——mac 实机验证命中的正是这一类
+            new() { Name = "T1", Definition = "回归测试", LastContext = "N1 完成后再跑 T1" },
+            new() { Name = "T-PLUGIN-00", Definition = null, LastContext = "" },
+        };
+
+        CheckEqual(CodenameSearch.Filter(entries, "").Count, 4, "search: 空查询返回全部");
+        CheckEqual(CodenameSearch.Filter(entries, "   \n ").Count, 4,
+            "search: 纯空白当作没有搜索词（返回全部，不是返回空）");
+
+        var lower = CodenameSearch.Filter(entries, "req-auth-3");
+        CheckEqual(lower.Count, 1, "search: 大小写不敏感");
+        CheckEqual(lower.Count > 0 ? lower[0].Name : "", "REQ-AUTH-3", "search: 命中的是那一条");
+
+        var infix = CodenameSearch.Filter(entries, "AUTH");
+        CheckEqual(infix.Count, 1, "search: 子串匹配而非前缀（复合代号只记得中间一段也能搜到）");
+
+        var byDefinition = CodenameSearch.Filter(entries, "鉴权");
+        CheckEqual(byDefinition.Count, 1, "search: 匹配定义");
+        CheckEqual(byDefinition.Count > 0 ? byDefinition[0].Name : "", "REQ-AUTH-3",
+            "search: 只记得内容、不记得代号也能找到");
+
+        var byContext = CodenameSearch.Filter(entries, "N1");
+        CheckEqual(byContext.Count, 2, "search: 匹配最近提及（N1 本身 + lastContext 里提到它的 T1）");
+        Check(byContext.Any(e => e.Name == "T1"), "search: 靠 lastContext 命中的那条在结果里");
+
+        CheckEqual(CodenameSearch.Filter(entries, "不存在的词").Count, 0, "search: 无匹配返回空");
+
+        // definition 为 null 的行不能把判定炸掉（win 侧 Definition 是可空的，mac 是非可空 String）
+        CheckEqual(CodenameSearch.Filter(entries, "PLUGIN").Count, 1,
+            "search: definition 为 null 的条目照样按名字命中，不抛");
+
+        // 原表不被改动（过滤返回新列表）
+        CheckEqual(entries.Count, 4, "search: 过滤不改动入参集合");
     }
 
     private static void RegistryProcessTextEndToEnd()
