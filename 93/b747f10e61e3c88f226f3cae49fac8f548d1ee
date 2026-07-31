@@ -1,9 +1,13 @@
 macos/SYNC-KICKOFF-PROMPT.md
   s_5f812b192ad64b::t_b84678574a88ca 1,5,8-10,19-114,120-124,128-130
+  s_5f812b192ad64b::t_89f963638e6d00 16-17
+  s_5f812b192ad64b::t_a104bbdc077e3b 6-7
+  s_5f812b192ad64b::t_74953d736a763e 115-119
 windows/AgentTimeline/Core/AppSettings.cs
   s_5f812b192ad64b::t_9e38e3cac1b0d7 95-102
 CHANGELOG.md
   s_5f812b192ad64b::t_7d4b9dd4b64a70 11-42
+  s_5f812b192ad64b::t_883390d81ba9e7 10
 windows/AgentTimeline/Core/TimelineCoordinator.cs
   s_5f812b192ad64b::t_687580844da9a3 103-151
 windows/CoreSmokeTest/Program.cs
@@ -20,6 +24,8 @@ windows/AgentTimeline/Core/Parsers/ClaudeParser.cs
   s_5f812b192ad64b::t_1f81c0d4003efb 221,224-278
   s_5f812b192ad64b::t_ef84c4ad79de29 101-104
   s_5f812b192ad64b::t_eb6a7882013c76 69,72-80,279
+VERSION
+  s_5f812b192ad64b::t_66cbaba7ef4e45 1
 ---
 {
   "schema_version": "authorship/3.0.0",
