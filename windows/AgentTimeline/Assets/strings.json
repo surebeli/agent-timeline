@@ -290,6 +290,12 @@
       "ja": "ウィンドウを最前面に表示",
       "ko": "창을 항상 위에 표시"
     },
+    "settings.launchAtLogin": {
+      "zh-Hans": "开机自启动",
+      "en": "Launch at login",
+      "ja": "ログイン時に自動起動",
+      "ko": "로그인 시 자동 실행"
+    },
     "settings.on": {
       "zh-Hans": "开",
       "en": "On",

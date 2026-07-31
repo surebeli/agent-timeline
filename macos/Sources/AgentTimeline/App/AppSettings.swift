@@ -12,6 +12,7 @@ enum SettingsKey {
     static let hoverOpacity = "hoverOpacity"
     static let idleOpacity = "idleOpacity"
     static let alwaysOnTop = "alwaysOnTop"
+    static let launchAtLogin = "launchAtLogin"
     static let backfillDays = "backfillDays"
     static let agentClaudeEnabled = "agentClaudeEnabled"
     static let agentCodexEnabled = "agentCodexEnabled"
@@ -34,6 +35,7 @@ struct AppSettings: Sendable {
             SettingsKey.hoverOpacity: DesignTokens.shared.opacity.hover,
             SettingsKey.idleOpacity: DesignTokens.shared.opacity.idle,
             SettingsKey.alwaysOnTop: true,
+            SettingsKey.launchAtLogin: true,
             SettingsKey.backfillDays: 7,
             SettingsKey.agentClaudeEnabled: true,
             SettingsKey.agentCodexEnabled: true,
@@ -56,6 +58,7 @@ struct AppSettings: Sendable {
     static var hoverOpacity: Double { UserDefaults.standard.double(forKey: SettingsKey.hoverOpacity) }
     static var idleOpacity: Double { UserDefaults.standard.double(forKey: SettingsKey.idleOpacity) }
     static var alwaysOnTop: Bool { UserDefaults.standard.bool(forKey: SettingsKey.alwaysOnTop) }
+    static var launchAtLogin: Bool { UserDefaults.standard.bool(forKey: SettingsKey.launchAtLogin) }
     static var backfillDays: Int { UserDefaults.standard.integer(forKey: SettingsKey.backfillDays) }
 
     /// 界面语言："System"（跟随系统，默认）/ "ZhHans" / "En" / "Ja" / "Ko"。

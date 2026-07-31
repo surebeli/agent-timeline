@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.hoverOpacity) private var hoverOpacity = 0.95
     @AppStorage(SettingsKey.idleOpacity) private var idleOpacity = 0.25
     @AppStorage(SettingsKey.alwaysOnTop) private var alwaysOnTop = true
+    @AppStorage(SettingsKey.launchAtLogin) private var launchAtLogin = true
     @AppStorage(SettingsKey.backfillDays) private var backfillDays = 7
     @AppStorage(SettingsKey.agentClaudeEnabled) private var claudeEnabled = true
     @AppStorage(SettingsKey.agentCodexEnabled) private var codexEnabled = true
@@ -66,6 +67,13 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
 
                 Toggle(Strings.s("settings.alwaysOnTop"), isOn: $alwaysOnTop)
+                // 侧效交给 LoginItem.sync：register()/unregister() 要立即调用，不能等
+                // 「应用」按钮——这颗开关本身就是即时生效的（跟别的设置一样是 @AppStorage
+                // 直写模型），拖到点应用才同步反而会让开关状态与系统实际状态短暂对不上。
+                Toggle(Strings.s("settings.launchAtLogin"), isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, newValue in
+                        LoginItem.sync(desired: newValue)
+                    }
                 LabeledContent("\(Strings.s("settings.hoverOpacity")) \(hoverOpacity, format: .number.precision(.fractionLength(2)))") {
                     Slider(value: $hoverOpacity, in: 0.5...1.0)
                 }

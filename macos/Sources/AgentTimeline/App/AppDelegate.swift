@@ -18,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 文案表要在任何界面构建之前载入：菜单栏菜单与代码构建的弹层都在构造期取文案，
         // 晚一步就会拿到键名（与 Windows App.xaml.cs 同一处置）。
         Strings.load(AppSettings.language)
+        // 默认开机自启动：registerDefaults 已把偏好设成 true（新装/未碰过这项的老用户
+        // 都适用），这里把系统实际登录项状态同步过去。系统状态可能因用户在「系统设置 >
+        // 通用 > 登录项」里手动改过而跟偏好脱钩，LoginItem.sync 只在真的不一致时才动。
+        LoginItem.sync(desired: AppSettings.launchAtLogin)
 
         do {
             store = try Store(path: AppSettings.supportDir + "/store.sqlite")
