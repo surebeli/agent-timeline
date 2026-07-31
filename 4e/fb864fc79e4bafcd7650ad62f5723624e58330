@@ -1,0 +1,21 @@
+macos/Sources/AgentTimeline/App/AppDelegate.swift
+  s_b85ad4e83942fb::t_6c0ec5cdda9849 254
+  s_b85ad4e83942fb::t_4ada680ffd7da1 41
+  s_b85ad4e83942fb::t_c470809fd7700d 199-236
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "4efb864fc79e4bafcd7650ad62f5723624e58330",
+  "prompts": {},
+  "sessions": {
+    "s_b85ad4e83942fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f2fb59e4-005a-4647-84e9-94003c1bbbb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
