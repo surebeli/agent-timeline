@@ -38,7 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         setUpPanel()
         setUpStatusItem()
-        setUpQuitShortcut()
+        setUpKeyboardShortcuts()
         // Watcher and engine start only after the replay finishes, so the two
         // never write the codenames table concurrently.
         replayCodenamesIfNeeded { [weak self] in
@@ -196,14 +196,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Status item
 
     /// `.accessory` 策略的 app 没有 Dock 图标，也从没设过 `NSApp.mainMenu`——没有任何
-    /// 菜单栏条目能承载 Cmd+Q 这个系统标准快捷键，面板拿到焦点时按下去不会有任何反应。
-    /// 用本地事件监听补上，效果与常规 app 的「App 菜单 → 退出」快捷键等价。
-    private func setUpQuitShortcut() {
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
-                  event.charactersIgnoringModifiers == "q" else { return event }
-            NSApp.terminate(nil)
-            return nil
+    /// 菜单栏条目能承载 Cmd+Q / Cmd+W / Cmd+, 这类系统标准快捷键，面板或设置窗拿到
+    /// 焦点按下去都不会有反应。用本地事件监听补上，效果与常规 app 的「App 菜单 → 退出 /
+    /// 偏好设置」「文件菜单 → 关闭窗口」等价。
+    ///
+    /// ⚠ 这跟托盘菜单项上挂的 `keyEquivalent`（"q"/","/之前的 "t"）是两回事：那些只是
+    /// 菜单里的**显示标签**，只有装进 `NSApp.mainMenu` 的菜单项才会被系统当成全局快捷键
+    /// 处理——状态栏菜单从来没有这个资格，标签好看但从没生效过。真正生效的只有这里的
+    /// 本地监听；"t"（显示/隐藏）那条已经确认从来没起过作用，直接把标签也摘掉了，
+    /// 见 `rebuildStatusMenu()`。
+    private func setUpKeyboardShortcuts() {
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command
+            else { return event }
+            switch event.charactersIgnoringModifiers {
+            case "q":
+                NSApp.terminate(nil)
+                return nil
+            case "w":
+                // 按谁是 key window 决定语义：设置窗关闭、面板隐藏，跟系统标准 app
+                // 「Cmd+W 关活动窗口」的直觉一致，不是两个窗口共用同一个动作。
+                if let settingsWindow = self.settingsWindow, settingsWindow.isKeyWindow {
+                    settingsWindow.performClose(nil)
+                    return nil
+                }
+                if self.panel.isKeyWindow {
+                    self.panel.orderOut(nil)
+                    return nil
+                }
+                return event
+            case ",":
+                // 顺手把这条也接上：托盘菜单「设置…」项标着 ⌘, 但同样只是标签，
+                // 跟 "t" 是同一类问题，且 Cmd+, 是 mac 上开偏好设置的标准约定。
+                self.openSettings()
+                return nil
+            default:
+                return event
+            }
         }
     }
 
@@ -221,7 +251,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func rebuildStatusMenu() {
         guard statusItem != nil else { return }
         let menu = NSMenu()
-        menu.addItem(withTitle: Strings.s("tray.showHide"), action: #selector(togglePanel), keyEquivalent: "t")
+        menu.addItem(withTitle: Strings.s("tray.showHide"), action: #selector(togglePanel), keyEquivalent: "")
         let pinItem = NSMenuItem(title: Strings.s("tray.alwaysOnTop"), action: #selector(toggleAlwaysOnTop), keyEquivalent: "")
         menu.addItem(pinItem)
         menu.addItem(.separator())
