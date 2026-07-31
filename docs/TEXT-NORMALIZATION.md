@@ -277,6 +277,7 @@ L2 规整是**有损**变换，L3 钳制是**无损**的。历史上两者被混
 | ~~19~~ | ~~Codex user_message 未 trim~~ | ~~mac~~ | ✅ 2026-07-28 |
 | ~~8~~ | ~~zcode 解析器：win 已实现 / mac 惰性桩~~ | ~~mac~~ | ✅ 2026-07-28 —— mac 端按 §4 实现，sessionId 取 agent_ 目录、项目名取 sidecar cwd 末段（缺则回退 sess_ 前 13 字符）、过程事件忽略；端到端验证 4 行 → 1 任务节点 + 1 结果行 |
 | **20** | **摘要缓存：win 已实现 / mac 未实现** | **mac** | ❌ **未修（2026-07-29 查证确认）**。PRD §3.4 写「摘要结果按命令内容 hash 缓存于 SQLite，不重复调用」，win `Store.cs` 建了 `summaries` 表、`SummaryEngine.ComputeHash` 参与写入；mac `Store.swift` 只建 `nodes` / `codenames` / `file_offsets` **三张表**，无缓存表也无 hash 列，相同命令每次都重新调用摘要引擎。**影响是成本与调用量，不是正确性**；补实现前 win 侧本轮给缓存键加的语言维度在 mac 无对应物。⚠️ 若将来补：**绝不能把语言混进命令 hash**——它参与唯一键，改了重扫必产生重复行（2026-07-28 时间戳那轮的同类坑），只在查缓存处派生新键，`zh-Hans` 不加后缀以兼容存量行 |
+| ~~21~~ | ~~Claude 项目名跟 cwd 逐行漂移，一场会话被摊成多个「项目」~~ | ~~both~~ | ✅ 2026-07-31 —— win 先发现（真实会话 `cwd` 被 subagent/工具调用里的 `cd` 逐行改写，一场对话摊成 7 个「项目」，全库同一仓库裂成 8 组），mac 复现确认（本会话自身语料：`cwd` 在 `agent-timeline`→`agent-timeline/macos`→`.../Sources/AgentTimeline`→`agent-timeline/windows` 间漂移，真实库对应节点确实分落 3 个「项目」）。规则改为**项目名钉在会话启动目录**（第一条 `cwd`），之后的漂移不再重新派生项目名；断点续读需回头补读文件头（win `ClaudeParser.FirstCwd`、mac 同名静态方法，均封顶 256 KB）——否则项目名会钉在「续读起点恰好在哪个子目录」，比逐行漂移更难查（每次重启换一个组）。两端各自做存量回填（win `TimelineCoordinator.BackfillProjectPins`、mac `AppDelegate.backfillProjectPinsIfNeeded`，均为 version-gated 一次性迁移，只 `UPDATE project`、源文件缺失或读不出 `cwd` 保持原样不猜、重跑幂等）。**只影响 claude**：codex 的 `cwd` 取第一条 `session_meta`（本就只应用一次）、grok/kimi/zcode 取目录名，均不存在会话中途漂移 |
 
 ### 4.2b 跨端合并审计新发现（2026-07-28，Windows 本机四路审计）
 

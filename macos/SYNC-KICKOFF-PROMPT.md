@@ -1,5 +1,62 @@
 # macOS 同步开工 Prompt（项目名钉在会话启动目录 · 2026-07-31）
 
+> ## ✅ 本轮已完成（2026-07-31）——判断结论：要对齐，已对齐
+>
+> | 你问的事 | 结论 |
+> |---|---|
+> | 1 要不要对齐 | ✅ **要**。在**本会话自身的真实语料**上确认了同一现象：`cwd` 在
+> `agent-timeline` → `agent-timeline/macos` → `.../Sources/AgentTimeline` →
+> `agent-timeline/windows` 间漂移；回填前真实库对应节点分落
+> `agent-timeline\|85`、`macos\|2`、`AgentTimeline\|1` 三组 |
+> | 2 增量续读要不要补读文件头 | ✅ **要**。`SessionWatcher.contexts` 是纯内存 dict，
+> 重启后必空，`processFile` 会重新调 `makeContext` 再 seek 到存的 offset——不补读的话
+> 项目名会钉在续读起点碰巧在哪个子目录，跟你描述的问题完全一致 |
+> | 3 共享层口径 | ✅ 已落 `docs/TEXT-NORMALIZATION.md` §4.2 第 21 条（含双端实现摘要），
+> 请你复核 |
+>
+> ### 实现（对齐你的结构，没有照抄实现细节）
+>
+> - `ClaudeParser.makeContext` 头部扫描（`firstCwd(in:capBytes:256*1024)`）立刻钉住项目名；
+>   `parse()` 里加 `ParsedFileContext.projectPinned` 标志兜底（头部扫描没扫到时，退而求其次
+>   钉在解析过程中第一次见到的 cwd，之后不再改）；
+> - 顺手把 `(cwd as NSString).lastPathComponent` 内联逻辑换成早就存在但从没被这条路径调用过的
+>   `ParserSupport.projectName(fromCwd:fallback:)`（处理反斜杠归一化与空白兜底，跟 win
+>   `ParserUtil.ProjectNameFromCwd` 同口径）；
+> - 存量回填 `AppDelegate.backfillProjectPinsIfNeeded`（version-gated，marker
+>   `UserDefaults` 键 `projectPinBackfillVersion`，对齐你们 `codenameReplayVersion` 那套）：
+>   遍历 `store.fetchAllNodesAscending()` 里 `agent == .claude` 的节点，用同一个
+>   `firstCwd` 函数重算，只在算出的值真的不同时才 `UPDATE`；**必须在 `TimelineViewModel`
+>   读库之前同步跑完**——它 `init` 就会 `reload()`，晚一步这次启动看到的还是回填前的
+>   旧分组（就是你任务书里点名的坑，写代码时提醒自己才没踩上）；
+> - **只改了 claude**：复核了 codex（`metaApplied` 已保证只应用一次）、grok/kimi/zcode
+>   （`context.project` 创建后从未被 parse() 重新赋值），确认都不存在中途漂移，不用动。
+>
+> ### 实机验证（真实库，不只是单元测试）
+>
+> - 改动前整份备份 `store.sqlite`/`-wal`/`-shm`/`defaults`；
+> - 回填日志：`项目归属回填完成：9 个节点改挂到会话启动目录`；9 = `macos(2) +
+>   AgentTimeline(1) + harnessloop(5) + android(1)`，逐项对上；
+> - 回填前后 claude 节点总数**不变**（226 → 226，只是重新分组，没有丢/多节点）；
+> - **UI 层也确认过**（不只是看库）：项目筛选下拉里 `macos`/`AgentTimeline`/`harnessloop`/
+>   `android` 四个幽灵组消失，`agent-timeline`（88）、`test-harnessloop`（117）、
+>   `wonderweiss`（17）三组分别吸收了原来裂出去的部分；
+> - **幂等性单独测过**：手工把 marker 清零强制重跑，分组结果与第一次跑完后逐字段相同、
+>   没有产生新的 print 日志（对应"0 个节点改挂"分支），marker 正确恢复到已完成状态；
+> - `swift test` 95 → **98**（3 条新用例：漂移不改已钉住的项目名、`firstCwd` 忽略漂移只认
+>   头部、`makeContext` 靠头部扫描钉住——覆盖断点续读场景）。
+>
+> ### 如实说明一点局限（跟你在 W-6/§4-如实说明 一栏的做法一致）
+>
+> 断点续读补读文件头这条只有 `testClaudeMakeContextPinsViaHeadScan` 单测覆盖（构造临时
+> session 文件直接调 `makeContext`），没有做「杀掉真实 app、往真实会话文件追加一行、
+> 重启、确认项目名没变」这种端到端实机验证——跟你在任务书里对同一件事的诚实记录一样：
+> 真机上要等某个真实会话下次产生新行、同时又赶上一次真实重启，才会真正走到这条路径。
+>
+> 版本号/tag/release 按你说的没动——`VERSION` 仍是 `0.7.4`，本节内容会在你之后（或用户）
+> 决定发布时机时一并核对 CHANGELOG 是否已经补上 macOS 这段。
+>
+> 下面 `---` 之间是本轮的原始任务书，保留备查。
+
 > 用法：在 macOS 机器的仓库根目录启动 agent 会话，把下面 `---` 之间的整段粘贴为首条指令。
 >
 > 上一轮（分页入口换成滚到底自动加载）你的 ✅ 回报见 git log 里本文件的上一版；随后

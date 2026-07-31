@@ -11,7 +11,7 @@
 
 修一个把同一场对话摊成好几个「项目」的分组缺陷。用户报的现象是「消息不及时、时间有问题」——
 实际时间戳分秒无误，是命令被挂到了别的项目组里、在原来那组找不到，于是把一条措辞相近的旧命令
-当成了自己刚发的那条。本轮只落 Windows，macOS 侧同源缺陷待同步。
+当成了自己刚发的那条。Windows 先落地，macOS 复现确认后同轮跟进对齐。
 
 ### 修复（Windows）
 
@@ -39,6 +39,29 @@
 - 真实库实机（改动前整份备份 db/-wal/-shm/settings）：`项目归属回填完成：129 个节点改挂到
   会话启动目录`，8 个碎组并回一组，条数 1428+67+32+15+7+5+2+1 = **1557** 与实测逐个相等；
   35 个 claude 源文件回填耗时 0.84 s，本次启动零 WARN / 零 ERROR。
+
+### 修复（macOS）
+
+- 同一缺陷，独立复现确认后对齐：**本会话自身的真实语料**里 `cwd` 就漂过——
+  `agent-timeline` → `agent-timeline/macos` → `.../Sources/AgentTimeline` →
+  `agent-timeline/windows`，回填前真实库对应节点分落 `agent-timeline\|85`、`macos\|2`、
+  `AgentTimeline\|1` 三组。规则与验证同 Windows（项目名钉在会话启动目录、断点续读补读
+  文件头封顶 256 KB、存量回填 version-gated 一次性迁移），实现路径不同：
+  `ClaudeParser.firstCwd` 头部扫描 + `ParsedFileContext.projectPinned` 兜底、
+  `AppDelegate.backfillProjectPinsIfNeeded`。顺手把项目名派生换成早已存在但从未被这条
+  路径调用过的 `ParserSupport.projectName(fromCwd:fallback:)`（统一走反斜杠归一化+空白
+  兜底，与 win `ParserUtil.ProjectNameFromCwd` 同口径）。只改 claude：复核确认 codex/
+  grok/kimi/zcode 都不存在中途漂移。
+
+### 验证（macOS）
+
+- `swift test` 95 → **98**（漂移不改已钉住的项目名、`firstCwd` 忽略漂移只认文件头、
+  `makeContext` 靠头部扫描钉住——覆盖断点续读场景）；
+- 真实库实机（改动前整份备份 db/-wal/-shm/defaults）：回填日志
+  `项目归属回填完成：9 个节点改挂到会话启动目录`，9 = `macos(2)+AgentTimeline(1)+
+  harnessloop(5)+android(1)` 逐项对上；claude 节点总数回填前后不变（226 → 226，只是
+  重新分组）；项目筛选下拉里四个幽灵组消失；手工清零 marker 强制重跑确认幂等
+  （结果逐字段相同、无新变更）。
 
 ## [0.7.3] - 2026-07-31
 

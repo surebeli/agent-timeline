@@ -131,6 +131,66 @@ final class ParserTests: XCTestCase {
         XCTAssertTrue(parser.parse(line: sidechain, context: &ctx).isEmpty)
     }
 
+    /// 回归（v0.7.4）：项目名钉在会话启动目录，不再跟着 cwd 漂——真实语料里一场对话
+    /// 被 subagent/工具调用里的 `cd` 摊成过 7 个不同 cwd，同一个仓库因此在全库裂成
+    /// 8 组「项目」。用户报的症状是「消息不及时」，真根因是分组，时间戳分毫不差。
+    func testClaudeProjectPinsToFirstCwdDespiteMidSessionDrift() throws {
+        let parser = ClaudeParser()
+        var ctx = claudeContext()
+
+        let first = #"{"type":"user","message":{"role":"user","content":"起手"},"timestamp":"2026-07-31T09:00:00.000Z","cwd":"/repo","sessionId":"abc-123"}"#
+        _ = parser.parse(line: first, context: &ctx)
+        XCTAssertEqual(ctx.project, "repo")
+
+        // subagent / 工具调用里的 cd 把 cwd 改到了子目录。
+        let drifted = #"{"type":"user","message":{"role":"user","content":"漂移后的命令"},"timestamp":"2026-07-31T09:06:11.000Z","cwd":"/repo/macos/Sources/AgentTimeline","sessionId":"abc-123"}"#
+        let events = parser.parse(line: drifted, context: &ctx)
+        guard case .userCommand(let cmd)? = events.first else {
+            return XCTFail("漂移后的命令仍应正常产出节点")
+        }
+        XCTAssertEqual(ctx.project, "repo", "项目名不该跟着漂移的 cwd 走")
+        XCTAssertEqual(cmd.project, "repo", "节点落库的 project 也该是钉住的那个，不是漂移后的子目录")
+        XCTAssertEqual(cmd.cwd, "/repo/macos/Sources/AgentTimeline",
+                       "cwd 字段本身仍如实记录当前目录（供摘要器自身会话判定等用），只是不再拿它派生项目名")
+    }
+
+    /// 头部扫描：`firstCwd` 只认文件里第一条带 cwd 的行，忽略之后的漂移——断点续读
+    /// 靠这个补回「会话真正的起点」，而不是钉在续读那一刻恰好在哪个子目录（比原来的
+    /// 逐行漂移更难查：每次重启都可能换一个组）。
+    func testClaudeFirstCwdIgnoresLaterDrift() throws {
+        let dir = NSTemporaryDirectory() + "at-test-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+        let path = dir + "/session.jsonl"
+        let content = """
+        {"type":"user","message":{"role":"user","content":"起手"},"timestamp":"2026-07-31T09:00:00.000Z","cwd":"/repo","sessionId":"abc-123"}
+        {"type":"user","message":{"role":"user","content":"漂移"},"timestamp":"2026-07-31T09:06:11.000Z","cwd":"/repo/macos","sessionId":"abc-123"}
+        {"type":"user","message":{"role":"user","content":"再漂移"},"timestamp":"2026-07-31T09:10:00.000Z","cwd":"/repo/windows","sessionId":"abc-123"}
+        """
+        try content.write(toFile: path, atomically: true, encoding: .utf8)
+        XCTAssertEqual(ClaudeParser.firstCwd(in: URL(fileURLWithPath: path)), "/repo")
+    }
+
+    /// `makeContext` 靠头部扫描在**创建 context 那一刻**就把项目名钉好——覆盖断点续读
+    /// 场景：重启后 `contexts` 内存缓存清空，`makeContext` 会被重新调用，若不做头部
+    /// 扫描，项目名就会钉在"续读起点恰好在哪个子目录"而不是会话真正的起点。
+    func testClaudeMakeContextPinsViaHeadScan() throws {
+        let projectsDir = NSHomeDirectory() + "/.claude/projects/-tmp-pin-test-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: projectsDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: projectsDir) }
+        let path = projectsDir + "/session-abc.jsonl"
+        let content = """
+        {"type":"user","message":{"role":"user","content":"起手"},"timestamp":"2026-07-31T09:00:00.000Z","cwd":"/Users/x/realproject","sessionId":"session-abc"}
+        {"type":"user","message":{"role":"user","content":"漂移到子目录"},"timestamp":"2026-07-31T09:06:11.000Z","cwd":"/Users/x/realproject/sub/deep","sessionId":"session-abc"}
+        """
+        try content.write(toFile: path, atomically: true, encoding: .utf8)
+
+        let parser = ClaudeParser()
+        let context = try XCTUnwrap(parser.makeContext(for: URL(fileURLWithPath: path)))
+        XCTAssertEqual(context.project, "realproject", "makeContext 应已通过头部扫描钉住项目名")
+        XCTAssertTrue(context.projectPinned)
+    }
+
     /// 规整器与 .NET 的行为对齐：哨兵回填必须 ordinal；行尾 trim 覆盖全部 Unicode 空白。
     func testNormalizerUnicodeParity() {
         // 闭合反引号后紧跟组合字符：哨兵必须回填，绝不能把私用区字符写出去

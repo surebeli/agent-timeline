@@ -17,6 +17,9 @@ struct ParsedFileContext {
     var lastTimestamp: Date?
     /// 本文件的会话元信息是否已应用（codex：只认第一条 `session_meta`，见 §4.2b B1）。
     var metaApplied = false
+    /// claude 专用：项目名是否已钉死（见 ClaudeParser——一场会话里 `cwd` 会被
+    /// subagent/工具调用里的 `cd` 改写，只有第一次见到 cwd 时才该定项目名）。
+    var projectPinned = false
     /// 当前轮次里最后一条 agent 消息，等轮次结束事件到达时落为结果行。
     /// Grok 用（`agent_message_chunk` 一轮多条，只有末条是答复，见 GrokParser）。
     var pendingAssistantText: String?

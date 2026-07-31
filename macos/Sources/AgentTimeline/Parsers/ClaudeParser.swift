@@ -13,9 +13,32 @@ struct ClaudeParser: AgentSessionParser {
         guard url.pathExtension == "jsonl",
               url.path.hasPrefix(root.path) else { return nil }
         let sessionId = url.deletingPathExtension().lastPathComponent
-        // Project display name resolves from the per-line cwd; slug as placeholder.
         let slug = url.deletingLastPathComponent().lastPathComponent
-        return ParsedFileContext(url: url, agent: .claude, sessionId: sessionId, project: slug, cwd: nil)
+        var context = ParsedFileContext(url: url, agent: .claude, sessionId: sessionId, project: slug, cwd: nil)
+        // Pin the project to the session's *true* starting cwd up front by scanning
+        // the file head, so a resumed tail (offset saved from a previous run, which
+        // starts reading wherever cwd had drifted to by then — see SessionWatcher)
+        // doesn't pin the project to "wherever the process happened to be at
+        // restart" instead of where the session actually began.
+        if let cwd = Self.firstCwd(in: url) {
+            context.cwd = cwd
+            context.project = ParserSupport.projectName(fromCwd: cwd, fallback: slug)
+            context.projectPinned = true
+        }
+        return context
+    }
+
+    /// Scans the file head (capped, not the whole file — sessions run tens of MB)
+    /// for the first line carrying a `cwd`, i.e. the session's starting directory.
+    static func firstCwd(in url: URL, capBytes: Int = 256 * 1024) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let data = try? handle.read(upToCount: capBytes), !data.isEmpty,
+              let text = String(data: data, encoding: .utf8) else { return nil }
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            if let cwd = ParserSupport.json(String(line))?["cwd"] as? String { return cwd }
+        }
+        return nil
     }
 
     func parse(line: String, context: inout ParsedFileContext) -> [SessionEvent] {
@@ -23,7 +46,15 @@ struct ClaudeParser: AgentSessionParser {
 
         if let cwd = obj["cwd"] as? String, context.cwd != cwd {
             context.cwd = cwd
-            context.project = (cwd as NSString).lastPathComponent
+            // 项目名只钉一次：一场会话里的 cwd 会被 subagent、工具调用里的 cd 改写
+            // （实机会话见过一场对话摊成 7 个不同 cwd），只有第一次见到 cwd 时才该
+            // 定项目名，后续漂移只用于下面的"是不是摘要器自己的会话"判定。
+            // 正常情况下 makeContext 里的头部扫描已经钉过了；这里是它没扫到时的兜底
+            // （比如文件头被截断），退而求其次钉在"解析过程里第一次见到的 cwd"上。
+            if !context.projectPinned {
+                context.project = ParserSupport.projectName(fromCwd: cwd, fallback: context.project)
+                context.projectPinned = true
+            }
             // Never surface our own summarizer's headless sessions.
             if cwd == AppSettings.summarizerScratchDir {
                 context.disabled = true

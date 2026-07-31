@@ -30,6 +30,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
             return
         }
+        // 必须在 TimelineViewModel 读库之前同步跑完：它下面 init 就会 reload()，
+        // 晚一步的话这次启动看到的还是回填前的旧分组（Windows 侧同轮踩出来的教训）。
+        backfillProjectPinsIfNeeded()
         registry = CodenameRegistry(store: store)
         viewModel = TimelineViewModel(store: store)
         summaryEngine = SummaryEngine(store: store, registry: registry) {
@@ -82,6 +85,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelHoldCount = 0
 
     // MARK: - Wiring
+
+    /// Bump when the claude project-pin rule changes enough that history deserves
+    /// a re-run. Separate marker from `codenameReplayVersion` below — unrelated
+    /// concerns, no reason to force one to re-run the other.
+    private static let projectPinBackfillVersion = 1
+
+    /// One-time per version: re-derive `project` for existing claude nodes using
+    /// the same "pin to the session's first cwd" rule `ClaudeParser` now applies
+    /// live (see its doc comment) — the rule change only affects newly-parsed
+    /// lines, so history stays split across the fragments the old per-line rule
+    /// created until this rewrites it. Only claude drifts mid-session; the other
+    /// parsers either apply their project exactly once already (codex) or never
+    /// re-derive it after context creation (grok/kimi/zcode), so nothing else
+    /// needs backfilling.
+    ///
+    /// Synchronous and runs before `TimelineViewModel` reads the store — Windows
+    /// hit this the hard way: async here means this launch still shows the old
+    /// (split) grouping, since the view model's first `reload()` beats the fix.
+    private func backfillProjectPinsIfNeeded() {
+        let key = "projectPinBackfillVersion"
+        guard UserDefaults.standard.integer(forKey: key) < Self.projectPinBackfillVersion else { return }
+        var updated = 0
+        for node in store.fetchAllNodesAscending() where node.command.agent == .claude {
+            // 源文件已删除、或头部读不出 cwd（比如已经超出 256KB 扫描上限）保持原样，不猜。
+            guard let cwd = ClaudeParser.firstCwd(in: URL(fileURLWithPath: node.command.sourceFile))
+            else { continue }
+            let pinned = ParserSupport.projectName(fromCwd: cwd, fallback: node.command.project)
+            guard pinned != node.command.project else { continue }
+            store.updateProject(nodeId: node.id, project: pinned)
+            updated += 1
+        }
+        if updated > 0 {
+            print("[AppDelegate] 项目归属回填完成：\(updated) 个节点改挂到会话启动目录")
+        }
+        UserDefaults.standard.set(Self.projectPinBackfillVersion, forKey: key)
+    }
 
     /// Bump when detection semantics change enough that history deserves a re-run.
     private static let codenameReplayVersion = 3
