@@ -55,4 +55,51 @@ final class TimelineViewModelTests: XCTestCase {
         vm.loadMore()
         XCTAssertEqual(vm.nodes.count, 300, "canLoadMore 为假时 loadMore 必须是无操作")
     }
+
+    // MARK: - 代号词典搜索
+
+    private func codename(_ name: String, definition: String = "", lastContext: String = "") -> CodenameEntry {
+        CodenameEntry(name: name, definition: definition, definitionNodeId: "n",
+                      firstSeen: Date(timeIntervalSince1970: 0), occurrences: 1, lastContext: lastContext)
+    }
+
+    func testFilterCodenamesEmptyQueryReturnsAll() {
+        let entries = [codename("N1"), codename("N2")]
+        XCTAssertEqual(TimelineViewModel.filterCodenames(entries, matching: "").count, 2)
+        XCTAssertEqual(TimelineViewModel.filterCodenames(entries, matching: "   ").count, 2,
+                       "纯空白也当作没有搜索词")
+    }
+
+    /// 最基本场景：搜代号本身，大小写不敏感。
+    func testFilterCodenamesMatchesNameCaseInsensitive() {
+        let entries = [codename("N1"), codename("N2"), codename("T1")]
+        let hits = TimelineViewModel.filterCodenames(entries, matching: "n1")
+        XCTAssertEqual(hits.map(\.name), ["N1"])
+    }
+
+    /// 记得内容、不记得代号叫什么——搜定义也要能命中。
+    func testFilterCodenamesMatchesDefinition() {
+        let entries = [
+            codename("N1", definition: "登录页视觉改版"),
+            codename("N2", definition: "支付流程重构"),
+        ]
+        XCTAssertEqual(TimelineViewModel.filterCodenames(entries, matching: "登录").map(\.name), ["N1"])
+    }
+
+    /// 复合代号只记得中间一段：子串匹配而非前缀匹配。
+    func testFilterCodenamesSubstringNotJustPrefix() {
+        let entries = [codename("REQ-AUTH-3"), codename("T-PLUGIN-00")]
+        XCTAssertEqual(TimelineViewModel.filterCodenames(entries, matching: "auth").map(\.name), ["REQ-AUTH-3"])
+    }
+
+    /// 最近提及摘录也要能搜到——三个字段任一命中即算命中。
+    func testFilterCodenamesMatchesLastContext() {
+        let entries = [codename("N2", lastContext: "N2完成，N3变更：改为只做红点提醒")]
+        XCTAssertEqual(TimelineViewModel.filterCodenames(entries, matching: "红点提醒").count, 1)
+    }
+
+    func testFilterCodenamesNoMatchReturnsEmpty() {
+        let entries = [codename("N1"), codename("N2")]
+        XCTAssertTrue(TimelineViewModel.filterCodenames(entries, matching: "zzz").isEmpty)
+    }
 }

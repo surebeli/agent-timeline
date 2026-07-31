@@ -12,22 +12,39 @@ struct CodenameDictionaryView: View {
     @Bindable var viewModel: TimelineViewModel
     let onClose: () -> Void
 
+    /// 面板每次重开都是全新的 View 实例，@State 天然清零——不持久化跨会话的过滤态，
+    /// 这是个"随手查一下"的入口，不是常驻筛选器。
+    @State private var query = ""
+    @FocusState private var searchFocused: Bool
+
+    private var filtered: [CodenameEntry] {
+        TimelineViewModel.filterCodenames(viewModel.sortedCodenames, matching: query)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(Strings.f("dict.title", viewModel.sortedCodenames.count))
+            Text(Strings.f("dict.title", filtered.count))
                 .font(.system(size: tokens.typography.size.title, weight: .semibold))
                 .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-            Divider()
+                .padding(.top, 10)
+            if !viewModel.sortedCodenames.isEmpty {
+                searchField
+            }
+            Divider().padding(.top, 8)
             if viewModel.sortedCodenames.isEmpty {
                 Text(Strings.s("dict.empty"))
+                    .font(.system(size: tokens.typography.size.caption))
+                    .foregroundStyle(.secondary)
+                    .padding(12)
+            } else if filtered.isEmpty {
+                Text(Strings.s("dict.searchEmpty"))
                     .font(.system(size: tokens.typography.size.caption))
                     .foregroundStyle(.secondary)
                     .padding(12)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(viewModel.sortedCodenames) { entry in
+                        ForEach(filtered) { entry in
                             row(entry)
                             Divider().opacity(0.3)
                         }
@@ -37,6 +54,35 @@ struct CodenameDictionaryView: View {
             }
         }
         .frame(width: 340)
+        .onAppear { searchFocused = true }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: tokens.typography.size.caption))
+                .foregroundStyle(tokens.color.textTertiary.color)
+            TextField(Strings.s("dict.searchPlaceholder"), text: $query)
+                .textFieldStyle(.plain)
+                .font(.system(size: tokens.typography.size.caption))
+                .focused($searchFocused)
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                    searchFocused = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: tokens.typography.size.caption))
+                        .foregroundStyle(tokens.color.textTertiary.color)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(RoundedRectangle(cornerRadius: 6).fill(tokens.color.textTertiary.color.opacity(0.1)))
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
     }
 
     private func row(_ entry: CodenameEntry) -> some View {

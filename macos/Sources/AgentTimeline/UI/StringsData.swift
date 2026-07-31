@@ -185,6 +185,18 @@ enum StringsData {
       "ja": "コードネーム辞書（{0}）",
       "ko": "코드명 사전({0})"
     },
+    "dict.searchPlaceholder": {
+      "zh-Hans": "搜索代号或定义",
+      "en": "Search codenames or definitions",
+      "ja": "コード名または定義を検索",
+      "ko": "코드명 또는 정의 검색"
+    },
+    "dict.searchEmpty": {
+      "zh-Hans": "没有匹配的代号",
+      "en": "No matching codenames",
+      "ja": "一致するコード名がありません",
+      "ko": "일치하는 코드명이 없습니다"
+    },
     "dict.empty": {
       "zh-Hans": "尚无登记的代号 — 会话中出现 \"N1: xxx\" 式定义或 REQ-3 式长代号后会自动登记",
       "en": "No codenames yet — they are registered automatically once a session contains an \"N1: xxx\" definition or a long code like REQ-3",

@@ -67,6 +67,22 @@ final class TimelineViewModel {
         }
     }
 
+    /// Dictionary search: substring, case-insensitive, matches the codename itself
+    /// *or* its definition *or* its last-mention excerpt — not just the short id.
+    /// A user who remembers "the login thing" but not whether it was N1 or N2
+    /// should still find it. Pure/static so it's testable without a live store,
+    /// and so Windows's own search box can be checked against the identical rule
+    /// (see windows/SYNC-KICKOFF-PROMPT.md for this round's handoff).
+    nonisolated static func filterCodenames(_ entries: [CodenameEntry], matching query: String) -> [CodenameEntry] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !needle.isEmpty else { return entries }
+        return entries.filter {
+            $0.name.lowercased().contains(needle)
+                || $0.definition.lowercased().contains(needle)
+                || $0.lastContext.lowercased().contains(needle)
+        }
+    }
+
     /// Nodes that first defined a codename get the accent ring on their rail marker.
     var definitionNodeIds: Set<String> {
         Set(codenames.values.map(\.definitionNodeId).filter { !$0.isEmpty })
