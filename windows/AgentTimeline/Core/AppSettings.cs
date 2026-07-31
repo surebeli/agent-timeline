@@ -43,6 +43,16 @@ public sealed class AppSettings
     public double IdleOpacity { get; set; } = 0.25;
     public bool AlwaysOnTop { get; set; } = true;
 
+    /// <summary>
+    /// 开机自启动，**默认开**。
+    ///
+    /// 属性初始化器就是 mac <c>UserDefaults.register(defaults:)</c> 的等价语义：
+    /// System.Text.Json 反序列化时**缺这个键就保留初始值**，显式写了 <c>false</c> 才是关。
+    /// 于是新装用户与从没碰过这项的老用户都落到"默认开"，而关过它的用户不会被升级重新打开。
+    /// 实际生效靠 <c>Interop.StartupRegistry.Apply</c> 把这个值推到注册表。
+    /// </summary>
+    public bool LaunchAtLogin { get; set; } = true;
+
     // Remembered window bounds in raw (physical) pixels; int.MinValue = not yet saved.
     public int WindowX { get; set; } = int.MinValue;
     public int WindowY { get; set; } = int.MinValue;

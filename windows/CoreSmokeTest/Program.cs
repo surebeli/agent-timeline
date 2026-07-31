@@ -27,6 +27,7 @@ internal static class Program
         PanelCollapse();
         TimelinePaging();
         ItemDiffAffixes();
+        LoginItemDecision();
         DefinitionIsNotSelfMention();
         ShortCodeWordBoundaryAndUnknown();
         DefinitionRestatementFlipsToChanged();
@@ -358,6 +359,46 @@ internal static class Program
         CheckEqual(p + s, 0, "diff: 空列表不炸");
         (p, s) = Diff("abc", "");
         CheckEqual(p + s, 0, "diff: 清空不炸");
+    }
+
+    /// <summary>
+    /// 开机自启动的判据。前三条对齐 mac <c>LoginItem.action</c>；后面几条是 Windows 特有的
+    /// ——非打包分发，用户随时可能挪目录或换构建，注册表里那条命令行会指向旧路径。
+    /// </summary>
+    private static void LoginItemDecision()
+    {
+        const string exe = @"C:\Users\me\AppData\Local\Programs\AgentTimeline\AgentTimeline.exe";
+        var cmd = LoginItem.FormatCommand(exe);
+
+        // 路径带空格必须加引号，否则开机时被按空格拆开、静默启动失败
+        CheckEqual(cmd, "\"" + exe + "\"", "login: 命令行加引号");
+
+        // mac 三条同构
+        CheckEqual(LoginItem.Decide(true, null, cmd), LoginItemAction.Register,
+            "login: 期望开但没注册 → Register");
+        CheckEqual(LoginItem.Decide(false, cmd, cmd), LoginItemAction.Unregister,
+            "login: 期望关但已注册 → Unregister");
+        CheckEqual(LoginItem.Decide(true, cmd, cmd), LoginItemAction.None,
+            "login: 已经一致 → None（不重复写注册表）");
+        CheckEqual(LoginItem.Decide(false, null, cmd), LoginItemAction.None,
+            "login: 期望关且本就没注册 → None");
+
+        // 空白值等同未注册（注册表里留过一条空串的情况）
+        CheckEqual(LoginItem.Decide(true, "   ", cmd), LoginItemAction.Register,
+            "login: 空白值视为未注册");
+        CheckEqual(LoginItem.Decide(false, "   ", cmd), LoginItemAction.None,
+            "login: 空白值不去删");
+
+        // 路径漂移：只判"有没有"会留下一条指向旧副本的自启动项
+        var stale = LoginItem.FormatCommand(@"D:\old\AgentTimeline\AgentTimeline.exe");
+        CheckEqual(LoginItem.Decide(true, stale, cmd), LoginItemAction.Register,
+            "login: 注册表指向旧路径 → 重写");
+
+        // 但等价写法不算漂移，否则每次启动都白写一次
+        CheckEqual(LoginItem.Decide(true, exe, cmd), LoginItemAction.None,
+            "login: 历史上没加引号的等价值 → None");
+        CheckEqual(LoginItem.Decide(true, cmd.ToUpperInvariant(), cmd), LoginItemAction.None,
+            "login: 大小写不同的同一路径 → None（Windows 路径不区分大小写）");
     }
 
     private static void CompatibilityFold()

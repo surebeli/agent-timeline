@@ -73,6 +73,9 @@
                 Minimum="0.05"
                 StepFrequency="0.05" />
             <ToggleSwitch x:Name="AlwaysOnTopToggle" />
+            <!-- 开机自启动。与本窗其它设置项一样走缓冲式保存：拨动只改界面，
+                 点「保存」才真的动注册表，点「取消」/关窗则什么都没发生。 -->
+            <ToggleSwitch x:Name="LaunchAtLoginToggle" />
 
             <!-- ═══════════ 数据与 Agent ═══════════ -->
             <TextBlock

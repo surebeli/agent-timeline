@@ -94,6 +94,10 @@ public sealed partial class SettingsWindow : Window
         AlwaysOnTopToggle.OnContent = AppStrings.S("settings.on");
         AlwaysOnTopToggle.OffContent = AppStrings.S("settings.off");
 
+        LaunchAtLoginToggle.Header = AppStrings.S("settings.launchAtLogin");
+        LaunchAtLoginToggle.OnContent = AppStrings.S("settings.on");
+        LaunchAtLoginToggle.OffContent = AppStrings.S("settings.off");
+
         DataSectionText.Text = AppStrings.S("settings.section.data");
         SessionSourcesText.Text = AppStrings.S("settings.sessionSources");
         BackfillDaysBox.Header = AppStrings.F("settings.backfillDays", "N");
@@ -179,6 +183,7 @@ public sealed partial class SettingsWindow : Window
         HoverOpacitySlider.Value = s.HoverOpacity;
         IdleOpacitySlider.Value = s.IdleOpacity;
         AlwaysOnTopToggle.IsOn = s.AlwaysOnTop;
+        LaunchAtLoginToggle.IsOn = s.LaunchAtLogin;
 
         BackfillDaysBox.Value = s.BackfillDays;
         EnableClaudeCheck.IsChecked = s.EnableClaude;
@@ -227,6 +232,7 @@ public sealed partial class SettingsWindow : Window
         s.HoverOpacity = Math.Round(HoverOpacitySlider.Value, 2);
         s.IdleOpacity = Math.Round(IdleOpacitySlider.Value, 2);
         s.AlwaysOnTop = AlwaysOnTopToggle.IsOn;
+        s.LaunchAtLogin = LaunchAtLoginToggle.IsOn;
 
         s.BackfillDays = double.IsNaN(BackfillDaysBox.Value) ? 7 : (int)BackfillDaysBox.Value;
         s.EnableClaude = EnableClaudeCheck.IsChecked == true;
@@ -243,6 +249,11 @@ public sealed partial class SettingsWindow : Window
 
         _saved = true;
         s.Save();
+        // 注册表在**保存**这一步才动，与本窗其它设置项同构：拨了开关又点「取消」
+        // （或直接关窗），系统里的自启动项不该已经被改过——那会造成界面显示与实际
+        // 状态不一致，且是用户看不见的不一致。mac 那边是 @AppStorage 直写模型、
+        // 没有"未保存"态，所以它的开关即时生效；本端不能照抄那个时序。
+        Interop.StartupRegistry.Apply(s.LaunchAtLogin);
         App.Engine.ReloadSummarizer();
         // W1：换了引擎/模型/端点后，之前因旧配置失败到上限的节点应获得新机会。
         App.Coordinator.ResetSummaryAttemptsAndRetry();

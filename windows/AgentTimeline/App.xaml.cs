@@ -53,6 +53,11 @@ public partial class App : Application
             Settings.Save();
         }
 
+        // 开机自启动：把设置里的期望值推到注册表。每次启动都对一次，因为这条记录在
+        // 应用之外（用户可能自己删掉，或把整个目录挪了位置导致记录指向旧路径）。
+        // 一致就不写（见 LoginItem.Decide）。
+        Interop.StartupRegistry.Apply(Settings.LaunchAtLogin);
+
         Store = new Store(AppPaths.DatabaseFile);
         Registry = new CodenameRegistry(Store);
         Engine = new SummaryEngine(Settings);
