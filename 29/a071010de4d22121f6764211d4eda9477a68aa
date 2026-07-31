@@ -1,0 +1,45 @@
+VERSION
+  s_5f812b192ad64b::t_66cbaba7ef4e45 1
+windows/AgentTimeline/Core/TimelineCoordinator.cs
+  s_5f812b192ad64b::t_687580844da9a3 103-151
+windows/README.md
+  s_5f812b192ad64b::t_2562070fc10382 31-58
+windows/AgentTimeline/Core/Store.cs
+  s_5f812b192ad64b::t_1b01b642ad05e6 380-412
+windows/CoreSmokeTest/Program.cs
+  s_5f812b192ad64b::t_6d597f187fccbc 50
+  s_5f812b192ad64b::t_3f8aee3b9e5029 1027-1098
+windows/AgentTimeline/Core/Parsers/ClaudeParser.cs
+  s_5f812b192ad64b::t_eb6a7882013c76 69,72-80,279
+  s_5f812b192ad64b::t_1f81c0d4003efb 221,224-278
+  s_5f812b192ad64b::t_ef84c4ad79de29 101-104
+  s_5f812b192ad64b::t_2994822556d4e5 124-130,132
+CHANGELOG.md
+  s_5f812b192ad64b::t_883390d81ba9e7 10
+  s_5f812b192ad64b::t_7d4b9dd4b64a70 11-42
+windows/AgentTimeline/Core/AppSettings.cs
+  s_5f812b192ad64b::t_9e38e3cac1b0d7 95-102
+macos/SYNC-KICKOFF-PROMPT.md
+  s_5f812b192ad64b::t_a104bbdc077e3b 6-7
+  s_5f812b192ad64b::t_89f963638e6d00 16-17
+  s_5f812b192ad64b::t_74953d736a763e 115-119
+  s_5f812b192ad64b::t_b84678574a88ca 1,5,8-10,19-114,120-124,128-130
+windows/AgentTimeline/App.xaml.cs
+  s_5f812b192ad64b::t_7be74b51c31f56 66-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.18",
+  "base_commit_sha": "29a071010de4d22121f6764211d4eda9477a68aa",
+  "prompts": {},
+  "sessions": {
+    "s_5f812b192ad64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af399b33-1e2e-46f6-bc68-d29393f59d3b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "litianyi <litianyi@corp.netease.com>"
+    }
+  }
+}
