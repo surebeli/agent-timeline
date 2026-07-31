@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         setUpPanel()
         setUpStatusItem()
+        setUpQuitShortcut()
         // Watcher and engine start only after the replay finishes, so the two
         // never write the codenames table concurrently.
         replayCodenamesIfNeeded { [weak self] in
@@ -190,6 +191,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Status item
 
+    /// `.accessory` 策略的 app 没有 Dock 图标，也从没设过 `NSApp.mainMenu`——没有任何
+    /// 菜单栏条目能承载 Cmd+Q 这个系统标准快捷键，面板拿到焦点时按下去不会有任何反应。
+    /// 用本地事件监听补上，效果与常规 app 的「App 菜单 → 退出」快捷键等价。
+    private func setUpQuitShortcut() {
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  event.charactersIgnoringModifiers == "q" else { return event }
+            NSApp.terminate(nil)
+            return nil
+        }
+    }
+
     private func setUpStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
@@ -210,8 +223,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: Strings.s("tray.settings"), action: #selector(openSettingsAction), keyEquivalent: ",")
         menu.addItem(.separator())
-        menu.addItem(withTitle: Strings.s("tray.exit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        menu.items.forEach { $0.target = self }
+        let quitItem = NSMenuItem(
+            title: Strings.s("tray.exit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(quitItem)
+        // ⚠ 别把这条也塞进下面那个 target=self 循环：terminate(_:) 是 NSApplication 的方法，
+        // AppDelegate 没有实现它。target 一旦显式指向不响应该 selector 的对象，AppKit 的
+        // 自动菜单校验会直接把这一项置灰——退出菜单会跟着这个循环一起悄悄失效
+        // （长期存在的 bug：从最初加这个菜单起就这样，一直没人点过退出才没被发现）。
+        quitItem.target = NSApp
+        menu.items.forEach { if $0 !== quitItem { $0.target = self } }
         menu.delegate = self
         statusItem.menu = menu
     }
