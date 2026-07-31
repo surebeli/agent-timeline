@@ -28,6 +28,34 @@ WinUI 3（Windows App SDK）+ C# / .NET 8 实现的桌面半透明时间线挂�
 
 ## 更新记录
 
+- **2026-07-31 (ii) 项目名钉在会话启动目录（claude），并回填存量节点**
+  - 用户报「消息不及时、时间有问题」：17:06 发的命令在时间线上"显示成上午 9:58"。**时间是对的**
+    ——库里那条 `ts` 换算本地正是 17:06:11，与会话文件里的 `2026-07-31T09:06:11.465Z` 分秒不差，
+    日志显示 17:06:41 就已在给它跑摘要（落盘一两秒内入库）。**错的是分组**：它被挂到了
+    `meeting-hawk`，用户在 `hawk-imuikit-aos-agent` 组里找不到，就把 09:58 那条措辞相近的旧命令
+    （原文 `check android 线和 web线`，摘要标题《检查Android与Web测试线》）当成了自己刚发的那条；
+  - **根因**：项目名取 `cwd` 末段，而 claude 会话的 cwd 会**漂**——subagent、工具调用里的 `cd`
+    都会改写后续行的 `cwd`。实机会话 `8da61f68` 从仓库根启动，cwd 依次漂到 `tools/harness-governance`
+    → `uikit_uiautomation_midscene` → `hawk_agent-rs` → `meeting-hawk` → `hawk_server`，
+    **一场对话被摊成 7 个"项目"**；全库看同一个仓库裂成 8 组（1428/67/32/15/7/5/2/1）；
+  - **改成只认本文件第一条 cwd**（会话启动目录），之后的 cwd 只更新 `ctx.Cwd` 供摘要器自摄取
+    判定用。语义变成"按会话在哪儿起的分组"——直接在子目录里起的会话仍然自成一组；
+  - **断点续读要回头补读文件头**（`ClaudeParser.FirstCwd` + `PinProjectFromHead`，与
+    `CodexParser.EnsureMeta` 同构）。不补读的话项目名会钉在"重启恢复那一刻恰好在哪个子目录"，
+    比漂移更难查。头扫描上限 256 KB，不为一个显示名把 20 MB 的会话文件整个读一遍；
+  - **只动 claude**：codex 的 cwd 取第一条 `session_meta`（`MetaApplied` 已保证只应用一次），
+    grok/kimi/zcode 取目录名，都不存在会话中途漂移；
+  - **存量回填**（`TimelineCoordinator.BackfillProjectPins`，marker `ProjectPinBackfillVersion`）：
+    解析器改规则只对新节点生效，历史仍是裂的。回填与实时解析共用 `FirstCwd` 一个口径，否则
+    回填完再跑一轮又会改回去。只 `UPDATE` project 一列、不碰唯一键，重跑幂等；源文件已删除或
+    头部读不出 cwd 的**保持原样，不猜**。放在建窗**之前**同步跑（本机 35 个 claude 源文件，0.84 s），
+    晚一步用户这次启动看到的还是旧分组；
+  - 冒烟 442 → **451**。实机（真实库，改前已整份备份 db/-wal/-shm/settings）：日志
+    `项目归属回填完成：129 个节点改挂到会话启动目录`，8 个碎组并回 `hawk-imuikit-aos-agent`，
+    条数 1428+67+32+15+7+5+2+1 = **1557** 与实测逐个相等；那条 17:06 的命令与 09:58、14:23
+    两条现在同组。**尚未观测到的一项**：实时 tail 遇到 cwd 漂移的补读路径只有冒烟覆盖，
+    真机上要等那个会话下次来新行才会走到。
+
 - **2026-07-31 开机自启动（设置页开关，默认开；追齐 mac 同轮）**
   - **机制选 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 注册表项**，不用
     `Windows.ApplicationModel.StartupTask`：后者是 WinRT API，要求包身份（MSIX）并在包

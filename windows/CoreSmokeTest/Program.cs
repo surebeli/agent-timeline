@@ -47,6 +47,7 @@ internal static class Program
         ClaudeIgnoredPrefixParity();
         ClaudeAssistantMultiSegment();
         ClaudeProjectCarriesAcrossLines();
+        ClaudeProjectPinnedToSessionStart();
         TimestampCarryForward();
         CodexSummarizerSelfIngestion();
         ClaudeQueuedCommandRecovery();
@@ -1021,6 +1022,78 @@ internal static class Program
             .OfType<UserCommand>().ToList();
         CheckEqual(fresh.Count > 0 ? fresh[0].Project : "", "-Users-x-work-proj",
             "W-d: 全程无 cwd 才回退目录 slug");
+    }
+
+    /// <summary>
+    /// 项目名钉在**会话启动目录**：一个会话里的 cwd 会随 subagent / 工具里的 `cd` 漂移，
+    /// 旧规则（每条 cwd 都重算项目名）把同一场对话摊到多个"项目"里。
+    ///
+    /// 实机证据（2026-07-31）：会话 8da61f68 从 `…\hawk-imuikit-aos-agent` 启动，cwd 依次漂到
+    /// tools/harness-governance、uikit_uiautomation_midscene、hawk_agent-rs、meeting-hawk、
+    /// hawk_server —— 用户 17:06 发的命令被挂到 `meeting-hawk`，在 aos-agent 组里遍寻不着，
+    /// 于是把 09:58 那条措辞相近的旧命令当成"自己刚发的、时间显示错了"。
+    /// </summary>
+    private static void ClaudeProjectPinnedToSessionStart()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "at-pin-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Combine(root, ".claude", "projects", "-F--w-repo");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, "s.jsonl");
+        // 真实文件第一行常常是不带 cwd 的 last-prompt 行——头扫描必须继续往下找。
+        var head = "{\"type\":\"last-prompt\",\"sessionId\":\"s\"}";
+        var atRoot = ClaudeUserLine("会话在仓库根启动", cwd: "F:/w/repo");
+        var drifted = ClaudeUserLine("subagent 把 cwd 带进了子目录", cwd: "F:/w/repo/meeting-hawk");
+        var mine = ClaudeUserLine("我在同一个会话里又发了一条", cwd: "F:/w/repo/meeting-hawk");
+        File.WriteAllText(path, string.Join("\n", head, atRoot, drifted, mine) + "\n");
+
+        try
+        {
+            var events = new ClaudeParser().ParseLines(path, new List<RawLine>
+            {
+                new(0, head), new(40, atRoot), new(200, drifted), new(400, mine),
+            }).OfType<UserCommand>().ToList();
+            CheckEqual(events.Count, 3, "pin: 三条命令都产出");
+            Check(events.All(e => e.Project == "repo"), "pin: cwd 漂到子目录也不改项目名");
+
+            // 断点续读：这一批行全是子目录 cwd，必须回头补读文件头才不会钉错
+            var resumed = new ClaudeParser()
+                .ParseLines(path, new List<RawLine> { new(400, mine) })
+                .OfType<UserCommand>().ToList();
+            CheckEqual(resumed.Count > 0 ? resumed[0].Project : "", "repo",
+                "pin: 续读补读文件头，不钉在恢复位置所在的子目录");
+
+            CheckEqual(ClaudeParser.FirstCwd(path), "F:/w/repo", "pin: FirstCwd 取文件里第一条 cwd");
+            CheckEqual(ClaudeParser.FirstCwd(Path.Combine(dir, "not-here.jsonl")), null,
+                "pin: 文件不存在返回 null（不抛）");
+
+            // ---- 存量回填：解析器改规则只管新节点，历史得重算 ----
+            var db = TempDbPath();
+            try
+            {
+                using var store = new Store(db);
+                var rule = new RuleSummarizer();
+                var stale = new UserCommand(AgentKind.Claude, "meeting-hawk", "s",
+                    DateTimeOffset.FromUnixTimeSeconds(1_700_000_000), "旧节点挂错了组", path, 400);
+                var gone = new UserCommand(AgentKind.Claude, "whatever", "s2",
+                    DateTimeOffset.FromUnixTimeSeconds(1_700_000_100), "源文件已经没了",
+                    Path.Combine(dir, "deleted.jsonl"), 0);
+                store.InsertNode(stale, rule.Summarize(stale), SummaryEngine.ComputeHash(stale), false);
+                store.InsertNode(gone, rule.Summarize(gone), SummaryEngine.ComputeHash(gone), false);
+
+                CheckEqual(TimelineCoordinator.BackfillProjectPins(store), 1, "pin/回填: 只改了那一行");
+                var after = store.GetAllNodesAscending();
+                CheckEqual(after.First(n => n.Command.Text == "旧节点挂错了组").Command.Project, "repo",
+                    "pin/回填: 存量节点改挂到会话启动目录");
+                CheckEqual(after.First(n => n.Command.Text == "源文件已经没了").Command.Project, "whatever",
+                    "pin/回填: 源文件不在了就保持原样，不猜");
+                CheckEqual(TimelineCoordinator.BackfillProjectPins(store), 0, "pin/回填: 重跑幂等");
+            }
+            finally { CleanupDb(db); }
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* best effort */ }
+        }
     }
 
     /// <summary>

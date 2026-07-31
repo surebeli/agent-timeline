@@ -100,6 +100,55 @@ public sealed class TimelineCoordinator : IDisposable
         });
     }
 
+    /// <summary>Bump when the project-name rule changes enough that history must be relabeled.</summary>
+    public const int ProjectPinBackfillVersionCurrent = 1;
+
+    /// <summary>
+    /// 一次性回填（每个版本一次）：把存量 claude 节点的 project 重算成「会话启动目录」。
+    ///
+    /// 解析器改了规则只对**新**节点生效，历史仍是裂的——本机实测同一个仓库被摊成 8 组
+    /// （hawk-imuikit-aos-agent 1428 / hawk_agent-rs 67 / uikit_uiautomation_midscene 32 /
+    /// meeting-hawk 15 / hawk_server 7 / evidence 5 / android 2 / meta 1）。
+    ///
+    /// 必须在 UI 读时间线之前同步跑完（本机 claude 只有 35 个源文件，只读文件头），
+    /// 否则用户这次启动看到的还是旧分组。标记只在成功后写。
+    /// </summary>
+    public void BackfillProjectPinsIfNeeded()
+    {
+        if (_settings.ProjectPinBackfillVersion >= ProjectPinBackfillVersionCurrent) return;
+        try
+        {
+            var changed = BackfillProjectPins(_store);
+            _settings.ProjectPinBackfillVersion = ProjectPinBackfillVersionCurrent;
+            _settings.Save();
+            Log.Info($"项目归属回填完成：{changed} 个节点改挂到会话启动目录");
+        }
+        catch (Exception ex)
+        {
+            // 标记不写 → 下次启动重跑（回填幂等）。
+            Log.Error("项目归属回填失败", ex);
+        }
+    }
+
+    /// <summary>
+    /// 回填内核（static 供冒烟测试直接驱动）。返回改动行数。
+    ///
+    /// 只处理 claude：其余通道的项目名本就钉在会话级元数据上（codex 取第一条
+    /// session_meta 的 cwd，grok/kimi/zcode 取目录名），不存在会话中途漂移。
+    /// 源文件已被删除、或头部读不出 cwd 的，**保持原样**——宁可不动，也不猜一个名字。
+    /// </summary>
+    public static int BackfillProjectPins(Store store)
+    {
+        var changed = 0;
+        foreach (var file in store.DistinctSourceFiles(AgentKind.Claude.Key()))
+        {
+            if (ClaudeParser.FirstCwd(file) is not { Length: > 0 } cwd) continue;
+            var project = ParserUtil.ProjectNameFromCwd(cwd, fallback: ClaudeParser.FallbackProject(file));
+            changed += store.RelabelProject(file, project);
+        }
+        return changed;
+    }
+
     /// <summary>Synchronous replay core (static so the Core smoke test can drive it directly).</summary>
     public static void ReplayCodenames(Store store, CodenameRegistry registry)
     {

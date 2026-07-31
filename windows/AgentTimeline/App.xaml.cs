@@ -63,6 +63,10 @@ public partial class App : Application
         Engine = new SummaryEngine(Settings);
         Coordinator = new TimelineCoordinator(Store, Registry, Engine, Settings);
 
+        // 一次性回填历史节点的项目归属（会话启动目录）。放在建窗**之前**同步跑：
+        // 窗口构造就会从库里读时间线，晚一步用户这次启动看到的还是旧分组。
+        Coordinator.BackfillProjectPinsIfNeeded();
+
         MainWindowInstance = new MainWindow();
         MainWindowInstance.Activate();
 

@@ -66,8 +66,17 @@ public sealed partial class ClaudeParser : IAgentSessionParser
         /// <summary>最近一行带的 cwd；无 cwd 的行沿用它（W-d）。</summary>
         public string? Cwd;
 
-        /// <summary>由 <see cref="Cwd"/> 派生的项目显示名。</summary>
+        /// <summary>项目显示名，由**本文件第一条** cwd（会话启动目录）派生，之后不再变。</summary>
         public string? Project;
+
+        /// <summary>
+        /// <see cref="Project"/> 已钉死。一个会话里的 cwd 会漂：subagent、工具调用里的
+        /// `cd`，都会把后续行的 cwd 写成子目录。跟着漂就等于按"这条命令碰巧在哪个子目录
+        /// 敲的"分组——实机上一个会话被摊成 7 个"项目"（本机 8da61f68 会话：仓库根 →
+        /// tools/harness-governance → uikit_uiautomation_midscene → hawk_agent-rs →
+        /// meeting-hawk → hawk_server …），用户按项目找自己刚发的命令直接找不到。
+        /// </summary>
+        public bool ProjectPinned;
 
         /// <summary>本文件里最后一个**成功解析**的时间戳（W-e 回退基准）。</summary>
         public DateTimeOffset? LastTimestamp;
@@ -89,6 +98,10 @@ public sealed partial class ClaudeParser : IAgentSessionParser
         {
             ctx = new FileContext();
             _contexts[path] = ctx;
+            // 断点续读（重启后从上次 offset 接着读）时，文件头的启动 cwd 早翻过去了。
+            // 不回头补读，项目名就会钉在"恢复那一刻恰好在哪个子目录"上——同一个会话
+            // 每重启一次换一个组，比漂移更难查。补读方式与 CodexParser.EnsureMeta 同构。
+            if (lines.Count > 0 && lines[0].ByteOffset > 0) PinProjectFromHead(path, ctx);
         }
         if (ctx.Disabled) return events;
 
@@ -108,8 +121,15 @@ public sealed partial class ClaudeParser : IAgentSessionParser
                 if (!string.IsNullOrEmpty(cwd) && !string.Equals(cwd, ctx.Cwd, StringComparison.Ordinal))
                 {
                     ctx.Cwd = cwd;
-                    ctx.Project = ParserUtil.ProjectNameFromCwd(cwd, fallback: FallbackProject(path));
+                    // 项目名只认**第一条** cwd（会话启动目录），之后的漂移只更新 ctx.Cwd
+                    // 供摘要器判定用（见 FileContext.ProjectPinned 里的实机证据）。
+                    if (!ctx.ProjectPinned)
+                    {
+                        ctx.Project = ParserUtil.ProjectNameFromCwd(cwd, fallback: FallbackProject(path));
+                        ctx.ProjectPinned = true;
+                    }
                     // 我们自己摘要器的 headless 会话永不上时间线（mac 同判定）。
+                    // 仍逐条 cwd 判：摘要器目录出现在文件中段也要能整文件掐掉。
                     if (AppPaths.IsSummarizerWorkDir(cwd)) ctx.Disabled = true;
                 }
                 if (ctx.Disabled) break;
@@ -198,8 +218,64 @@ public sealed partial class ClaudeParser : IAgentSessionParser
             SourceOffset: offset);
 
     /// <summary>项目名兜底：文件所在目录名（cwd 的转义 slug）。</summary>
-    private static string FallbackProject(string path) =>
+    internal static string FallbackProject(string path) =>
         Path.GetFileName(Path.GetDirectoryName(path)) ?? "claude";
+
+    /// <summary>文件头扫描上限（字符）。启动 cwd 正常落在头几行；超出即放弃，不为一个
+    /// 显示名把 20 MB 的会话文件整个读一遍。</summary>
+    private const int HeadScanChars = 256 * 1024;
+
+    /// <summary>
+    /// 本文件里**第一条** cwd = 会话启动目录。解不出（文件没了/读不动/头部没有 cwd）
+    /// 返回 null，调用方各自兜底——绝不猜。
+    ///
+    /// 回填（TimelineCoordinator.BackfillProjectPins）与实时解析共用这一个口径，
+    /// 两条路算出来的项目名必须一样，否则回填完再跑一轮又会改回去。
+    /// </summary>
+    internal static string? FirstCwd(string path)
+    {
+        try
+        {
+            using var reader = new StreamReader(path);
+            var scanned = 0;
+            while (reader.ReadLine() is { } line)
+            {
+                scanned += line.Length + 1;
+                // 先做便宜的子串判定：会话文件里绝大多数行不带 cwd，逐行 JSON 解析
+                // （单行可能上 MB）纯属浪费。
+                if (line.Contains("\"cwd\"", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(line);
+                        if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                            GetString(doc.RootElement, "cwd") is { Length: > 0 } cwd)
+                        {
+                            return cwd;
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // 半行/坏行：跳过继续找。
+                    }
+                }
+                if (scanned >= HeadScanChars) break;
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        return null;
+    }
+
+    /// <summary>续读场景补钉项目名（文件头的启动 cwd 已被跳过时）。</summary>
+    private static void PinProjectFromHead(string path, FileContext ctx)
+    {
+        if (FirstCwd(path) is not { Length: > 0 } cwd) return;
+        ctx.Cwd = cwd;
+        ctx.Project = ParserUtil.ProjectNameFromCwd(cwd, fallback: FallbackProject(path));
+        ctx.ProjectPinned = true;
+        if (AppPaths.IsSummarizerWorkDir(cwd)) ctx.Disabled = true;
+    }
 
     /// <summary>
     /// 排队命令补录（W0，对齐 mac ClaudeParser.swift 的 attachment 分支）。

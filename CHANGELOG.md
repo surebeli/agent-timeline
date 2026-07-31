@@ -7,6 +7,39 @@
 > tag↔VERSION↔CHANGELOG 一致性、跑双端测试、出 macOS `.app` zip 与 Windows x64 zip
 > 并挂到 GitHub Release。
 
+## [0.7.4] - 2026-07-31
+
+修一个把同一场对话摊成好几个「项目」的分组缺陷。用户报的现象是「消息不及时、时间有问题」——
+实际时间戳分秒无误，是命令被挂到了别的项目组里、在原来那组找不到，于是把一条措辞相近的旧命令
+当成了自己刚发的那条。本轮只落 Windows，macOS 侧同源缺陷待同步。
+
+### 修复（Windows）
+
+- **claude 会话的项目名钉在「会话启动目录」**，不再跟着 `cwd` 漂。原规则取每条记录 `cwd` 的
+  末段目录名，而一场会话里的 `cwd` 会被 subagent、工具调用里的 `cd` 改写：实机会话从仓库根
+  启动后 `cwd` 依次漂到 `tools/harness-governance` → `uikit_uiautomation_midscene` →
+  `hawk_agent-rs` → `meeting-hawk` → `hawk_server`，**一场对话被摊成 7 个「项目」**，同一个
+  仓库在全库里裂成 8 组。改后只认本文件第一条 `cwd`，之后的漂移只用于「是不是摘要器自己的
+  会话」判定。语义是**按会话在哪儿起的分组**——直接在子目录里起的会话仍然自成一组；
+- **断点续读回头补读文件头**（`ClaudeParser.FirstCwd` + `PinProjectFromHead`，与
+  `CodexParser.EnsureMeta` 同构）。否则项目名会钉在「重启恢复那一刻恰好在哪个子目录」，
+  比漂移更难查。头扫描封顶 256 KB，不为一个显示名整读 20 MB 的会话文件；
+- **一次性回填存量节点**（`TimelineCoordinator.BackfillProjectPins`，marker
+  `AppSettings.ProjectPinBackfillVersion`）。解析器改规则只对新节点生效，历史仍是裂的。
+  回填与实时解析共用 `FirstCwd` 同一口径，否则回填完再跑一轮又会改回去；只 `UPDATE project`
+  一列、不碰唯一键，重跑幂等；源文件已删除或读不出 `cwd` 的保持原样，不猜。在建窗**之前**
+  同步跑完，否则本次启动看到的还是旧分组；
+- 其余通道不受影响：codex 的 `cwd` 取第一条 `session_meta`（本就只应用一次），
+  grok / kimi / zcode 取目录名，都不存在会话中途漂移。
+
+### 验证（Windows）
+
+- Core 冒烟 442 → **451**：漂移不改组、续读补读文件头、`FirstCwd` 在缺文件时返回 null，
+  以及回填的三条（改对、源文件没了不动、重跑幂等）；
+- 真实库实机（改动前整份备份 db/-wal/-shm/settings）：`项目归属回填完成：129 个节点改挂到
+  会话启动目录`，8 个碎组并回一组，条数 1428+67+32+15+7+5+2+1 = **1557** 与实测逐个相等；
+  35 个 claude 源文件回填耗时 0.84 s，本次启动零 WARN / 零 ERROR。
+
 ## [0.7.3] - 2026-07-31
 
 macOS 快捷键轮：补齐 Cmd+W，去掉托盘菜单里两个从来没生效过的假标签。

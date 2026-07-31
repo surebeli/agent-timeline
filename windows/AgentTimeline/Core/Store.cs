@@ -377,6 +377,39 @@ public sealed class Store : IDisposable
         }
     }
 
+    /// <summary>某个 agent 已入库节点涉及的所有源文件（回填用）。</summary>
+    public List<string> DistinctSourceFiles(string agentKey)
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT DISTINCT source_file FROM nodes WHERE agent=$agent ORDER BY source_file;";
+            cmd.Parameters.AddWithValue("$agent", agentKey);
+            var result = new List<string>();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) result.Add(reader.GetString(0));
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// 把一个源文件的所有节点改挂到 <paramref name="project"/> 名下，返回真正改动的行数。
+    /// 只改 project 一列——ts/text/唯一键都不碰，重跑幂等（第二次返回 0）。
+    /// </summary>
+    public int RelabelProject(string sourceFile, string project)
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "UPDATE nodes SET project=$project WHERE source_file=$file AND project<>$project;";
+            cmd.Parameters.AddWithValue("$project", project);
+            cmd.Parameters.AddWithValue("$file", sourceFile);
+            return cmd.ExecuteNonQuery();
+        }
+    }
+
     public TimelineNode? GetNode(long id)
     {
         lock (_gate)

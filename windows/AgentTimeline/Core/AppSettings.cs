@@ -92,6 +92,14 @@ public sealed class AppSettings
     /// </summary>
     public int CodenameReplayVersion { get; set; }
 
+    // --- 项目归属回填 ---
+
+    /// <summary>
+    /// 已完成的「项目名钉在会话启动目录」回填版本。低于当前版本就重算一次存量节点的
+    /// project 列；标记只在回填**完成后**写（中途崩溃则下次启动重跑，回填本身幂等）。
+    /// </summary>
+    public int ProjectPinBackfillVersion { get; set; }
+
     // ------------------------------------------------------------------
 
     private static readonly JsonSerializerOptions JsonOptions = new()
