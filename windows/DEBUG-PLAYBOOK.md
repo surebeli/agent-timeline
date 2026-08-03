@@ -11,7 +11,7 @@
 |---|---|---|
 | Visual Studio 2022 | 17.8+，工作负载：**.NET 桌面开发** | WinUI 依赖随 NuGet 恢复，无需 UWP 工作负载 |
 | .NET SDK | 8.x | `dotnet --list-sdks` 确认；CI 用 8.0.423 |
-| Git | 任意新版 | `git clone https://github.com/surebeli/agent-timeline` |
+| Git | 任意新版 | `git clone https://github.com/litianyi-007/agent-timeline` |
 | Claude Code（可选） | Windows 版 | 摘要引擎默认档；没有就先用「纯规则」或 provider 档 |
 
 命令行等价构建（与 CI 完全一致，可先跑通再开 VS）：

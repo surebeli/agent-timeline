@@ -5,7 +5,7 @@
 
 ## 开工 prompt
 
-你在一台 macOS 机器上，当前目录是仓库 agent-timeline 根目录（远端 github.com/surebeli/agent-timeline，先 git pull 到最新 main）。产品是双端桌面挂件 "Agent Timeline"，mac 端（macos/）已实机验证。
+你在一台 macOS 机器上，当前目录是仓库 agent-timeline 根目录（远端 github.com/litianyi-007/agent-timeline，先 git pull 到最新 main）。产品是双端桌面挂件 "Agent Timeline"，mac 端（macos/）已实机验证。
 
 你的任务：为 README 补一组 **macOS 实机特性截图**，与已有的「Windows 实机一览」同规格同内容。
 

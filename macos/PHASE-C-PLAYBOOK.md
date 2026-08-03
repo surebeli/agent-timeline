@@ -5,7 +5,7 @@
 
 ## 开工 prompt
 
-你在一台 macOS 机器上，当前目录是仓库 agent-timeline 根目录（远端 github.com/surebeli/agent-timeline，**先 git pull 到最新 main**）。产品是双端桌面挂件 "Agent Timeline"。Windows 端刚完成一轮「时间线文本治理」，本轮任务是把 mac 端拉平——**其中 P0 是一个正在丢用户数据的缺陷**。
+你在一台 macOS 机器上，当前目录是仓库 agent-timeline 根目录（远端 github.com/litianyi-007/agent-timeline，**先 git pull 到最新 main**）。产品是双端桌面挂件 "Agent Timeline"。Windows 端刚完成一轮「时间线文本治理」，本轮任务是把 mac 端拉平——**其中 P0 是一个正在丢用户数据的缺陷**。
 
 必读（按序，动手前读完）：
 1. `docs/TEXT-NORMALIZATION.md` —— 本轮的规范总纲。§3 是经三方独立审查（语料实证/产品设计/工程实现）定稿的 v2 规则表，§5.1 是给你的移植清单（已按产品损害排序），§5.2 是已知未决项；

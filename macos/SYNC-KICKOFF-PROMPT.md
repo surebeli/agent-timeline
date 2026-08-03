@@ -69,7 +69,7 @@
 ---
 
 你在一台 macOS 机器上，当前目录是仓库 agent-timeline 根目录
-（远端 github.com/surebeli/agent-timeline，先 `git pull` 到最新 main）。产品是双端桌面
+（远端 github.com/litianyi-007/agent-timeline，先 `git pull` 到最新 main）。产品是双端桌面
 挂件「Agent Timeline」，两端跑在 CI 六道关下，最新发布 **v0.7.3**（你发的）；main 上
 `VERSION` 已是 **0.7.4**（Windows 侧本轮改动 + CHANGELOG 条目已推，**未打 tag、未发 release**）。
 

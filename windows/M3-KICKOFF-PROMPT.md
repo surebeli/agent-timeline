@@ -5,7 +5,7 @@
 
 ---
 
-你在一台 Windows 11 机器上，当前目录是仓库 agent-timeline 的根目录（远端 github.com/surebeli/agent-timeline）。产品是双端原生桌面挂件 "Agent Timeline"：半透明时间线跟踪本机 AI agent 的 session 文件，提炼用户命令与任务代号词典。mac 端（macos/）已完成并实机验证；WinUI 端（windows/）源码完整、已通过 CI 的 msbuild 编译硬门禁，但**从未在实机运行过**。
+你在一台 Windows 11 机器上，当前目录是仓库 agent-timeline 的根目录（远端 github.com/litianyi-007/agent-timeline）。产品是双端原生桌面挂件 "Agent Timeline"：半透明时间线跟踪本机 AI agent 的 session 文件，提炼用户命令与任务代号词典。mac 端（macos/）已完成并实机验证；WinUI 端（windows/）源码完整、已通过 CI 的 msbuild 编译硬门禁，但**从未在实机运行过**。
 
 你的任务：完成 **M3 —— Windows 端实机调试**，把"编译通过"推进到"运行验证完毕"。
 
