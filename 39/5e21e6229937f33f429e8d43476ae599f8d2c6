@@ -1,0 +1,69 @@
+docs/assets/onboarding-1-overview-ja.png
+  0000019fc8d27970 1-1465
+docs/assets/onboarding-1-overview-ko.png
+  0000019fc8d27970 1-1354
+docs/assets/onboarding-2-collapse-ja.png
+  0000019fc8d27970 1-1148
+docs/assets/onboarding-2-collapse-ko.png
+  0000019fc8d27970 1-1077
+docs/assets/screenshot-dark-en.png
+  0000019fc8d27970 1-885
+docs/assets/screenshot-dark-ja.png
+  0000019fc8d27970 1-1080
+docs/assets/screenshot-dark-ko.png
+  0000019fc8d27970 1-948
+docs/assets/screenshot-dark.png
+  0000019fc8d27970 1-1018
+docs/assets/screenshot-macos-dictionary-en.png
+  0000019fc8d27970 1-2179
+docs/assets/screenshot-macos-dictionary-ja.png
+  0000019fc8d27970 1-2368
+docs/assets/screenshot-macos-dictionary-ko.png
+  0000019fc8d27970 1-2265
+docs/assets/screenshot-macos-dictionary.png
+  0000019fc8d27970 1-2325
+docs/assets/screenshot-macos-projects-en.png
+  0000019fc8d27970 1-2030
+docs/assets/screenshot-macos-projects-ja.png
+  0000019fc8d27970 1-2174
+docs/assets/screenshot-macos-projects-ko.png
+  0000019fc8d27970 1-2138
+docs/assets/screenshot-macos-projects.png
+  0000019fc8d27970 1-2183
+docs/assets/screenshot-macos-settings-en.png
+  0000019fc8d27970 1-740
+docs/assets/screenshot-macos-settings-ja.png
+  0000019fc8d27970 1-761
+docs/assets/screenshot-macos-settings-ko.png
+  0000019fc8d27970 1-687
+docs/assets/screenshot-macos-settings.png
+  0000019fc8d27970 1-715
+docs/assets/screenshot-macos-timeline-en.png
+  0000019fc8d27970 1-1914
+docs/assets/screenshot-macos-timeline-ja.png
+  0000019fc8d27970 1-2217
+docs/assets/screenshot-macos-timeline-ko.png
+  0000019fc8d27970 1-2044
+docs/assets/screenshot-macos-timeline.png
+  0000019fc8d27970 1-2100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "395e21e6229937f33f429e8d43476ae599f8d2c6",
+  "prompts": {
+    "0000019fc8d27970": {
+      "agent_id": {
+        "tool": "claude",
+        "model": "claude-opus-5",
+        "id": "ai-thread-claude-claude-opus-5-1785780664688"
+      },
+      "human_author": "litianyi",
+      "messages": [],
+      "total_additions": 37815,
+      "total_deletions": 0,
+      "accepted_lines": 37815,
+      "overriden_lines": 0
+    }
+  }
+}
