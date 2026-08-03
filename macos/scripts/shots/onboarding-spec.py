@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""生成 README 新手引导图的 annotate.py spec（中/英两套）。
+"""生成 README 新手引导图的 annotate.py spec（中/英/日/韩四套）。
 
-    onboarding-spec.py <raw目录> <语言 zh|en>
+    onboarding-spec.py <raw目录> <语言 zh|en|ja|ko>
 
 <raw目录> 是 shoot-readme.sh 产出的 out/ 目录（含 raw-timeline.png / raw-collapsed.png）。
 输出 JSON 打到 stdout，交给 annotate.py 渲染：
@@ -74,7 +74,59 @@ COPY = {
             "arrow": "Click",
         },
     },
+    "ja": {
+        "img1": {
+            "title": "ウィジェットの使い方",
+            "sub": "6つの入口はすべてタイトルバーに。アイコンにホバーすると説明が出ます",
+            "footer": "Agent Timeline · はじめての方へ",
+            "labels": [
+                ("プロジェクト絞り込み", "特定のプロジェクトのタイムラインだけを表示"),
+                ("種別フィルター", "要件 / タスク / 調査 / 学習 / 決定 / 修正 で絞り込み"),
+                ("コードネーム辞書", "すべてのコード名の定義とライフサイクル状態を確認"),
+                ("パネルを折りたたむ", "タイトルバーだけに縮小して画面を占有しない（次の画像で詳説）"),
+                ("最前面に固定", "フォーカスを失っても最前面に表示され続ける"),
+                ("設定", "要約エンジン・透明度・言語・agent のオン/オフ"),
+            ],
+        },
+        "img2": {
+            "title": "使わない時は折りたたむ",
+            "sub": ("折りたたみボタンを押すとパネルはタイトルバー1本に。"
+                    "もう一度押せば元の高さに戻り、位置は動きません"),
+            "footer": "折りたたみ状態は再起動後も保持 · 展開時の高さも記憶",
+            "collapse": ("ここをクリックで折りたたみ", "タイトルバーだけに（41pt）、画面の邪魔にならない"),
+            "expand": ("もう一度クリックで展開", "折りたたむ前の高さに戻る。上端の位置は変わらない"),
+            "arrow": "クリック",
+        },
+    },
+    "ko": {
+        "img1": {
+            "title": "위젯 둘러보기",
+            "sub": "여섯 개 진입점이 모두 제목 표시줄에 있습니다. 아이콘에 마우스를 올리면 설명이 나옵니다",
+            "footer": "Agent Timeline · 첫 사용 가이드",
+            "labels": [
+                ("프로젝트 필터", "특정 프로젝트의 타임라인만 보기"),
+                ("유형 필터", "요구사항 / 작업 / 조사 / 학습 / 결정 / 수정 으로 분류해 보기"),
+                ("코드명 사전", "모든 코드명의 정의와 생명주기 상태 확인"),
+                ("패널 접기", "제목 표시줄만 남기고 접어 화면을 차지하지 않음（다음 이미지에서 자세히）"),
+                ("항상 위에 표시", "포커스를 잃어도 계속 맨 앞에 표시"),
+                ("설정", "요약 엔진, 불투명도, 언어, agent 켜기/끄기"),
+            ],
+        },
+        "img2": {
+            "title": "안 볼 때는 접어두기",
+            "sub": ("접기 버튼을 누르면 패널이 제목 표시줄 하나로 접힙니다. "
+                    "다시 누르면 원래 높이로 펼쳐지고 위치는 그대로입니다"),
+            "footer": "접힌 상태는 재시작 후에도 유지 · 펼쳤을 때의 높이도 기억",
+            "collapse": ("여기를 클릭해 접기", "제목 표시줄만 남김（41pt）, 화면을 가리지 않음"),
+            "expand": ("다시 클릭해 펼치기", "접기 전 높이로 복귀. 위쪽 가장자리는 그대로"),
+            "arrow": "클릭",
+        },
+    },
 }
+
+# 语言 → 成品文件名后缀。中文是默认产物、不带后缀（历史文件名不变）。
+# 与 shoot-readme.sh 的 SUFFIX 分支同口径，改这里要同步那边。
+SUFFIX = {"zh": "", "en": "-en", "ja": "-ja", "ko": "-ko"}
 
 # 紧凑四件套的 zigzag 徽标偏移：命中框 21pt 宽、间距 29pt，相邻徽标同高会碰，
 # 高低交替错开。项目/类型两个圆更大更疏，单排即可。
@@ -87,7 +139,7 @@ def build(raw_dir, lang):
     c = COPY[lang]
     timeline = os.path.join(raw_dir, "raw-timeline.png")
     collapsed = os.path.join(raw_dir, "raw-collapsed.png")
-    suffix = "" if lang == "zh" else "-en"
+    suffix = SUFFIX[lang]
 
     (proj_l, proj_d), (kind_l, kind_d), (dict_l, dict_d), \
         (coll_l, coll_d), (pin_l, pin_d), (set_l, set_d) = c["img1"]["labels"]
@@ -143,8 +195,8 @@ def build(raw_dir, lang):
 
 
 def main():
-    if len(sys.argv) != 3 or sys.argv[2] not in ("zh", "en"):
-        raise SystemExit("用法: onboarding-spec.py <raw目录> <zh|en>")
+    if len(sys.argv) != 3 or sys.argv[2] not in SUFFIX:
+        raise SystemExit("用法: onboarding-spec.py <raw目录> <zh|en|ja|ko>")
     print(json.dumps(build(sys.argv[1], sys.argv[2]), ensure_ascii=False, indent=2))
 
 

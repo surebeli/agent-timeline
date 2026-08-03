@@ -6,9 +6,9 @@
 
 **A translucent desktop widget that keeps every prompt you ever sent an AI agent one glance away**
 
-[中文](README.md) · **English**
+[中文](README.md) · **English** · [日本語](README.ja.md) · [한국어](README.ko.md)
 
-[![CI](https://github.com/surebeli/agent-timeline/actions/workflows/ci.yml/badge.svg)](https://github.com/surebeli/agent-timeline/actions/workflows/ci.yml)
+[![CI](https://github.com/litianyi-007/agent-timeline/actions/workflows/ci.yml/badge.svg)](https://github.com/litianyi-007/agent-timeline/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20%7C%20Windows%2011-4F6BF0)
 ![Swift](https://img.shields.io/badge/Swift-5.9%2B-D97757)
 ![.NET](https://img.shields.io/badge/.NET-8-10A37F)
@@ -55,7 +55,7 @@ If you run long tasks through agent CLIs — Claude Code, Codex, Grok Build, Kim
 
 ### Download a build
 
-[**Releases**](https://github.com/surebeli/agent-timeline/releases) carries both platforms (CI builds them on every `v*` tag):
+[**Releases**](https://github.com/litianyi-007/agent-timeline/releases) carries both platforms (CI builds them on every `v*` tag):
 
 - `AgentTimeline-macos-vX.Y.Z.zip` — unzip to get the `.app`, drop it in `/Applications`;
 - `AgentTimeline-windows-x64-vX.Y.Z.zip` — unzip anywhere and run `AgentTimeline.exe`
@@ -71,13 +71,13 @@ cd macos
 scripts/build-app.sh release              # produces macos/dist/AgentTimeline.app
 cp -R dist/AgentTimeline.app /Applications/
 open /Applications/AgentTimeline.app      # look for the ⏱ clock icon in the menu bar
-swift test                                # 81 tests
+swift test                                # 106 tests
 ```
 
 ### Windows (WinUI 3 / .NET 8)
 
 Full source lives in [`windows/`](windows/) and has been **verified on real hardware**: the
-cross-platform Core layer passes 400 smoke assertions, and the WinUI layer clears a hard
+cross-platform Core layer passes 463 smoke assertions, and the WinUI layer clears a hard
 VS-msbuild gate in CI. Per-item verification notes are in
 [windows/DEBUG-PLAYBOOK.md](windows/DEBUG-PLAYBOOK.md). For development, open
 `windows/AgentTimeline.sln` in Visual Studio 2022 — see [windows/README.md](windows/README.md).
@@ -101,14 +101,20 @@ Settings: [screenshot-macos-settings-en.png](docs/assets/screenshot-macos-settin
 
 > Both rows are shot from the same demo dataset ([docs/DEMO-DATASET.md](docs/DEMO-DATASET.md)),
 > with the same dip geometry and the same backplate, so the two rows line up exactly.
-> macOS was recaptured at v0.7.0 on a Retina display (2×, 1618×1352); Windows was recaptured at
+> macOS was recaptured at **v0.7.6** on a Retina display (2×, 1618×1352); Windows was recaptured at
 > v0.6.0 on a 100%-scaled display (859×676 — identical dip geometry, half the pixel density).
 > At the 290px width used above the two look the same. Capture scripts:
 > `macos/scripts/shots/` and `windows/scripts/shots/`.
 >
-> **Language of the screenshots.** The demo dataset exists in Chinese and English, and the capture
+> **Language of the screenshots.** The demo dataset exists in all four UI languages and the capture
 > script takes the language as an explicit input, so this page shows the **English** UI with English
 > sample data throughout — hero, macOS row, and Windows row are all `…-en.png`.
+>
+> ⚠️ **The two rows are not on the same version.** The macOS row was recaptured at v0.7.6, so its
+> dictionary panel shows the search box added in v0.7.6. The Windows row is still the v0.6.0
+> capture — **no search box, and its settings window predates the launch-at-login toggle added in
+> v0.7.2**. Both platforms have both features (see the capability table); only the Windows
+> screenshots are pending a refresh.
 
 ## How it works
 
@@ -128,7 +134,7 @@ flowchart LR
 - **One source of truth across platforms** — the visual spec lives in
   [design/design-tokens.json](design/design-tokens.json) (embedded into the binary at build time on
   macOS, generated into XAML resources on Windows) and UI copy lives in
-  [design/strings.json](design/strings.json) (69 keys × 4 languages). CI fails the build if either
+  [design/strings.json](design/strings.json) (74 keys × 4 languages). CI fails the build if either
   copy drifts.
 - Product requirements: [docs/PRD.md](docs/PRD.md) · architecture:
   [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · changes: [CHANGELOG.md](CHANGELOG.md)
@@ -162,7 +168,7 @@ about the product, not a user preference. Formats are specified in
 
 ## A note on the docs
 
-This README and its Chinese counterpart are kept in sync. The deep-dive documents under
+This README and its Chinese, Japanese and Korean counterparts are kept in sync. The deep-dive documents under
 [`docs/`](docs/) — PRD, architecture, session-format specs, the text-normalization spec, the debug
 playbook — are **written in Chinese only**. They are engineering records rather than user-facing
 docs; if you need one of them in English, open an issue and say which.

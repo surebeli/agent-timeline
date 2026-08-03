@@ -6,9 +6,9 @@
 
 **常驻桌面的半透明时间线挂件 — 让长周期 AI 编程会话里"你说过的每句话"随时可回溯**
 
-**中文** · [English](README.en.md)
+**中文** · [English](README.en.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
 
-[![CI](https://github.com/surebeli/agent-timeline/actions/workflows/ci.yml/badge.svg)](https://github.com/surebeli/agent-timeline/actions/workflows/ci.yml)
+[![CI](https://github.com/litianyi-007/agent-timeline/actions/workflows/ci.yml/badge.svg)](https://github.com/litianyi-007/agent-timeline/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20%7C%20Windows%2011-4F6BF0)
 ![Swift](https://img.shields.io/badge/Swift-5.9%2B-D97757)
 ![.NET](https://img.shields.io/badge/.NET-8-10A37F)
@@ -55,7 +55,7 @@
 
 ### 下载安装包
 
-[**Releases**](https://github.com/surebeli/agent-timeline/releases) 提供双端产物（推 `v*` tag 由 CI 自动构建）：
+[**Releases**](https://github.com/litianyi-007/agent-timeline/releases) 提供双端产物（推 `v*` tag 由 CI 自动构建）：
 
 - `AgentTimeline-macos-vX.Y.Z.zip` — 解压得 `.app`，拖入 `/Applications`；
 - `AgentTimeline-windows-x64-vX.Y.Z.zip` — 解压到任意目录运行 `AgentTimeline.exe`
@@ -70,13 +70,13 @@ cd macos
 scripts/build-app.sh release              # 产出 macos/dist/AgentTimeline.app
 cp -R dist/AgentTimeline.app /Applications/
 open /Applications/AgentTimeline.app      # menu bar 时钟图标 ⏱
-swift test                                # 81 项单测
+swift test                                # 106 项单测
 ```
 
 ### Windows（WinUI 3 / .NET 8）
 
 完整源码在 [`windows/`](windows/)，**已完成实机运行验证**：Core 解析层跨平台
-冒烟 400 断言，WinUI 层过 CI 的 VS msbuild 硬门禁，分层验证清单全项注记见
+冒烟 463 断言，WinUI 层过 CI 的 VS msbuild 硬门禁，分层验证清单全项注记见
 [windows/DEBUG-PLAYBOOK.md](windows/DEBUG-PLAYBOOK.md)。开发构建用 Visual Studio 2022 打开
 `windows/AgentTimeline.sln`，详见 [windows/README.md](windows/README.md)。
 
@@ -97,8 +97,12 @@ swift test                                # 81 项单测
 设置界面：[screenshot-macos-settings.png](docs/assets/screenshot-macos-settings.png)。两端同一演示数据集拍摄（[docs/DEMO-DATASET.md](docs/DEMO-DATASET.md)），视觉规范同源 `design/design-tokens.json`。
 
 > 两端同一演示数据、同一 dip 几何、同一背板，画布宽高比逐位相同故两行等高。
-> macOS 摄于 v0.7.0、Retina 2x（1618×1352）；Windows 摄于 v0.6.0、主屏 100% 缩放
+> macOS 摄于 **v0.7.6**、Retina 2x（1618×1352）；Windows 摄于 v0.6.0、主屏 100% 缩放
 > （859×676，dip 几何与 mac 一致、像素密度为其一半）；README 显示宽度 290 下观感无差异。拍摄脚本：mac `macos/scripts/shots/`、Windows `windows/scripts/shots/`。
+>
+> ⚠️ **两行版本不同步**：mac 一行是 v0.7.6 重拍的，词典面板里能看到 v0.7.6 新增的搜索框；
+> Windows 一行仍是 v0.6.0 的旧图，**看不到搜索框、设置窗也没有 v0.7.2 加的开机自启动开关**。
+> 功能两端都有（见核心能力表），只是 Windows 侧截图待重拍。
 
 ## 工作原理
 
@@ -114,7 +118,7 @@ flowchart LR
 ```
 
 - **增量解析**：按字节偏移 tail，重启不重读不丢行；各家 session 格式规范见 [docs/SESSION-FORMATS.md](docs/SESSION-FORMATS.md)
-- **双端同源**：视觉规范唯一事实源 [design/design-tokens.json](design/design-tokens.json)（mac 构建期嵌入二进制，win 生成 XAML 资源）、界面文案唯一事实源 [design/strings.json](design/strings.json)（69 键 × 4 语言），两者副本漂移 CI 直接拦下
+- **双端同源**：视觉规范唯一事实源 [design/design-tokens.json](design/design-tokens.json)（mac 构建期嵌入二进制，win 生成 XAML 资源）、界面文案唯一事实源 [design/strings.json](design/strings.json)（74 键 × 4 语言），两者副本漂移 CI 直接拦下
 - 需求文档 [docs/PRD.md](docs/PRD.md) · 架构 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · 变更 [CHANGELOG.md](CHANGELOG.md)
 
 ## 设置
